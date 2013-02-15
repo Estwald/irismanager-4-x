@@ -32,6 +32,7 @@
 #include "language_ini_sp_bin.h"
 #include "language_ini_fr_bin.h"
 #include "language_ini_it_bin.h"
+#include "language_ini_nw_bin.h"
 
 #define LANGFILE_VERSION 2
 
@@ -166,9 +167,10 @@ t_lngstr lang_strings[] =
     { DRAWTOOLS_LANGUAGE_2, "DRAWTOOLS_LANGUAGE_2"     , "Español" },
     { DRAWTOOLS_LANGUAGE_3, "DRAWTOOLS_LANGUAGE_3"     , "Française" },
     { DRAWTOOLS_LANGUAGE_4, "DRAWTOOLS_LANGUAGE_4"     , "Italiano" },
-    { DRAWTOOLS_LANGUAGE_5, "DRAWTOOLS_LANGUAGE_5"     , "Deutsch (not defined)" },
-    { DRAWTOOLS_LANGUAGE_6, "DRAWTOOLS_LANGUAGE_6"     , "Português (not defined)" },
-    { DRAWTOOLS_LANGUAGE_7, "DRAWTOOLS_LANGUAGE_7"     , "Custom (from file)"},
+    { DRAWTOOLS_LANGUAGE_5, "DRAWTOOLS_LANGUAGE_5"     , "Norsk" },
+    { DRAWTOOLS_LANGUAGE_6, "DRAWTOOLS_LANGUAGE_6"     , "Deutsch (not defined)" },
+    { DRAWTOOLS_LANGUAGE_7, "DRAWTOOLS_LANGUAGE_7"     , "Português (not defined)" },
+    { DRAWTOOLS_LANGUAGE_8, "DRAWTOOLS_LANGUAGE_8"     , "Custom (from file)"},
     
     { DRAWTOOLS_COPYFROM, "DRAWTOOLS_COPYFROM"     , "Copy from /dev_usb/iris to Iris folder"},
     { DRAWTOOLS_WITHBDVD, "DRAWTOOLS_WITHBDVD"     , "With BDVD Controller"},
@@ -280,6 +282,9 @@ char * language[LANGSTRINGS_COUNT];
 
 static int lang_inited = 0;
 
+void UTF8_to_Ansi(char *utf8, char *ansi, int len);
+
+
 int open_language (int lang, char * filename) 
 {
 
@@ -287,6 +292,8 @@ int open_language (int lang, char * filename)
     struct stat s;
 
     int elements = sizeof(lang_strings)/sizeof(t_lngstr);
+
+    char get_string[MAX_CFGLINE_LEN];
 
 
 
@@ -315,13 +322,14 @@ int open_language (int lang, char * filename)
 
         if(lang_strings[n].code == LANGSTRINGS_COUNT) break;
 
-        if(lang>=6)
+        if(lang>=7)
         {
                 // from external file
            
                 strncpy(language[lang_strings[n].code], lang_strings[n].strdefault, MAX_CFGLINE_LEN-1);
                 getConfigMemValueString((char *) file_external, file_size, "Language",
-                    lang_strings[n].strname, language[lang_strings[n].code], MAX_CFGLINE_LEN-1, lang_strings[n].strdefault);
+                    lang_strings[n].strname, get_string, MAX_CFGLINE_LEN-1, lang_strings[n].strdefault);
+                UTF8_to_Ansi(get_string, language[lang_strings[n].code], MAX_CFGLINE_LEN);
          
         } else {
 
@@ -341,11 +349,15 @@ int open_language (int lang, char * filename)
                     file_bin = (char *) language_ini_it_bin;
                     file_size = language_ini_it_bin_size;
                     break;
-                
+                case 4: // nw
+                    file_bin = (char *) language_ini_nw_bin;
+                    file_size = language_ini_nw_bin_size;
+                    break;
             }
 
             getConfigMemValueString((char *) file_bin, file_size, "Language",
-                lang_strings[n].strname, language[lang_strings[n].code], MAX_CFGLINE_LEN-1, lang_strings[n].strdefault);
+                lang_strings[n].strname, get_string, MAX_CFGLINE_LEN-1, lang_strings[n].strdefault);
+            UTF8_to_Ansi(get_string, language[lang_strings[n].code], MAX_CFGLINE_LEN);
         }
     }
 
