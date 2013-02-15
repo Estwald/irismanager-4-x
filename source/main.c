@@ -940,6 +940,10 @@ void video_adjust()
 
         DrawFormatString(0, (512 - 24)/2 + 64, language[VIDEOADJUST_EXITINFO]);
         DrawFormatString(0, (512 - 24)/2 + 96, language[VIDEOADJUST_DEFAULTS]);
+
+        // Warning!! don´t traslate this string!
+        DrawFormatString(0, (512 - 24)/2 + 128, "Press [] to English language");
+
         SetFontAutoCenter(0);
 
         tiny3d_Flip();
@@ -952,8 +956,13 @@ void video_adjust()
             if(old_pad & BUTTON_LEFT) {if(videoscale_x > -199) videoscale_x--;}
             if(old_pad & BUTTON_RIGHT) {if(videoscale_x < 10) videoscale_x++;}
         }
-
         
+        if(new_pad & BUTTON_SQUARE) {
+            manager_cfg.language = 0;
+            sprintf(temp_buffer, "%s/config/language.ini", self_path);
+            open_language(manager_cfg.language, temp_buffer);
+        }
+
         if(new_pad & BUTTON_CROSS) {
 
             switch(Video_Resolution.height) {
@@ -3936,7 +3945,8 @@ void draw_toolsoptions(float x, float y)
 
     DrawBox(x, y, 0, 200 * 4 - 8, 150 * 3 - 8, 0x00000028);
 
-    
+    SetCurrentFont(FONT_BUTTON);
+
     x2 = x;
     y2 = y + 32;
     
@@ -3949,7 +3959,7 @@ void draw_toolsoptions(float x, float y)
     else
         DrawButton1((848 - 520) / 2, y2, 520, language[DRAWTOOLS_SECENABLE], (flash && select_option == 1));
 */
-    DrawButton1((848 - 520) / 2, y2, 520, language[DRAWTOOLS_LANGUAGE_1 + (manager_cfg.language & 7)], (flash && select_option == 1));
+    DrawButton1((848 - 520) / 2, y2, 520, language[DRAWTOOLS_LANGUAGE_1 + (manager_cfg.language & 15)], (flash && select_option == 1));
     
     y2+= 48;
 
@@ -4008,7 +4018,7 @@ void draw_toolsoptions(float x, float y)
 
                 return;
             case 1:
-                manager_cfg.language++; if(manager_cfg.language > 6)  manager_cfg.language = 0;
+                manager_cfg.language++; if(manager_cfg.language > 7)  manager_cfg.language = 0;
                 sprintf(temp_buffer, "%s/config/language.ini", self_path);
                 open_language(manager_cfg.language, temp_buffer);
                 //manager_cfg.usekey = manager_cfg.usekey == 0;
