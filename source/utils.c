@@ -428,7 +428,6 @@ int rmdir_secure(void *path)
     return ret;
 }
 
-
 void utf8_to_ansi(char *utf8, char *ansi, int len)
 {
 u8 *ch= (u8 *) utf8;
@@ -3274,6 +3273,7 @@ void FixDirectory(const char* path)
    max_tracksize = getConfigValueInt(chFileName, "file", "max_track_size", 6144-154);
 */
 
+#if 0
 int getConfigMemValueInt (char* mem, int size, char* pchSection, char* pchKey, int iDefaultValue)
 {
    
@@ -3319,6 +3319,7 @@ int getConfigMemValueInt (char* mem, int size, char* pchSection, char* pchKey, i
 
    return iDefaultValue; // no value found
 }
+#endif
 
 /*
    Ex:
@@ -3334,15 +3335,15 @@ int getConfigMemValueString (char* mem, int size, char* pchSection, char* pchKey
 {
    
    char chLine[MAX_CFGLINE_LEN + 1];
-   char* pchToken;
    int n = 0;
+   int find_section = 0;
 
      // open the config file
 
       while(n<size) { // grab one line
         
         int flag = 0;
-        int m = 0;
+        int m = 0, l;
         while(mem && n<size && m<MAX_CFGLINE_LEN-1) {
             chLine[m] = mem[n]; n++;
             if(chLine[m]=='\n' || chLine[m]=='\r') {m++; flag = 1; continue;}
@@ -3351,40 +3352,65 @@ int getConfigMemValueString (char* mem, int size, char* pchSection, char* pchKey
         }
         chLine[m]= 0;
 
+        // note from Estwald
+        // routines to avoid the stupid strok() "break-lines" function. XD
+        // standard function is not the better way to get custom strings
 
-         pchToken = strtok(chLine, "[]"); // check if there's a section key
-         if((pchToken != NULL) && (pchToken[0] != '#') && (strcmp(pchToken, pchSection) == 0)) {
-            while(n<size) { // get the next line
-                m = 0; flag = 0;
-                while(mem && n<size && m<MAX_CFGLINE_LEN-1) {
-                    chLine[m] = mem[n]; n++;
-                    if(chLine[m]=='\n' || chLine[m]=='\r') {m++; flag = 1; continue;}
-                    if(flag) {n--;break;}
-                    m++;
-                }
-                chLine[m]= 0;
+        m = 0; while (chLine[m]==' ' || chLine[m]=='\t') m++; // skip spaces and tabs
+        if(chLine[m]=='#') continue; // skip comment. Next line
 
-               pchToken = strtok(chLine, "\t =\n\r"); // check if it has a key=value pair
-               if((pchToken != NULL) && (pchToken[0] != '#') && (strcmp(pchToken, pchKey) == 0)) {
-                  char* pchPtr = strtok(NULL, "\t "); // unlink pre tabs and spaces
-                  pchPtr = strtok(NULL, "\t=#\n\r"); // get the value if it matches our key
-                  if ((pchPtr != NULL)&&( *pchPtr != '\0')) {
-                     convertStringEndl(pchPtr, iSize);
-                     strncpy(pchValue, pchPtr, iSize); // copy to destination
-                     pchValue[iSize -1] = 0;
-                     return 0;
-                  } else {
-                     strncpy(pchValue, pchDefaultValue, iSize); // no value found, return the default
-                     pchValue[iSize -1] = 0;
-                     return 1;
-                  }
-               }
-            }
+        if(chLine[m]=='[') { // section token finded
+            if(find_section) break; // this is another different section, sure 
+            
+            m++;
+            l = m;
+
+            while (chLine[l]!=']' && chLine[l]!=0) l++;
+
+            if(chLine[l]!=']') break;  // section error!!!
+
+            // test if section do not match
+            if(strlen(pchSection) != (l-m) || strncmp(pchSection, &chLine[m], l-m)) continue;
+            find_section = 1;
+        }
+
+        if(find_section) {// get strings
+
+
+            // find string to compare
+            l = m; while (chLine[l]!='=' && chLine[l]!=' ' && chLine[l]!='\t' && chLine[l]!=0) l++;
+
+            if(chLine[l]==0) continue; // no match, error in line?. Next line
+
+            if((l-m) < 4) continue; // invalid, sure (string too short). Next line
+
+            if(strlen(pchKey) != (l-m) || strncmp(pchKey, &chLine[m], l-m)) continue;// no match. Next line
+
+            if(chLine[l]!='=') while (chLine[l]==' ' || chLine[l]=='\t') l++; // skip shit spaces
+
+            if(chLine[l]!='=') continue;// no match. Next line (string can be valid, but you need find '=')
+
+            m= l + 1; // skip '='
+            while (chLine[m]==' ' || chLine[m]=='\t') m++; // skip spaces and tabs (more shit)
+
+            l=m; while(chLine[l]!=0 && chLine[l]!='\n' && chLine[l]!='\r') l++; // find the end of line
+
+            chLine[l]=0; // break line to avoid \n \r
+
+            // &chLine[m] countain the replacement string without string splitted ;)
+
+            convertStringEndl(&chLine[m], iSize);
+            strncpy(pchValue, &chLine[m], iSize); // copy to destination
+
+            pchValue[iSize -1] = 0;
+
+            return 0;
+
          }
       }
      
    
-   strncpy(pchValue, pchDefaultValue, iSize); // no value found, return the default
+    strncpy(pchValue, pchDefaultValue, iSize); // no value found, return the default
    pchValue[iSize -1] = 0;
    return 1;
 
