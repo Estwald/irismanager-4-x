@@ -19,19 +19,6 @@
 
 int osk_action = 0;
 
-typedef struct{
-	u32 add_u16_message;
-	u32 add_u16_startText;
-	s32 maxLength;
-} oskInputFieldInfo2;
-
-typedef struct{ 
-	oskInputFieldResult result;
-	s32 length;
-	u32 add_u16_str;
-} oskCallbackReturnParam2;
-
-
 #define OSKDIALOG_FINISHED          0x503
 #define OSKDIALOG_UNLOADED          0x504
 #define OSKDIALOG_INPUT_ENTERED     0x505
@@ -42,9 +29,9 @@ volatile int osk_unloaded = 0;
 
 static sys_mem_container_t container_mem;
 
-static oskCallbackReturnParam2 OutputReturnedParam;
+static oskCallbackReturnParam OutputReturnedParam;
 static oskParam DialogOskParam;
-static oskInputFieldInfo2 inputFieldInfo;
+static oskInputFieldInfo inputFieldInfo;
 
 static void my_eventHandle(u64 status, u64 param, void * userdata) {
 
@@ -145,7 +132,7 @@ static void OSK_exit(void)
 {
     if(osk_level == 2) {
         oskAbort();
-        oskUnloadAsync((void *) &OutputReturnedParam);
+        oskUnloadAsync(&OutputReturnedParam);
         
         osk_event = 0;
         osk_action=-1;
@@ -180,14 +167,14 @@ int Get_OSK_String(char *caption, char *str, int len)
 
     memset(message, 0, 64);
 
-    inputFieldInfo.add_u16_message =  (u32) ((u64) message);
-    inputFieldInfo.add_u16_startText = (u32) ((u64) OutWcharTex);
+    inputFieldInfo.message =  (u16 *) message;
+    inputFieldInfo.startText = (u16 *) OutWcharTex;
     inputFieldInfo.maxLength = len;
        
-    OutputReturnedParam.result = OSK_NO_TEXT; //OSK_OK;     
-    OutputReturnedParam.length = len; 
+    OutputReturnedParam.res = OSK_NO_TEXT; //OSK_OK;     
+    OutputReturnedParam.len = len; 
 
-    OutputReturnedParam.add_u16_str =  (u32) ((u64) OutWcharTex);
+    OutputReturnedParam.str = (u16 *) OutWcharTex;
 
     memset(OutWcharTex, 0, 1024);
 
@@ -253,14 +240,14 @@ int Get_OSK_String(char *caption, char *str, int len)
         switch(osk_event) {
 
         case OSKDIALOG_INPUT_ENTERED:
-            oskGetInputText((void *) &OutputReturnedParam);
+            oskGetInputText(&OutputReturnedParam);
            
             osk_event = 0;
             break;
 
         case OSKDIALOG_INPUT_CANCELED:
             oskAbort();
-            oskUnloadAsync((void *) &OutputReturnedParam);
+            oskUnloadAsync(&OutputReturnedParam);
             
             osk_event = 0;
             osk_action=-1;
@@ -268,7 +255,7 @@ int Get_OSK_String(char *caption, char *str, int len)
 
         case OSKDIALOG_FINISHED:
             if(osk_action != -1) osk_action = 1;
-            oskUnloadAsync((void *) &OutputReturnedParam);
+            oskUnloadAsync(&OutputReturnedParam);
             osk_event = 0;
             break;
 
@@ -280,7 +267,7 @@ int Get_OSK_String(char *caption, char *str, int len)
     
     usleep(150000); // unnecessary but...
 
-    if(OutputReturnedParam.result == OSK_OK && osk_action == 1) {
+    if(OutputReturnedParam.res == OSK_OK && osk_action == 1) {
         
 
         UTF16_to_UTF8((u16 *) OutWcharTex, (u8 *) str);
