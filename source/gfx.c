@@ -155,6 +155,65 @@ float DrawButton2(float x, float y, float w, char * t, int select)
 
 }
 
+static void UTF8_to_Ansi(char *utf8, char *ansi, int len)
+{
+u8 *ch= (u8 *) utf8;
+u8 c;
+
+    *ansi = 0;
+
+	while(*ch!=0 && len>0){
+
+        // 3, 4 bytes utf-8 code 
+        if(((*ch & 0xF1)==0xF0 || (*ch & 0xF0)==0xe0) && (*(ch+1) & 0xc0)==0x80){
+
+        *ansi++=' '; // ignore
+        len--;
+        ch+=2+1*((*ch & 0xF1)==0xF0);
+        
+        }
+        else 
+        // 2 bytes utf-8 code	
+        if((*ch & 0xE0)==0xc0 && (*(ch+1) & 0xc0)==0x80){
+        
+        c= (((*ch & 3)<<6) | (*(ch+1) & 63));
+
+        *ansi++=c;
+        len--;
+        ch++;
+	
+	    } else {
+	
+            if(*ch<32) *ch=32;
+            *ansi++=*ch;
+            len--;
+        }
+
+	    ch++;
+	}
+
+	while(len>0) {
+	    *ansi++=0;
+	    len--;
+	}
+}
+
+float DrawButton1_UTF8(float x, float y, float w, char * t, int select)
+{
+    char text[1024];
+
+    UTF8_to_Ansi(t, text, 1024);
+    return DrawButton1(x, y, w, text, select);
+}
+
+float DrawButton2_UTF8(float x, float y, float w, char * t, int select)
+{
+    char text[1024];
+
+    UTF8_to_Ansi(t, text, 1024);
+    return DrawButton2(x, y, w, text, select);
+}
+
 void init_twat()
 {
     int i;

@@ -282,9 +282,6 @@ char * language[LANGSTRINGS_COUNT];
 
 static int lang_inited = 0;
 
-void UTF8_to_Ansi(char *utf8, char *ansi, int len);
-
-
 int open_language (int lang, char * filename) 
 {
 
@@ -292,10 +289,6 @@ int open_language (int lang, char * filename)
     struct stat s;
 
     int elements = sizeof(lang_strings)/sizeof(t_lngstr);
-
-    char get_string[MAX_CFGLINE_LEN];
-
-
 
     for (n = 0; n < LANGSTRINGS_COUNT; n++)
     {
@@ -328,8 +321,7 @@ int open_language (int lang, char * filename)
            
                 strncpy(language[lang_strings[n].code], lang_strings[n].strdefault, MAX_CFGLINE_LEN-1);
                 getConfigMemValueString((char *) file_external, file_size, "Language",
-                    lang_strings[n].strname, get_string, MAX_CFGLINE_LEN-1, lang_strings[n].strdefault);
-                UTF8_to_Ansi(get_string, language[lang_strings[n].code], MAX_CFGLINE_LEN);
+                    lang_strings[n].strname, language[lang_strings[n].code], MAX_CFGLINE_LEN-1, lang_strings[n].strdefault);
          
         } else {
 
@@ -356,8 +348,7 @@ int open_language (int lang, char * filename)
             }
 
             getConfigMemValueString((char *) file_bin, file_size, "Language",
-                lang_strings[n].strname, get_string, MAX_CFGLINE_LEN-1, lang_strings[n].strdefault);
-            UTF8_to_Ansi(get_string, language[lang_strings[n].code], MAX_CFGLINE_LEN);
+                lang_strings[n].strname, language[lang_strings[n].code], MAX_CFGLINE_LEN-1, lang_strings[n].strdefault);
         }
     }
 

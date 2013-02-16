@@ -16,7 +16,7 @@ SFOXML		:=	sfo.xml
 
 # usage:  make BUILD_STEALTH=yes
 ifndef BUILD_STEALTH
-TITLE		:=	IrisManager - v2.01
+TITLE		:=	IrisManager - v2.10
 APPID		:=	IMANAGER4
 else
 TITLE		:=	LEMMINGS™ Trial Version
@@ -26,6 +26,9 @@ CONTENTID	:=	UP0001-$(APPID)_00-0000000000000000
 PKGFILES	:=	release
 
 WITH_GAMES_DIR	?=	GAMEZ
+
+SCETOOL_FLAGS	?=	--self-app-version=0001000000000000  --sce-type=SELF --compress-data=TRUE --self-add-shdrs=TRUE --skip-sections=FALSE --key-revision=1 \
+					--self-auth-id=1010000001000003 --self-vendor-id=01000002 --self-fw-version=0003004000000000
 
 include $(PSL1GHT)/ppu_rules
 

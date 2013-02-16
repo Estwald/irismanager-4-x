@@ -48,6 +48,8 @@ extern char * language[];
 extern char temp_buffer[8192];
 extern char self_path[MAXPATHLEN];
 
+void UTF8_to_Ansi(char *utf8, char *ansi, int len); // from osk_input
+
 #undef AUTO_BUTTON_REP2
 #define AUTO_BUTTON_REP2(v, b) if(v && (old_pad & b)) { \
                                  v++; \
@@ -94,6 +96,8 @@ int sel = 0;
 int pos = 0;
 int flash = 0;
 u64 frame_count = 0;
+
+char ansi[256];
 
     entries = (t_list *) malloc(sizeof(t_list)*1024);
     if(!entries) return; // out of memory
@@ -158,7 +162,8 @@ u64 frame_count = 0;
 
         SetFontAutoCenter(0);
       
-        DrawFormatString(x, y - 2, " %s", language[PKG_HEADER]);
+        UTF8_to_Ansi(language[PKG_HEADER], ansi, 256);
+        DrawFormatString(x, y - 2, " %s", ansi);
         update_twat();
 
         y += 24;
@@ -189,7 +194,10 @@ u64 frame_count = 0;
         } else {
             SetFontColor(0xffffffff, 0x00000000); 
             x2 = x;
-            if(flash) DrawFormatString(x2, y2, "%s", language[PKG_INSERTUSB]);
+            if(flash) {
+                UTF8_to_Ansi(language[PKG_INSERTUSB], ansi, 256);
+                DrawFormatString(x2, y2, "%s", ansi);
+            }
         }
 
         SetFontColor(0xffffffff, 0x00000000);

@@ -17,6 +17,8 @@
 
 */
 
+void UTF8_to_Ansi(char *utf8, char *ansi, int len); // from osk_input
+
 #include <stdio.h>
 #include <malloc.h>
 #include <string.h>
@@ -171,8 +173,9 @@ void draw_psx_options(float x, float y, int index)
     int selected = select_px + select_py * 4;
 
     char *mc_name = NULL;
-    
 
+    char ansi[256];
+    
     SetCurrentFont(FONT_DEFAULT);
 
     // header title
@@ -185,7 +188,8 @@ void draw_psx_options(float x, float y, int index)
 
     SetFontAutoCenter(0);
   
-    DrawFormatString(x, y - 2, " PSX %s", language[DRAWGMOPT_OPTS]);
+    UTF8_to_Ansi(language[DRAWGMOPT_OPTS], ansi, 256);
+    DrawFormatString(x, y - 2, " PSX %s", ansi);
 
 
     if(!(directories[currentgamedir].flags & 2048) && 
@@ -214,7 +218,7 @@ void draw_psx_options(float x, float y, int index)
     x2 = x;
     y2 = y + 8;
     
-    x2=DrawButton1(x + 32, y2, 320, "MC Slot 1 ", (flash && select_option == 0)) + 8;
+    x2=DrawButton1_UTF8(x + 32, y2, 320, "MC Slot 1 ", (flash && select_option == 0)) + 8;
     
     if(!(directories[currentgamedir].flags & 2048) && !strcmp(psx_options.mc1, "No Memory Card")) strncpy(psx_options.mc1, "Internal_MC.VM1", 256);
     if((directories[currentgamedir].flags & 2048) && !strcmp(psx_options.mc1, "Internal_MC.VM1")) strncpy(psx_options.mc1, "No Memory Card", 256);
@@ -225,47 +229,47 @@ void draw_psx_options(float x, float y, int index)
     
     y2+= 48;
 
-    x2=DrawButton1(x + 32, y2, 320, "MC Slot 2 ", (flash && select_option == 1)) + 8;
+    x2=DrawButton1_UTF8(x + 32, y2, 320, "MC Slot 2 ", (flash && select_option == 1)) + 8;
     utf8_to_ansi(psx_options.mc2, temp_buffer + 1024, 32);
     sprintf(temp_buffer, " %s ", temp_buffer + 1024);
     x2 = DrawButton2(x2, y2, 0, temp_buffer, 1) + 8;
     
     y2+= 48;
 
-    x2= DrawButton1(x + 32, y2, 320, language[DRAWPSX_EMULATOR], (flash && select_option == 2)) + 8;
+    x2= DrawButton1_UTF8(x + 32, y2, 320, language[DRAWPSX_EMULATOR], (flash && select_option == 2)) + 8;
 
-    x2 = DrawButton2(x2, y2, 0, " ps1_emu ", ((psx_options.flags & 0x3) == 0)) + 8;
-    x2 = DrawButton2(x2, y2, 0, " ps1_netemu ", ((psx_options.flags & 0x3) == 1)) + 8;
+    x2 = DrawButton2_UTF8(x2, y2, 0, " ps1_emu ", ((psx_options.flags & 0x3) == 0)) + 8;
+    x2 = DrawButton2_UTF8(x2, y2, 0, " ps1_netemu ", ((psx_options.flags & 0x3) == 1)) + 8;
 
     y2+= 48;
 
-    x2=DrawButton1(x + 32, y2, 320, language[DRAWPSX_VIDEOTHER], (flash && select_option == 3)) + 8;
+    x2=DrawButton1_UTF8(x + 32, y2, 320, language[DRAWPSX_VIDEOTHER], (flash && select_option == 3)) + 8;
 
     
     y2+= 48;
 
-    DrawButton1(x + 32, y2, 320, language[DRAWGMOPT_CPYGAME], /*(directories[currentgamedir].flags & 2048) ? -1 :*/ (flash && select_option == 4));
+    DrawButton1_UTF8(x + 32, y2, 320, language[DRAWGMOPT_CPYGAME], /*(directories[currentgamedir].flags & 2048) ? -1 :*/ (flash && select_option == 4));
     
     y2+= 48;
 
-    DrawButton1(x + 32, y2, 320, language[DRAWGMOPT_DELGAME], (directories[currentgamedir].flags & 2048) ? -1  : ((flash && select_option == 5) ? 1 : 0));
+    DrawButton1_UTF8(x + 32, y2, 320, language[DRAWGMOPT_DELGAME], (directories[currentgamedir].flags & 2048) ? -1  : ((flash && select_option == 5) ? 1 : 0));
     
     y2+= 48;
 
-    DrawButton1(x + 32, y2, 320, language[DRAWGMOPT_FIXGAME], (directories[currentgamedir].flags & 2048) ? -1 :(flash && select_option == 6));
+    DrawButton1_UTF8(x + 32, y2, 320, language[DRAWGMOPT_FIXGAME], (directories[currentgamedir].flags & 2048) ? -1 :(flash && select_option == 6));
 
     y2+= 48;
 
-   // DrawButton1(x + 32, y2, 320, "Save PSX Options", (flash && select_option == 7));
+   // DrawButton1_UTF8(x + 32, y2, 320, "Save PSX Options", (flash && select_option == 7));
 
     if(!TestFavouritesExits(directories[currentgamedir].title_id))
-        DrawButton1(x + 32, y2, 320, language[DRAWGMOPT_CPYTOFAV], (directories[currentgamedir].flags & 2048) ? -1  : (flash && select_option == 7));
+        DrawButton1_UTF8(x + 32, y2, 320, language[DRAWGMOPT_CPYTOFAV], (directories[currentgamedir].flags & 2048) ? -1  : (flash && select_option == 7));
     else
-        DrawButton1(x + 32, y2, 320, language[DRAWGMOPT_DELFMFAV], (directories[currentgamedir].flags & 2048) ? -1  : (flash && select_option == 7));
+        DrawButton1_UTF8(x + 32, y2, 320, language[DRAWGMOPT_DELFMFAV], (directories[currentgamedir].flags & 2048) ? -1  : (flash && select_option == 7));
 
     y2+= 48;
 
-    DrawButton1(x + 32, y2, 320, language[GLOBAL_RETURN], (flash && select_option == 8));
+    DrawButton1_UTF8(x + 32, y2, 320, language[GLOBAL_RETURN], (flash && select_option == 8));
     
     y2+= 48;
     
@@ -644,6 +648,8 @@ void draw_psx_options2(float x, float y, int index)
     float y2, x2;
 
     int selected = select_px + select_py * 4;
+
+    char ansi[256];
     
 
     SetCurrentFont(FONT_DEFAULT);
@@ -658,7 +664,8 @@ void draw_psx_options2(float x, float y, int index)
 
     SetFontAutoCenter(0);
   
-    DrawFormatString(x, y - 2, " %s", language[DRAWPSX_VIDEOPS]);
+    UTF8_to_Ansi(language[DRAWPSX_VIDEOPS], ansi, 256);
+    DrawFormatString(x, y - 2, " %s", ansi);
 
     SetCurrentFont(FONT_BUTTON);
         
@@ -672,58 +679,58 @@ void draw_psx_options2(float x, float y, int index)
     x2 = x;
     y2 = y + 8;
 
-    x2=DrawButton1(x + 32, y2, 320, language[DRAWPSX_VIDEOMODE], (flash && select_option == 0)) + 8;
+    x2=DrawButton1_UTF8(x + 32, y2, 320, language[DRAWPSX_VIDEOMODE], (flash && select_option == 0)) + 8;
 
-    x2 = DrawButton2(x2, y2, 0, " Default ", ((psx_options.video & 0xf) == 0)) + 8;
-    x2 = DrawButton2(x2, y2, 0, " Region Disc", ((psx_options.video & 0xf) == 1)) + 8;
-    x2 = DrawButton2(x2, y2, 0, " 480 ", ((psx_options.video & 0xf) == 2)) + 8;
-    x2 = DrawButton2(x2, y2, 0, " 576 ", ((psx_options.video & 0xf) == 3)) + 8;
-
-    y2+= 48;
-
-    x2=DrawButton1(x + 32, y2, 320, language[DRAWPSX_VIDEOASP], (flash && select_option == 1)) + 8;
-
-    x2 = DrawButton2(x2, y2, 0, " Auto ", ((psx_options.video & 0xf0) == 0)) + 8;
-    x2 = DrawButton2(x2, y2, 0, " 4:3 ", ((psx_options.video & 0xf0) == 0x10)) + 8;
-    x2 = DrawButton2(x2, y2, 0, " 16:9 ", ((psx_options.video & 0xf0) == 0x20)) + 8;
+    x2 = DrawButton2_UTF8(x2, y2, 0, " Default ", ((psx_options.video & 0xf) == 0)) + 8;
+    x2 = DrawButton2_UTF8(x2, y2, 0, " Region Disc", ((psx_options.video & 0xf) == 1)) + 8;
+    x2 = DrawButton2_UTF8(x2, y2, 0, " 480 ", ((psx_options.video & 0xf) == 2)) + 8;
+    x2 = DrawButton2_UTF8(x2, y2, 0, " 576 ", ((psx_options.video & 0xf) == 3)) + 8;
 
     y2+= 48;
 
-    x2=DrawButton1(x + 32, y2, 320, language[DRAWPSX_FULLSCR], (flash && select_option == 2)) + 8;
+    x2=DrawButton1_UTF8(x + 32, y2, 320, language[DRAWPSX_VIDEOASP], (flash && select_option == 1)) + 8;
 
-    x2 = DrawButton2(x2, y2, 0, language[DRAWGMCFG_YES], ((psx_options.flags & 0x8) == 0)) + 8;
-    x2 = DrawButton2(x2, y2, 0, language[DRAWGMCFG_NO], ((psx_options.flags & 0x8) == 0x8)) + 8;
-
-    y2+= 48;
-
-    x2=DrawButton1(x + 32, y2, 320, language[DRAWPSX_SMOOTH], (flash && select_option == 3)) + 8;
-
-    x2 = DrawButton2(x2, y2, 0, language[DRAWGMCFG_YES], ((psx_options.flags & 0x4) == 0)) + 8;
-    x2 = DrawButton2(x2, y2, 0, language[DRAWGMCFG_NO], ((psx_options.flags & 0x4) == 0x4)) + 8;
+    x2 = DrawButton2_UTF8(x2, y2, 0, " Auto ", ((psx_options.video & 0xf0) == 0)) + 8;
+    x2 = DrawButton2_UTF8(x2, y2, 0, " 4:3 ", ((psx_options.video & 0xf0) == 0x10)) + 8;
+    x2 = DrawButton2_UTF8(x2, y2, 0, " 16:9 ", ((psx_options.video & 0xf0) == 0x20)) + 8;
 
     y2+= 48;
 
-    x2=DrawButton1(x + 32, y2, 320, language[DRAWPSX_EXTROM], (flash && select_option == 4)) + 8;
+    x2=DrawButton1_UTF8(x + 32, y2, 320, language[DRAWPSX_FULLSCR], (flash && select_option == 2)) + 8;
 
-    x2 = DrawButton2(x2, y2, 0, language[DRAWGMCFG_YES], ((psx_options.flags & 0x10) == 0x10)) + 8;
-    x2 = DrawButton2(x2, y2, 0, language[DRAWGMCFG_NO], ((psx_options.flags & 0x10) == 0x0)) + 8;
-
-    y2+= 48;
-
-    DrawButton1(x + 32, y2, 320, language[DRAWPSX_FORMAT], (flash && select_option == 5));
+    x2 = DrawButton2_UTF8(x2, y2, 0, language[DRAWGMCFG_YES], ((psx_options.flags & 0x8) == 0)) + 8;
+    x2 = DrawButton2_UTF8(x2, y2, 0, language[DRAWGMCFG_NO], ((psx_options.flags & 0x8) == 0x8)) + 8;
 
     y2+= 48;
 
-    DrawButton1(x + 32, y2, 320, language[GLOBAL_RETURN], (flash && select_option == 6));
+    x2=DrawButton1_UTF8(x + 32, y2, 320, language[DRAWPSX_SMOOTH], (flash && select_option == 3)) + 8;
+
+    x2 = DrawButton2_UTF8(x2, y2, 0, language[DRAWGMCFG_YES], ((psx_options.flags & 0x4) == 0)) + 8;
+    x2 = DrawButton2_UTF8(x2, y2, 0, language[DRAWGMCFG_NO], ((psx_options.flags & 0x4) == 0x4)) + 8;
+
+    y2+= 48;
+
+    x2=DrawButton1_UTF8(x + 32, y2, 320, language[DRAWPSX_EXTROM], (flash && select_option == 4)) + 8;
+
+    x2 = DrawButton2_UTF8(x2, y2, 0, language[DRAWGMCFG_YES], ((psx_options.flags & 0x10) == 0x10)) + 8;
+    x2 = DrawButton2_UTF8(x2, y2, 0, language[DRAWGMCFG_NO], ((psx_options.flags & 0x10) == 0x0)) + 8;
+
+    y2+= 48;
+
+    DrawButton1_UTF8(x + 32, y2, 320, language[DRAWPSX_FORMAT], (flash && select_option == 5));
+
+    y2+= 48;
+
+    DrawButton1_UTF8(x + 32, y2, 320, language[GLOBAL_RETURN], (flash && select_option == 6));
     
 
     y2+= 48;
 
-    DrawButton1(x + 32, y2, 320, " ", -1);
+    DrawButton1_UTF8(x + 32, y2, 320, " ", -1);
 
     y2+= 48;
 
-    DrawButton1(x + 32, y2, 320, " ", -1);
+    DrawButton1_UTF8(x + 32, y2, 320, " ", -1);
 
     
     y2+= 48;
@@ -1469,6 +1476,8 @@ int psx_iso_prepare(char *path, char *name)
     char *files[9];
     u8 *file_datas[9];
     int file_ndatas[9];
+
+    char ansi[256];
    
     u32 sector_size = 0;
 
@@ -1590,7 +1599,8 @@ int psx_iso_prepare(char *path, char *name)
 
             SetFontAutoCenter(0);
           
-            DrawFormatString(x, y - 2, " %s", language[DRAWPSX_DISCORDER]);
+            UTF8_to_Ansi(language[DRAWPSX_DISCORDER], ansi, 256);
+            DrawFormatString(x, y - 2, " %s", ansi);
 
             utf8_to_ansi((char *) name, temp_buffer, 65);
 
@@ -1608,19 +1618,20 @@ int psx_iso_prepare(char *path, char *name)
 
             for(n = 0; n < nfiles; n++) {
                 utf8_to_ansi(((char *) files[n]) + strlen(path) + 1, temp_buffer, 40);
-                DrawButton1((848 - 720) / 2, y2, 720, temp_buffer, (flash && select_option == n));
+                DrawButton1_UTF8((848 - 720) / 2, y2, 720, temp_buffer, (flash && select_option == n));
                 y2+= 48;
             }
 
-            for(; n < 8; n++) {DrawButton1((848 - 720) / 2, y2, 720, "", -1); y2+= 48;}
+            for(; n < 8; n++) {DrawButton1_UTF8((848 - 720) / 2, y2, 720, "", -1); y2+= 48;}
 
             
             SetFontColor(0xffffffff, 0x00000000);
             SetFontSize(16, 20);
-            sprintf(temp_buffer, "%s", language[DRAWPSX_PRESSOB]);
+      
+            UTF8_to_Ansi(language[DRAWPSX_PRESSOB], temp_buffer, 256);
             DrawFormatString((848 - 16 * strlen(temp_buffer))/2, 150 * 3 + y - 8, "%s", temp_buffer);
 
-            sprintf(temp_buffer, "%s", language[DRAWPSX_PRESSXB]);
+            UTF8_to_Ansi(language[DRAWPSX_PRESSXB], temp_buffer, 256);
             DrawFormatString((848 - 16 * strlen(temp_buffer))/2, 150 * 3 + y + 16 - 8, "%s", temp_buffer);
 
             tiny3d_Flip();

@@ -86,6 +86,8 @@ int (*lv2_patch_bdvdemu)(uint32_t flags) = NULL;
 int (*lv2_patch_storage)(void) = NULL;
 int (*lv2_unpatch_storage)(void) = NULL;
 
+void UTF8_to_Ansi(char *utf8, char *ansi, int len); // from osk_input
+
 // music
 char * music[6] = {
             (char *) music1_mod_bin, 
@@ -910,6 +912,8 @@ int SaveManagerCfg()
 
 void video_adjust()
 {
+    char ansi[256];
+
     while(1) {
 
         double sx = (double) Video_Resolution.width;
@@ -934,15 +938,20 @@ void video_adjust()
         SetFontColor(0xffffffff, 0x0);
 
         SetFontAutoCenter(1);
-        DrawFormatString(0, (512 - 24)/2 - 64, language[VIDEOADJUST_POSITION]);
 
-        DrawFormatString(0, (512 - 24)/2, language[VIDEOADJUST_SCALEINFO], videoscale_x, videoscale_y);
+        UTF8_to_Ansi(language[VIDEOADJUST_POSITION], ansi, 256);
+        DrawFormatString(0, (512 - 24)/2 - 64, "%s", ansi);
 
-        DrawFormatString(0, (512 - 24)/2 + 64, language[VIDEOADJUST_EXITINFO]);
-        DrawFormatString(0, (512 - 24)/2 + 96, language[VIDEOADJUST_DEFAULTS]);
+        UTF8_to_Ansi(language[VIDEOADJUST_SCALEINFO], ansi, 256);
+        DrawFormatString(0, (512 - 24)/2, ansi, videoscale_x, videoscale_y);
+
+        UTF8_to_Ansi(language[VIDEOADJUST_EXITINFO], ansi, 256);
+        DrawFormatString(0, (512 - 24)/2 + 64, "%s", ansi);
+        UTF8_to_Ansi(language[VIDEOADJUST_DEFAULTS], ansi, 256);
+        DrawFormatString(0, (512 - 24)/2 + 96, "%s", ansi);
 
         // Warning!! don´t traslate this string!
-        DrawFormatString(0, (512 - 24)/2 + 128, "Press [] to English language");
+        DrawFormatString(0, (512 - 24)/2 + 128, "%s", "Press [] to English language");
 
         SetFontAutoCenter(0);
 
@@ -2049,6 +2058,8 @@ void draw_screen1(float x, float y)
 
     int selected = select_px + select_py * 4;
 
+    char ansi[256];
+
     SetCurrentFont(FONT_DEFAULT);
 
     // header title
@@ -2061,10 +2072,22 @@ void draw_screen1(float x, float y)
 
     SetFontAutoCenter(0);
 
-    if(mode_favourites >= 131072) DrawFormatString(x, y - 2, " %s%s", language[DRAWSCREEN_FAVSWAP], &str_home[!mode_homebrew][0]);
-    else if(mode_favourites >= 65536) DrawFormatString(x, y - 2, " %s%s", language[DRAWSCREEN_FAVINSERT], &str_home[!mode_homebrew][0]);
-    else if(mode_favourites) DrawFormatString(x, y - 2, " %s%s", language[DRAWSCREEN_FAVORITES], &str_home[!mode_homebrew][0]);
-    else DrawFormatString(x, y - 5, " %s %i/%i (%i %s)%s", language[DRAWSCREEN_PAGE], currentdir/12 + 1, ROUND_UP12(ndirectories)/12, ndirectories, language[DRAWSCREEN_GAMES], &str_home[!mode_homebrew][0]);
+    if(mode_favourites >= 131072) {
+        UTF8_to_Ansi(language[DRAWSCREEN_FAVSWAP], ansi, 256);
+        DrawFormatString(x, y - 2, " %s%s", ansi, &str_home[!mode_homebrew][0]);
+    }
+    else if(mode_favourites >= 65536) {
+        UTF8_to_Ansi(language[DRAWSCREEN_FAVINSERT], ansi, 256);
+        DrawFormatString(x, y - 2, " %s%s", ansi, &str_home[!mode_homebrew][0]);
+    }
+    else if(mode_favourites) {
+        UTF8_to_Ansi(language[DRAWSCREEN_FAVORITES], ansi, 256);
+        DrawFormatString(x, y - 2, " %s%s", ansi, &str_home[!mode_homebrew][0]);
+    }
+    else {
+        UTF8_to_Ansi(language[DRAWSCREEN_PAGE], ansi, 256);
+        DrawFormatString(x, y - 5, " %s %i/%i (%i %s)%s", ansi, currentdir/12 + 1, ROUND_UP12(ndirectories)/12, ndirectories, language[DRAWSCREEN_GAMES], &str_home[!mode_homebrew][0]);
+    }
 
     // list device space
 
@@ -2262,16 +2285,18 @@ void draw_screen1(float x, float y)
     {
         SetCurrentFont(FONT_DEFAULT);
         SetFontSize(20, 20);
-        x2= DrawFormatString(1024, 0, " %s ", language[DRAWSCREEN_SOPTIONS]);
-        DrawFormatString(x + 4 * 200 - (x2 - 1024) - 12 , y + 3 * 150 - 4, " %s ", language[DRAWSCREEN_SOPTIONS]);
+        UTF8_to_Ansi(language[DRAWSCREEN_SOPTIONS], ansi, 256);
+        x2= DrawFormatString(1024, 0, " %s ", ansi);
+        DrawFormatString(x + 4 * 200 - (x2 - 1024) - 12 , y + 3 * 150 - 4, " %s ", ansi);
    
     }
     else if(mode_favourites && mode_favourites < 65536 && favourites.list[i].title_id[0] != 0) 
     {
         SetCurrentFont(FONT_DEFAULT);
         SetFontSize(20, 20);
-        x2= DrawFormatString(1024, 0, " %s ", language[DRAWSCREEN_SDELETE]);
-        DrawFormatString(x + 4 * 200 - (x2 - 1024) - 12 , y + 3 * 150 - 4, " %s ", language[DRAWSCREEN_SDELETE]);
+        UTF8_to_Ansi(language[DRAWSCREEN_SDELETE], ansi, 256);
+        x2= DrawFormatString(1024, 0, " %s ", ansi);
+        DrawFormatString(x + 4 * 200 - (x2 - 1024) - 12 , y + 3 * 150 - 4, " %s ", ansi);
     }
     else
     {
@@ -2281,15 +2306,17 @@ void draw_screen1(float x, float y)
     }
     
     if(!(frame_count & 0x100)) {
-        x2= DrawFormatString(1024, 0, " %s ", language[DRAWSCREEN_STGLOPT]);
-        DrawFormatString(x + 4 * 200 - (x2 - 1024) - 12 , y + 3 * 150 + 18, " %s ", language[DRAWSCREEN_STGLOPT]);
+        UTF8_to_Ansi(language[DRAWSCREEN_STGLOPT], ansi, 256);
+        x2= DrawFormatString(1024, 0, " %s ", ansi);
+        DrawFormatString(x + 4 * 200 - (x2 - 1024) - 12 , y + 3 * 150 + 18, " %s ", ansi);
     }
     
     if((Png_offset[i])||(mode_favourites && mode_favourites < 65536 && favourites.list[i].title_id[0] != 0)) {
         DrawBox(x + 200 * select_px - 8 + (200 - 24 * 8)/2, y + select_py * 150 - 4 + 150 - 40, 0, 200, 40, 0x404040a0);
         SetCurrentFont(FONT_NEWBUTTON);
         SetFontSize(24, 24);
-        x2 = DrawFormatString(x + 200 * select_px - 4 + (200 - 24 * 8)/2, y + select_py * 150 - 4 + 150 - 40, "  %s", language[DRAWSCREEN_PLAY]);
+        UTF8_to_Ansi(language[DRAWSCREEN_PLAY], ansi, 256);
+        x2 = DrawFormatString(x + 200 * select_px - 4 + (200 - 24 * 8)/2, y + select_py * 150 - 4 + 150 - 40, "  %s", ansi);
     }
 
     // draw game name
@@ -3054,6 +3081,8 @@ void draw_options(float x, float y, int index)
     int copy_flag = 1;
 
     int selected = select_px + select_py * 4;
+
+    char ansi[256];
     
 
     SetCurrentFont(FONT_DEFAULT);
@@ -3067,8 +3096,10 @@ void draw_options(float x, float y, int index)
     SetFontSize(18, 20);
 
     SetFontAutoCenter(0);
+
+    UTF8_to_Ansi(language[DRAWGMOPT_OPTS], ansi, 256);
   
-    DrawFormatString(x, y - 2, " %s", language[DRAWGMOPT_OPTS]);
+    DrawFormatString(x, y - 2, " %s", ansi);
 
 
     if(directories[currentgamedir].flags & 1) {
@@ -3127,46 +3158,46 @@ void draw_options(float x, float y, int index)
     x2 = x;
     y2 = y + 32;
     
-    DrawButton1(x + 32, y2, 320, language[DRAWGMOPT_CFGGAME], (directories[currentgamedir].title_id[0] == 0 ||
+    DrawButton1_UTF8(x + 32, y2, 320, language[DRAWGMOPT_CFGGAME], (directories[currentgamedir].title_id[0] == 0 ||
         mode_homebrew == HOMEBREW_MODE) ? -1 : (flash && select_option == 0));
     
     y2+= 48;
 
-    DrawButton1(x + 32, y2, 320, language[DRAWGMOPT_CPYGAME], (copy_flag!=0  && mode_homebrew != HOMEBREW_MODE) ? (flash && select_option == 1) : -1);
+    DrawButton1_UTF8(x + 32, y2, 320, language[DRAWGMOPT_CPYGAME], (copy_flag!=0  && mode_homebrew != HOMEBREW_MODE) ? (flash && select_option == 1) : -1);
     
     y2+= 48;
 
-    DrawButton1(x + 32, y2, 320, language[DRAWGMOPT_DELGAME], (directories[currentgamedir].flags & 2048) ? -1  : ((flash && select_option == 2) ? 1 : 0));
+    DrawButton1_UTF8(x + 32, y2, 320, language[DRAWGMOPT_DELGAME], (directories[currentgamedir].flags & 2048) ? -1  : ((flash && select_option == 2) ? 1 : 0));
     
     y2+= 48;
 
-    DrawButton1(x + 32, y2, 320, language[DRAWGMOPT_FIXGAME], (flash && select_option == 3));
+    DrawButton1_UTF8(x + 32, y2, 320, language[DRAWGMOPT_FIXGAME], (flash && select_option == 3));
     
     y2+= 48;
 
-    DrawButton1(x + 32, y2, 320, language[DRAWGMOPT_TSTGAME], (flash && select_option == 4));
+    DrawButton1_UTF8(x + 32, y2, 320, language[DRAWGMOPT_TSTGAME], (flash && select_option == 4));
     
     y2+= 48;
 
-    DrawButton1(x + 32, y2, 320, language[DRAWGMOPT_CPYEBOOTGAME], (directories[currentgamedir].title_id[0] == 0 || 
+    DrawButton1_UTF8(x + 32, y2, 320, language[DRAWGMOPT_CPYEBOOTGAME], (directories[currentgamedir].title_id[0] == 0 || 
         mode_homebrew == HOMEBREW_MODE) ? -1 : (flash && select_option == 5));
     
     y2+= 48;
     
     if(!TestFavouritesExits(directories[currentgamedir].title_id))
-        DrawButton1(x + 32, y2, 320, language[DRAWGMOPT_CPYTOFAV], (directories[currentgamedir].flags & 2048) ? -1  : (flash && select_option == 6));
+        DrawButton1_UTF8(x + 32, y2, 320, language[DRAWGMOPT_CPYTOFAV], (directories[currentgamedir].flags & 2048) ? -1  : (flash && select_option == 6));
     else
-        DrawButton1(x + 32, y2, 320, language[DRAWGMOPT_DELFMFAV], (directories[currentgamedir].flags & 2048) ? -1  : (flash && select_option == 6));
+        DrawButton1_UTF8(x + 32, y2, 320, language[DRAWGMOPT_DELFMFAV], (directories[currentgamedir].flags & 2048) ? -1  : (flash && select_option == 6));
     
     y2+= 48;
 
-    DrawButton1(x + 32, y2, 320, language[GLOBAL_RETURN], (flash && select_option == 7));
+    DrawButton1_UTF8(x + 32, y2, 320, language[GLOBAL_RETURN], (flash && select_option == 7));
     
     y2+= 48;
     /*
     for(n = 0; n < 1; n++) {
         
-        DrawButton1(x + 32, y2, 320, "", -1);
+        DrawButton1_UTF8(x + 32, y2, 320, "", -1);
     
         y2+= 48;
     }
@@ -3430,6 +3461,8 @@ void draw_configs(float x, float y, int index)
     int i;
 
     float y2, x2;
+
+    char ansi[256];
    
     int selected = select_px + select_py * 4;
 
@@ -3445,7 +3478,8 @@ void draw_configs(float x, float y, int index)
 
     SetFontAutoCenter(0);
   
-    DrawFormatString(x, y - 2, " %s", language[DRAWGMCFG_CFGS]);
+    UTF8_to_Ansi(language[DRAWGMCFG_CFGS], ansi, 256);
+    DrawFormatString(x, y - 2, " %s", ansi);
 
     i = selected;
 
@@ -3477,76 +3511,76 @@ void draw_configs(float x, float y, int index)
 
 
 #ifdef CONFIG_USE_SYS8PERMH4
-    x2 = DrawButton1(x + 32, y2, 240, "Fix Permissions", (flash && select_option == 0)) + 16; // do no translate this (3.44)
+    x2 = DrawButton1_UTF8(x + 32, y2, 240, "Fix Permissions", (flash && select_option == 0)) + 16; // do no translate this (3.44)
     
-    x2 = DrawButton2(x2, y2, 0, " Default ", (game_cfg.perm == 0) ) + 8;
-    x2 = DrawButton2(x2, y2, 0, " PS jailbreak ", (game_cfg.perm == 1)) + 8;
-    x2 = DrawButton2(x2, y2, 0, " v4 Perms (F1) ", (game_cfg.perm == 2)) + 8;
+    x2 = DrawButton2_UTF8(x2, y2, 0, " Default ", (game_cfg.perm == 0) ) + 8;
+    x2 = DrawButton2_UTF8(x2, y2, 0, " PS jailbreak ", (game_cfg.perm == 1)) + 8;
+    x2 = DrawButton2_UTF8(x2, y2, 0, " v4 Perms (F1) ", (game_cfg.perm == 2)) + 8;
 
     y2+= 48;
 #endif
 
 
 #ifdef CONFIG_USE_SYS8CONFIG
-    x2 = DrawButton1(x + 32, y2, 240, "Select XMB", (flash && select_option == 0))  + 16; // do no translate this (3.44 atm)
-    x2 = DrawButton2(x2, y2, 0, " Debug ", (game_cfg.xmb == 0)) + 8;
-    x2 = DrawButton2(x2, y2, 0, " Retail ", (game_cfg.xmb == 1)) + 8;
+    x2 = DrawButton1_UTF8(x + 32, y2, 240, "Select XMB", (flash && select_option == 0))  + 16; // do no translate this (3.44 atm)
+    x2 = DrawButton2_UTF8(x2, y2, 0, " Debug ", (game_cfg.xmb == 0)) + 8;
+    x2 = DrawButton2_UTF8(x2, y2, 0, " Retail ", (game_cfg.xmb == 1)) + 8;
 #else
-    x2 = DrawButton1(x + 32, y2, 240, language[DRAWGMCFG_DSK], (flash && select_option == 0))  + 16;
-    x2 = DrawButton2(x2, y2, 0, language[DRAWGMCFG_NO] , (game_cfg.xmb == 0)) + 8;
-    x2 = DrawButton2(x2, y2, 0, language[DRAWGMCFG_YES], (game_cfg.xmb == 1)) + 8;
+    x2 = DrawButton1_UTF8(x + 32, y2, 240, language[DRAWGMCFG_DSK], (flash && select_option == 0))  + 16;
+    x2 = DrawButton2_UTF8(x2, y2, 0, language[DRAWGMCFG_NO] , (game_cfg.xmb == 0)) + 8;
+    x2 = DrawButton2_UTF8(x2, y2, 0, language[DRAWGMCFG_YES], (game_cfg.xmb == 1)) + 8;
 #endif
     y2+= 48;
 
     #if 0
-    x2 = DrawButton1(x + 32, y2, 240, language[DRAWGMCFG_UPD], (flash && select_option == 1))  + 16;
+    x2 = DrawButton1_UTF8(x + 32, y2, 240, language[DRAWGMCFG_UPD], (flash && select_option == 1))  + 16;
         
-    x2 = DrawButton2(x2, y2, 0, language[DRAWGMCFG_ON] , /*(game_cfg.updates == 0)*/ -1) + 8;
-    x2 = DrawButton2(x2, y2, 0, language[DRAWGMCFG_OFF], /*(game_cfg.updates != 0)*/ 1) + 8;
+    x2 = DrawButton2_UTF8(x2, y2, 0, language[DRAWGMCFG_ON] , /*(game_cfg.updates == 0)*/ -1) + 8;
+    x2 = DrawButton2_UTF8(x2, y2, 0, language[DRAWGMCFG_OFF], /*(game_cfg.updates != 0)*/ 1) + 8;
 
     y2+= 48;
     #endif
 
-    x2 = DrawButton1(x + 32, y2, 240, "Direct Boot", (flash && select_option == 1)) + 16;
+    x2 = DrawButton1_UTF8(x + 32, y2, 240, "Direct Boot", (flash && select_option == 1)) + 16;
     
-    x2 = DrawButton2(x2, y2, 0, language[DRAWGMCFG_NO], (game_cfg.direct_boot == 0) ) + 8;
-    x2 = DrawButton2(x2, y2, 0, language[DRAWGMCFG_YES], (game_cfg.direct_boot == 1)) + 8;
-    x2 = DrawButton2(x2, y2, 0, "With BR", (game_cfg.direct_boot == 2)) + 8;
+    x2 = DrawButton2_UTF8(x2, y2, 0, language[DRAWGMCFG_NO], (game_cfg.direct_boot == 0) ) + 8;
+    x2 = DrawButton2_UTF8(x2, y2, 0, language[DRAWGMCFG_YES], (game_cfg.direct_boot == 1)) + 8;
+    x2 = DrawButton2_UTF8(x2, y2, 0, "With BR", (game_cfg.direct_boot == 2)) + 8;
 
     y2+= 48;
 
-    x2 = DrawButton1(x + 32, y2, 240, language[DRAWGMCFG_EXTBOOT], (flash && select_option == 2))  + 16;
+    x2 = DrawButton1_UTF8(x + 32, y2, 240, language[DRAWGMCFG_EXTBOOT], (flash && select_option == 2))  + 16;
         
-    x2 = DrawButton2(x2, y2, 0, language[DRAWGMCFG_ON] , (payload_mode >= ZERO_PAYLOAD) ? (game_cfg.ext_ebootbin != 0) : -1 ) + 8;
-    x2 = DrawButton2(x2, y2, 0, language[DRAWGMCFG_OFF], (game_cfg.ext_ebootbin == 0)) + 8;
+    x2 = DrawButton2_UTF8(x2, y2, 0, language[DRAWGMCFG_ON] , (payload_mode >= ZERO_PAYLOAD) ? (game_cfg.ext_ebootbin != 0) : -1 ) + 8;
+    x2 = DrawButton2_UTF8(x2, y2, 0, language[DRAWGMCFG_OFF], (game_cfg.ext_ebootbin == 0)) + 8;
 
     y2+= 48;
 
-    x2 = DrawButton1(x + 32, y2, 240, language[DRAWGMCFG_BDEMU], (flash && select_option == 3))  + 16;
+    x2 = DrawButton1_UTF8(x + 32, y2, 240, language[DRAWGMCFG_BDEMU], (flash && select_option == 3))  + 16;
     
     if(directories[currentgamedir].flags & 1) {
-        x2 = DrawButton2(x2, y2, 0, "Mount BDVD" ,(game_cfg.bdemu == 1)) + 8;
-        x2 = DrawButton2(x2, y2, 0, "LIBFS" , (game_cfg.bdemu > 1)) + 8;
-        x2 = DrawButton2(x2, y2, 0, language[DRAWGMCFG_OFF], (game_cfg.bdemu == 0)) + 8;
+        x2 = DrawButton2_UTF8(x2, y2, 0, "Mount BDVD" ,(game_cfg.bdemu == 1)) + 8;
+        x2 = DrawButton2_UTF8(x2, y2, 0, "LIBFS" , (game_cfg.bdemu > 1)) + 8;
+        x2 = DrawButton2_UTF8(x2, y2, 0, language[DRAWGMCFG_OFF], (game_cfg.bdemu == 0)) + 8;
     } else {
-        x2 = DrawButton2(x2, y2, 0, "Mount BDVD" ,(game_cfg.bdemu_ext == 1)) + 8;
-        x2 = DrawButton2(x2, y2, 0, "LIBFS" , (game_cfg.bdemu_ext > 1)) + 8;
-        x2 = DrawButton2(x2, y2, 0, language[DRAWGMCFG_OFF], (game_cfg.bdemu_ext == 0)) + 8;
+        x2 = DrawButton2_UTF8(x2, y2, 0, "Mount BDVD" ,(game_cfg.bdemu_ext == 1)) + 8;
+        x2 = DrawButton2_UTF8(x2, y2, 0, "LIBFS" , (game_cfg.bdemu_ext > 1)) + 8;
+        x2 = DrawButton2_UTF8(x2, y2, 0, language[DRAWGMCFG_OFF], (game_cfg.bdemu_ext == 0)) + 8;
     }
 
     y2+= 48;
 
-    x2 = DrawButton1(x + 32, y2, 240, language[DRAWGMCFG_EXTHDD0GAME], (flash && select_option == 4))  + 16;
+    x2 = DrawButton1_UTF8(x + 32, y2, 240, language[DRAWGMCFG_EXTHDD0GAME], (flash && select_option == 4))  + 16;
         
-    x2 = DrawButton2(x2, y2, 0, language[DRAWGMCFG_ON] , (payload_mode >= ZERO_PAYLOAD) ? (game_cfg.exthdd0emu != 0): -1) + 8;
-    x2 = DrawButton2(x2, y2, 0, language[DRAWGMCFG_OFF], (game_cfg.exthdd0emu == 0)) + 8;
+    x2 = DrawButton2_UTF8(x2, y2, 0, language[DRAWGMCFG_ON] , (payload_mode >= ZERO_PAYLOAD) ? (game_cfg.exthdd0emu != 0): -1) + 8;
+    x2 = DrawButton2_UTF8(x2, y2, 0, language[DRAWGMCFG_OFF], (game_cfg.exthdd0emu == 0)) + 8;
 
     y2+= 48;
 
-    x2 = DrawButton1(x + 32, y2, 240, language[DRAWGMCFG_SAVECFG], (flash && select_option == 5))  + 16;
+    x2 = DrawButton1_UTF8(x + 32, y2, 240, language[DRAWGMCFG_SAVECFG], (flash && select_option == 5))  + 16;
     y2+= 48;
 
-    x2 = DrawButton1(x + 32, y2, 240, language[GLOBAL_RETURN], (flash && select_option == 6))  + 16;
+    x2 = DrawButton1_UTF8(x + 32, y2, 240, language[GLOBAL_RETURN], (flash && select_option == 6))  + 16;
     y2+= 48;
 
 
@@ -3728,6 +3762,7 @@ void draw_gbloptions(float x, float y)
 
     float y2, x2;
     static float x3 = -1;
+    char ansi[256];
     
     SetCurrentFont(FONT_DEFAULT);
 
@@ -3740,8 +3775,10 @@ void draw_gbloptions(float x, float y)
     SetFontSize(18, 20);
 
     SetFontAutoCenter(0);
+
+    UTF8_to_Ansi(language[DRAWGLOPT_OPTS], ansi, 256);
   
-    DrawFormatString(x, y - 2, " %s", language[DRAWGLOPT_OPTS]);
+    DrawFormatString(x, y - 2, " %s", ansi);
 
     if(x3 < 0)
     {
@@ -3759,35 +3796,35 @@ void draw_gbloptions(float x, float y)
     x2 = x;
     y2 = y + 32;
     
-    DrawButton1((848 - 520) / 2, y2, 520, language[DRAWGLOPT_SCRADJUST], (flash && select_option == 0));
+    DrawButton1_UTF8((848 - 520) / 2, y2, 520, language[DRAWGLOPT_SCRADJUST], (flash && select_option == 0));
     
     y2+= 48;
 
-    DrawButton1((848 - 520) / 2, y2, 520, language[DRAWGLOPT_CHANGEDIR], (flash && select_option == 1));
+    DrawButton1_UTF8((848 - 520) / 2, y2, 520, language[DRAWGLOPT_CHANGEDIR], (flash && select_option == 1));
     
     y2+= 48;
 
-    DrawButton1((848 - 520) / 2, y2, 520, language[DRAWGLOPT_CHANGEBCK], (flash && select_option == 2));
+    DrawButton1_UTF8((848 - 520) / 2, y2, 520, language[DRAWGLOPT_CHANGEBCK], (flash && select_option == 2));
     
     y2+= 48;
 
-    DrawButton1((848 - 520) / 2, y2, 520, (manager_cfg.opt_flags & OPTFLAGS_PLAYMUSIC)? language[DRAWGLOPT_SWMUSICOFF] : language[DRAWGLOPT_SWMUSICON] , (flash && select_option == 3));
+    DrawButton1_UTF8((848 - 520) / 2, y2, 520, (manager_cfg.opt_flags & OPTFLAGS_PLAYMUSIC)? language[DRAWGLOPT_SWMUSICOFF] : language[DRAWGLOPT_SWMUSICON] , (flash && select_option == 3));
     
     y2+= 48;
 
-    DrawButton1((848 - 520) / 2, y2, 520, (ftp_ip_str[0]) ? ftp_ip_str : language[DRAWGLOPT_INITFTP], (flash && select_option == 4));
+    DrawButton1_UTF8((848 - 520) / 2, y2, 520, (ftp_ip_str[0]) ? ftp_ip_str : language[DRAWGLOPT_INITFTP], (flash && select_option == 4));
     
     y2+= 48;
 
-    DrawButton1((848 - 520) / 2, y2, 520, language[DRAWGLOPT_TOOLS], (flash && select_option == 5));
+    DrawButton1_UTF8((848 - 520) / 2, y2, 520, language[DRAWGLOPT_TOOLS], (flash && select_option == 5));
     
     y2+= 48;
 
-    DrawButton1((848 - 520) / 2, y2, 520, language[GLOBAL_RETURN], (flash && select_option == 6));
+    DrawButton1_UTF8((848 - 520) / 2, y2, 520, language[GLOBAL_RETURN], (flash && select_option == 6));
     
     y2+= 48;
     
-    DrawButton1((848 - 520) / 2, y2, 520, language[DRAWGLOPT_CREDITS], (flash && select_option == 7));
+    DrawButton1_UTF8((848 - 520) / 2, y2, 520, language[DRAWGLOPT_CREDITS], (flash && select_option == 7));
    
     y2+= 48;
 
@@ -3925,6 +3962,8 @@ void draw_toolsoptions(float x, float y)
     int n;
 
     float y2, x2;
+
+    char ansi[256];
     
 
     SetCurrentFont(FONT_DEFAULT);
@@ -3939,7 +3978,8 @@ void draw_toolsoptions(float x, float y)
 
     SetFontAutoCenter(0);
   
-    DrawFormatString(x, y - 2, " %s", language[DRAWTOOLS_TOOLS]);
+    UTF8_to_Ansi(language[DRAWTOOLS_TOOLS], ansi, 256);
+    DrawFormatString(x, y - 2, " %s", ansi);
 
     y += 24;
 
@@ -3950,41 +3990,41 @@ void draw_toolsoptions(float x, float y)
     x2 = x;
     y2 = y + 32;
     
-    DrawButton1((848 - 520) / 2, y2, 520, language[DRAWTOOLS_DELCACHE], (flash && select_option == 0));
+    DrawButton1_UTF8((848 - 520) / 2, y2, 520, language[DRAWTOOLS_DELCACHE], (flash && select_option == 0));
     
     y2+= 48;
 /*
     if(manager_cfg.usekey)
-        DrawButton1((848 - 520) / 2, y2, 520, language[DRAWTOOLS_SECDISABLE], (flash && select_option == 1));
+        DrawButton1_UTF8((848 - 520) / 2, y2, 520, language[DRAWTOOLS_SECDISABLE], (flash && select_option == 1));
     else
-        DrawButton1((848 - 520) / 2, y2, 520, language[DRAWTOOLS_SECENABLE], (flash && select_option == 1));
+        DrawButton1_UTF8((848 - 520) / 2, y2, 520, language[DRAWTOOLS_SECENABLE], (flash && select_option == 1));
 */
-    DrawButton1((848 - 520) / 2, y2, 520, language[DRAWTOOLS_LANGUAGE_1 + (manager_cfg.language & 15)], (flash && select_option == 1));
+    DrawButton1_UTF8((848 - 520) / 2, y2, 520, language[DRAWTOOLS_LANGUAGE_1 + (manager_cfg.language & 15)], (flash && select_option == 1));
     
     y2+= 48;
 
-    DrawButton1((848 - 520) / 2, y2, 520, language[DRAWTOOLS_PKGTOOLS], (flash && select_option == 2));
+    DrawButton1_UTF8((848 - 520) / 2, y2, 520, language[DRAWTOOLS_PKGTOOLS], (flash && select_option == 2));
     
     y2+= 48;
 
-    DrawButton1((848 - 520) / 2, y2, 520, language[DRAWTOOLS_COPYFROM], (flash && select_option == 3));
+    DrawButton1_UTF8((848 - 520) / 2, y2, 520, language[DRAWTOOLS_COPYFROM], (flash && select_option == 3));
 
     y2+= 48;
 
     if(!manager_cfg.noBDVD)
-        DrawButton1((848 - 520) / 2, y2, 520, language[DRAWTOOLS_WITHBDVD], (flash && select_option == 4));
+        DrawButton1_UTF8((848 - 520) / 2, y2, 520, language[DRAWTOOLS_WITHBDVD], (flash && select_option == 4));
     else
-        DrawButton1((848 - 520) / 2, y2, 520, language[DRAWTOOLS_NOBDVD], (flash && select_option == 4));
+        DrawButton1_UTF8((848 - 520) / 2, y2, 520, language[DRAWTOOLS_NOBDVD], (flash && select_option == 4));
 
     y2+= 48;
 
-    DrawButton1((848 - 520) / 2, y2, 520, language[GLOBAL_RETURN], (flash && select_option == 5));
+    DrawButton1_UTF8((848 - 520) / 2, y2, 520, language[GLOBAL_RETURN], (flash && select_option == 5));
     
     y2+= 48;
     
     for(n = 0; n < 3; n++) {
         
-        DrawButton1((848 - 520) / 2, y2, 520, "", -1);
+        DrawButton1_UTF8((848 - 520) / 2, y2, 520, "", -1);
     
         y2+= 48;
     }
@@ -4104,6 +4144,8 @@ void draw_cachesel(float x, float y)
     int n;
 
     float y2, x2;
+
+    char ansi[256];
     
 
     SetCurrentFont(FONT_DEFAULT);
@@ -4118,7 +4160,8 @@ void draw_cachesel(float x, float y)
 
     SetFontAutoCenter(0);
   
-    DrawFormatString(x, y - 2, " %s", language[DRAWCACHE_CACHE]);
+    UTF8_to_Ansi(language[DRAWCACHE_CACHE], ansi, 256);
+    DrawFormatString(x, y - 2, " %s", ansi);
     
     x2= DrawFormatString(2000, -2, "hdd0: %.2fGB ", freeSpace[0]);
     x2 = 848 -(x2 - 2000) - x;
@@ -4136,8 +4179,8 @@ void draw_cachesel(float x, float y)
     for(n = (select_option / 8) * 8; (n < (select_option / 8) * 8 + 8); n++) {
         if(n < ncache_list) {
             sprintf(temp_buffer, "%s (%1.2f GB)", cache_list[n].title_id, ((double) cache_list[n].size)/(1024.0*1024.*1024.0));
-            DrawButton1((848 - 520) / 2, y2, 520, temp_buffer, (flash && select_option == n));
-        } else DrawButton1((848 - 520) / 2, y2, 520, "", -1);
+            DrawButton1_UTF8((848 - 520) / 2, y2, 520, temp_buffer, (flash && select_option == n));
+        } else DrawButton1_UTF8((848 - 520) / 2, y2, 520, "", -1);
     
         y2+= 48;
     }
@@ -4154,7 +4197,8 @@ void draw_cachesel(float x, float y)
         SetFontSize(20, 20);
         SetFontColor(0xffff00ff, 0x00000000);
         SetFontAutoCenter(1);
-        DrawFormatString(0, y + 3 * 150 + 6, language[DRAWCACHE_ERRNEEDIT], cache_need_free);
+        UTF8_to_Ansi(language[DRAWCACHE_ERRNEEDIT], ansi, 256);
+        DrawFormatString(0, y + 3 * 150 + 6, ansi, cache_need_free);
         SetFontAutoCenter(0);
 
     } else if(select_option < ncache_list){
