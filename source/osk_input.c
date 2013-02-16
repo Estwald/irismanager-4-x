@@ -292,6 +292,8 @@ end:
 
     sysUtilUnregisterCallback(SYSUTIL_EVENT_SLOT0);
     sysMemContainerDestroy(container_mem);
+
+    osk_level = 0;
     free(message);
     free(OutWcharTex);
 
