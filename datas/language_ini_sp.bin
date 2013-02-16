@@ -207,7 +207,7 @@ DRAWPSX_COPYMC          = Copiando Memory Card a HDD0...
 DRAWPSX_ERRCOPYMC       = Error copiando la Memory Card en HDD0
 DRAWPSX_PUTFNAME        = Introduce un Nombre de Carpeta:
 DRAWPSX_FMUSTB          = El Nombre de la carpeta debe ser >=3 caracteres
-DRAWPSX_PUTADISC        = Mete un disco PSX y puylsa SI para continuar o NO para cancelar@@Disco a copiar: 
+DRAWPSX_PUTADISC        = Mete un disco PSX y pulsa SI para continuar o NO para cancelar@@Disco a copiar: 
 DRAWPSX_UNREC           = Disco no reconocido
 DRAWPSX_ERROPENING      = Error abriendo dispositivo BDVB
 DRAWPSX_ASKEFOLDER      = La Carpeta Existe@@Continuar?
