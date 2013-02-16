@@ -12,6 +12,8 @@ endif
 #---------------------------------------------------------------------------------
 TC_ADD		:=	`date +%d%H%M`
 ICON0		:=	ICON0.PNG
+ICON1		:=	ICON1.PAM
+PIC1		:=	PIC1.PNG
 SFOXML		:=	sfo.xml
 
 # usage:  make BUILD_STEALTH=yes
@@ -161,6 +163,19 @@ run:
 #---------------------------------------------------------------------------------
 pkg:	$(BUILD) $(OUTPUT).pkg
 
+#---------------------------------------------------------------------------------
+
+pkg2: $(BUILD)
+
+	$(VERB) echo building pkg ... $(notdir $@)
+	$(VERB) mkdir -p $(BUILDDIR)/pkg2/USRDIR
+	$(VERB) cp $(ICON0) $(BUILDDIR)/pkg2/ICON0.PNG
+	$(VERB) cp $(ICON1) $(BUILDDIR)/pkg2/ICON1.PAM
+	$(VERB) cp $(PIC1) $(BUILDDIR)/pkg2/PIC1.PNG
+	$(SELF_NPDRM) $(SCETOOL_FLAGS) --np-content-id=$(CONTENTID) --encrypt $(BUILDDIR)/$(TARGET).elf $(BUILDDIR)/pkg2/USRDIR/EBOOT.BIN
+	$(VERB) $(SFO) --title "$(TITLE)" --appid "$(APPID)" -f $(SFOXML) $(BUILDDIR)/pkg2/PARAM.SFO
+	$(VERB) if [ -n "$(PKGFILES)" -a -d "$(PKGFILES)" ]; then cp -rf $(PKGFILES)/* $(BUILDDIR)/pkg2/; fi
+	$(VERB) $(PKG) --contentid $(CONTENTID) $(BUILDDIR)/pkg2/ $(TARGET)_animated.pkg >> /dev/null
 #---------------------------------------------------------------------------------
 
 npdrm: $(BUILD)
