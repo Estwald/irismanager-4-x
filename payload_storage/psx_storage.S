@@ -69,11 +69,10 @@ syscall_usleep:
     MEM_BASE(%r31)
     LOAD_LABEL2(%r30, %r31, datas)
     lwz     %r10, 0x30(%r30)
-    cmplw   %r10, 1
+    cmplw   %r10, 0
     beq     esyscall_usleep
     li      %r3, 1000
     
- 
 esyscall_usleep:
     LOAD_LABEL2(%r11, %r31, syscall_usleep_table)
     ld      %r0, 0x18(%r11)
