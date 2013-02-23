@@ -18,7 +18,7 @@ SFOXML		:=	sfo.xml
 
 # usage:  make BUILD_STEALTH=yes
 ifndef BUILD_STEALTH
-TITLE		:=	IrisManager - v2.10
+TITLE		:=	IrisManager - v2.15
 APPID		:=	IMANAGER4
 else
 TITLE		:=	LEMMINGS™ Trial Version
@@ -46,16 +46,18 @@ SCETOOL_FLAGS	+=	--self-cap-flags 0000000000000000000000000000000000000000000000
 #---------------------------------------------------------------------------------
 TARGET		:=	$(notdir $(CURDIR))
 BUILD		:=	build
-SOURCES		:=	source source/payload341 source/payload355 source/payload355dex source/payload421 source/payload421dex source/payload430 source/payload431
+SOURCES		:=	source source/ftp
+SOURCES		+=  source/payload341 source/payload355 source/payload355dex source/payload421 source/payload421dex source/payload430 source/payload431
 DATA		:=	datas
 SHADERS		:=	shaders
-INCLUDES	:=	include include/payload341 include/payload355 include/payload355dex include/payload421 include/payload421dex include/payload430 include/payload431
+INCLUDES	:=	include include/ftp
+INCLUDES	+=  include/payload341 include/payload355 include/payload355dex include/payload421 include/payload421dex include/payload430 include/payload431
 
 
 #---------------------------------------------------------------------------------
 # any extra libraries we wish to link with the project
 #---------------------------------------------------------------------------------
-LIBS		:=	-lfont -lfreetype -lz -ltiny3d -lnet -lsysfs -lpngdec -ljpgdec -lsimdmath -lgcm_sys -lio -lsysutil -lrt -llv2 -lsysmodule \
+LIBS		:=	-lfont -lfreetype -lz -ltiny3d -lnetctl -lnet -lsysfs -lpngdec -ljpgdec -lsimdmath -lgcm_sys -lio -lsysutil -lrt -llv2 -lsysmodule \
 			-laudioplayer -lmod -lspu_sound -laudio -lm $(PORTLIBS)/modules/spu_soundmodule.bin.a
 
 

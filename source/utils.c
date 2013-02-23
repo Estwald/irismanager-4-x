@@ -833,6 +833,7 @@ static int copy_is_split=0; // return 1 if files is split
 static s64 global_device_bytes=0;
 
 #define MAX_FAST_FILES 16
+#define FILESIZE_MAX 0x200000
 
 typedef struct _t_fast_files
 {
@@ -868,10 +869,11 @@ static int fast_num_files=0;
 
 static int fast_used_mem=0;
 
-static int current_fast_file_r=0;
-static int current_fast_file_w=0;
+static volatile int current_fast_file_r=0;
+static volatile int current_fast_file_w=0;
 
-static int fast_read=0, fast_writing=0;
+static volatile int fast_read=0;
+static volatile int fast_writing=0;
 
 static int files_opened=0;
 
@@ -941,7 +943,7 @@ static int fast_copy_add(char *pathr, char *pathw, char *file)
 
 	sysFSStat s;
 					
-	if(fast_num_files >= MAX_FAST_FILES || fast_used_mem >= 0x400000) {
+	if(fast_num_files >= MAX_FAST_FILES || fast_used_mem >= FILESIZE_MAX) {
 
 	int ret = fast_copy_process();
 
@@ -975,9 +977,19 @@ static int fast_copy_add(char *pathr, char *pathw, char *file)
     if(strl > 7) {
 
 		char *p = file;
-		p+= strl - 7; // adjust for .666xx
+		p+= strl - 7; // adjust for .x.part
 		if(p[0] == '.'  && p[2] == '.' && p[3] == 'p') {  
 			if(p[4] == 'a' ||  p[5] == 'r' ||  p[6] == 't')  {return 0;} // ignore this files
+   				
+		}
+    }
+
+    if(strl > 8) {
+
+		char *p = file;
+		p+= strl - 8; // adjust for .xx.part
+		if(p[0] == '.'  && p[3] == '.' && p[4] == 'p') {  
+			if(p[5] == 'a' ||  p[6] == 'r' ||  p[7] == 't')  {return 0;} // ignore this files
    				
 		}
 		
@@ -990,7 +1002,9 @@ static int fast_copy_add(char *pathr, char *pathw, char *file)
         fast_files[fast_num_files].bigfile_mode = 3; // joining split files
     }
 	
-    if(copy_split_to_cache && fast_files[fast_num_files].bigfile_mode != 2 && fast_files[fast_num_files].bigfile_mode != 3) return 0;
+    if(copy_split_to_cache 
+        && fast_files[fast_num_files].bigfile_mode != 2 
+        && fast_files[fast_num_files].bigfile_mode != 3) return 0;
     
     
     sprintf(fast_files[fast_num_files].pathr, "%s/%s", pathr, file);
@@ -1106,8 +1120,8 @@ static int fast_copy_add(char *pathr, char *pathw, char *file)
 	fast_files[fast_num_files].t_read.fd  = -1;
 	fast_files[fast_num_files].t_write.fd = -1;
 
-	if(((s64) s.st_size) >= 0x200000LL) {
-		size_mem = 0x200000;
+	if(((s64) s.st_size) >= (s64) FILESIZE_MAX) {
+		size_mem = FILESIZE_MAX;
 		fast_files[fast_num_files].use_doublebuffer = 1;
 	} else size_mem = ((int) s.st_size);
 
@@ -1139,7 +1153,7 @@ void fast_func_read(sysFSAio *xaio, s32 error, s32 xid, u64 size)
 	
 }
 
-static s64 write_progress = 0;
+static volatile s64 write_progress = 0;
 
 void fast_func_write(sysFSAio *xaio, s32 error, s32 xid, u64 size)
 {
@@ -1176,8 +1190,11 @@ int fast_copy_process()
     
     write_progress = 0;
 
+    current_fast_file_r = current_fast_file_w = 0;
+
 	
-	while(current_fast_file_w < fast_num_files || fast_writing) {
+	while(current_fast_file_r < fast_num_files || current_fast_file_w < fast_num_files 
+        || fast_writing || files_opened) {
 
 
 		if(abort_copy) break;
@@ -2005,15 +2022,19 @@ static int my_game_countsize(char *path)
 
             UTF8_to_Ansi(language[GAMETESTS_CHECKSIZE], ansi, 512);
 			
-		    sprintf(string1,"%s: %i Vol: %1.2f GB\n", ansi, file_counter, ((double) copy_total_size)/(1024.0*1024.*1024.0));
-		    cls2();
+            if((file_counter  & 15)== 1) {
 
-            DbgHeader( string1);
-            UTF8_to_Ansi(language[GLUTIL_HOLDTRIANGLESK], dbg_str2, 128);
+                sprintf(string1,"%s: %i Vol: %1.2f GB\n", ansi, file_counter, ((double) copy_total_size)/(1024.0*1024.*1024.0));
+                cls2();
 
-            DbgDraw();
-                
-            tiny3d_Flip();
+                DbgHeader( string1);
+                UTF8_to_Ansi(language[GLUTIL_HOLDTRIANGLESK], dbg_str2, 128);
+
+                DbgDraw();
+
+                    
+                tiny3d_Flip();
+            }
 
             pad_last_time = 0;
             ps3pad_read();
@@ -2191,13 +2212,26 @@ static int _my_game_copy(char *path, char *path2)
 		if(abort_copy) break;
 	}
 
+/*
+    if(fast_num_files >= 1) {
+        int ret = fast_copy_process();
+
+        if(ret < 0 || abort_copy) {
+            UTF8_to_Ansi(language[FASTCPADD_FAILED], ansi, 1024);
+            DPrintf("%s%i\n", ansi, ret);
+            abort_copy = 666;
+            DPrintf("Failed in fast_copy_add()\n");
+            sysFsClosedir(dir);
+            return -1;
+        }
+    }
+*/
 	sysFsClosedir(dir);
 	if(abort_copy) return -1;
 
 	return 0;
 
 }
-
 
 static int my_game_copy(char *path, char *path2)
 {

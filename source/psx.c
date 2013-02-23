@@ -17,7 +17,6 @@
 
 */
 
-void UTF8_to_Ansi(char *utf8, char *ansi, int len); // from osk_input
 
 #include <stdio.h>
 #include <malloc.h>
@@ -55,9 +54,19 @@ void UTF8_to_Ansi(char *utf8, char *ansi, int len); // from osk_input
 #include "psx_storage_bin.h"
 #include "syscall8.h"
 
+#include "ttf_render.h"
+
+extern u16 * ttf_texture;
+extern int update_title_utf8;
+extern u8 string_title_utf8[128];
+extern int width_title_utf8;
+
 #define FS_S_IFMT 0170000
 
+void UTF8_to_Ansi(char *utf8, char *ansi, int len); // from osk_input
 void DrawDialogOKTimer(char * str, float milliseconds);
+
+extern int stops_BDVD;
 
 int syscall36(char * path);
 int sys_set_leds(u64 color, u64 state);
@@ -284,19 +293,31 @@ void draw_psx_options(float x, float y, int index)
 
     i = selected;
 
+    u32 str_color = 0xffffffff;
+
     if((directories[currentgamedir].flags  & GAMELIST_FILTER)== (1<<11)) {
-        utf8_to_ansi(bluray_game, temp_buffer, 65);
-        SetFontColor(0x00ff00ff, 0x00000000);
-    } else utf8_to_ansi(directories[currentgamedir].title, temp_buffer, 65);
-
-    temp_buffer[65] = 0;
-
-    if(strlen(temp_buffer) < 50) SetFontSize(22, 32); 
-    else SetFontSize(18, 32);
-
-    SetFontAutoCenter(1);
-
-    DrawFormatString(0, y + 3 * 150, temp_buffer);
+        if(strncmp((char *) string_title_utf8, bluray_game, 64)) {
+            strncpy((char *) string_title_utf8, bluray_game, 128);
+            update_title_utf8 = 1;
+        }
+        str_color = 0x00ff00ff;
+    } else {
+        if(strncmp((char *) string_title_utf8, directories[currentgamedir].title, 64)) {
+            strncpy((char *) string_title_utf8, directories[currentgamedir].title, 128);
+            update_title_utf8 = 1;
+        }
+    }
+   
+    if(update_title_utf8) {
+        width_title_utf8 = Render_String_UTF8(ttf_texture, 768, 32, string_title_utf8, 16, 24);
+        update_title_utf8 = 0;
+    }
+         
+       
+    tiny3d_SetTextureWrap(0, tiny3d_TextureOffset(ttf_texture), 768, 
+            32, 768 * 2, 
+            TINY3D_TEX_FORMAT_A4R4G4B4,  TEXTWRAP_CLAMP, TEXTWRAP_CLAMP,1);
+    DrawTextBox((848 - width_title_utf8) / 2, y + 3 * 150 , 0, 768, 32, str_color);
 
     SetFontAutoCenter(0);
     
@@ -395,6 +416,7 @@ void draw_psx_options(float x, float y, int index)
                     select_option = 0;
                     menu_screen = 0;
                     forcedevices = 1;
+                    stops_BDVD = 1;
 
                 } else {
 
@@ -412,6 +434,7 @@ void draw_psx_options(float x, float y, int index)
                         select_px = select_py = 0;
                         select_option = 0;
                         menu_screen = 0;
+                        stops_BDVD = 1;
                     }
                 }
                 return;
@@ -746,19 +769,31 @@ void draw_psx_options2(float x, float y, int index)
 
     i = selected;
 
+    u32 str_color = 0xffffffff;
+
     if((directories[currentgamedir].flags  & GAMELIST_FILTER)== (1<<11)) {
-        utf8_to_ansi(bluray_game, temp_buffer, 65);
-        SetFontColor(0x00ff00ff, 0x00000000);
-    } else utf8_to_ansi(directories[currentgamedir].title, temp_buffer, 65);
-
-    temp_buffer[65] = 0;
-
-    if(strlen(temp_buffer) < 50) SetFontSize(22, 32); 
-    else SetFontSize(18, 32);
-
-    SetFontAutoCenter(1);
-
-    DrawFormatString(0, y + 3 * 150, temp_buffer);
+        if(strncmp((char *) string_title_utf8, bluray_game, 64)) {
+            strncpy((char *) string_title_utf8, bluray_game, 128);
+            update_title_utf8 = 1;
+        }
+        str_color = 0x00ff00ff;
+    } else {
+        if(strncmp((char *) string_title_utf8, directories[currentgamedir].title, 64)) {
+            strncpy((char *) string_title_utf8, directories[currentgamedir].title, 128);
+            update_title_utf8 = 1;
+        }
+    }
+   
+    if(update_title_utf8) {
+        width_title_utf8 = Render_String_UTF8(ttf_texture, 768, 32, string_title_utf8, 16, 24);
+        update_title_utf8 = 0;
+    }
+         
+       
+    tiny3d_SetTextureWrap(0, tiny3d_TextureOffset(ttf_texture), 768, 
+            32, 768 * 2, 
+            TINY3D_TEX_FORMAT_A4R4G4B4,  TEXTWRAP_CLAMP, TEXTWRAP_CLAMP,1);
+    DrawTextBox((848 - width_title_utf8) / 2, y + 3 * 150 , 0, 768, 32, str_color);
 
     SetFontAutoCenter(0);
     
@@ -1551,8 +1586,9 @@ int psx_iso_prepare(char *path, char *name)
             
             ps3pad_read();
 
-
-            if(lv2peek(0x8000000000001820ULL) == 0x455053315F454D55ULL && (old_pad & BUTTON_CIRCLE)) {
+            u64 value = lv2peek(0x8000000000001820ULL);
+            if((value == 0x455053315F454D55ULL || value == 0x45505331454D5531ULL)
+                && (old_pad & BUTTON_CIRCLE)) {
                 if(!noBDVD)
                     lv2poke(0x8000000000001830ULL, (u64) 2); // disable CD
                 else
@@ -1602,12 +1638,28 @@ int psx_iso_prepare(char *path, char *name)
             UTF8_to_Ansi(language[DRAWPSX_DISCORDER], ansi, 256);
             DrawFormatString(x, y - 2, " %s", ansi);
 
-            utf8_to_ansi((char *) name, temp_buffer, 65);
+            /*utf8_to_ansi((char *) name, temp_buffer, 65);
 
             SetFontSize(16, 20);
 
             x2 = DrawFormatString(1024, y - 2, "%s", temp_buffer);
             DrawFormatString(848 -(x2 -1024) - x , y - 2, "%s", temp_buffer);
+            */
+
+            if(strncmp((char *) string_title_utf8, name, 64)) {
+                strncpy((char *) string_title_utf8, name, 128);
+                update_title_utf8 = 1;
+            }
+
+            if(update_title_utf8) {
+                width_title_utf8 = Render_String_UTF8(ttf_texture, 768, 32, string_title_utf8, 16, 24);
+                update_title_utf8 = 0;
+            }
+
+            tiny3d_SetTextureWrap(0, tiny3d_TextureOffset(ttf_texture), 768, 
+                32, 768 * 2, TINY3D_TEX_FORMAT_A4R4G4B4,  TEXTWRAP_CLAMP, TEXTWRAP_CLAMP,1);
+
+            DrawTextBox((848 - width_title_utf8) - x, y - 2 , 0, 768, 32, 0xffffffff);
             y += 24;
 
             DrawBox(x, y, 0, 200 * 4 - 8, 150 * 3 - 8, 0x00000028);
@@ -1852,14 +1904,39 @@ int psx_iso_prepare(char *path, char *name)
     return nfiles;
 }
 
+void unload_psx_payload()
+{
+    u64 value = lv2peek(0x8000000000001820ULL);
+
+    if(value == 0x455053315F454D55ULL) { // old method
+        lv2poke(0x8000000000001830ULL, (u64) 1); // disable emulation
+    } else if(value == 0x45505331454D5531ULL) { // new method
+        lv2poke(0x8000000000001830ULL, (u64) 1); // disable emulation
+        
+        // restore syscalls bases
+        value = lv2peek(0x8000000000001898ULL); // 141 (usleep syscall base)
+        sys8_memcpy(syscall_base + (u64) (141 * 8),(u64) &value, 8);
+        value = lv2peek(0x80000000000018A0ULL); // 604 (send cmd syscall base)
+        sys8_memcpy(syscall_base + (u64) (604 * 8),(u64) &value, 8);
+        value = lv2peek(0x80000000000018A8ULL); // 600 (open syscall base)
+        sys8_memcpy(syscall_base + (u64) (600 * 8),(u64) &value, 8);
+    }
+}
 
 void load_psx_payload()
 {
     int n;
 
+    static int one = 0;
+
+    if(one) return;
+
+    one = 1;
+
     // 0x1720 -> 0x180e bytes free in 4.31
     u64 addr = 0x8000000000001820ULL;
-    u64 addr2, addr3, addr4, addr5, toc, addrt;
+    u64 addr2, addr3, addr4, toc, addrt;
+    u64 base1, base2, base3;
 
 #if 0
     int m;
@@ -1867,33 +1944,38 @@ void load_psx_payload()
     char * mdata= LoadFile(temp_buffer, &m);
     if(!mdata) return;
 #endif
-   
+    
+    // for old compatibility
     if(lv2peek(addr) == 0x455053315F454D55ULL) {
         addr2 = lv2peek(0x8000000000001850ULL);  // 600 function
         toc   = lv2peek(0x8000000000001840ULL);  // get syscall toc
         addr3 = lv2peek(0x8000000000001870ULL);  // 604 function
         addr4 = lv2peek(0x8000000000001890ULL);  // get usleep function
-        addr5 = lv2peek(0x8000000000001898ULL);  // get usleep syscall base
+        base3 = lv2peek(0x8000000000001898ULL);  // get usleep syscall base
 
-        lv2poke(syscall_base + (u64) (141 * 8), addr5); // restore usleep base syscall
+        lv2poke(syscall_base + (u64) (141 * 8), base3); // restore usleep base syscall
+
+        base1 = base2 = 0;
 
     } else {
 
-        for(n = 0; n < psx_storage_bin_size + 8; n+= 8) {
-            if(lv2peek(addr + (u64) n)) {
-                DrawDialogOK("Error: The LV2 space for psx_storage is not empty\n\nExiting to the XMB");
-                exit(0);
+        if(lv2peek(addr) != 0x45505331454D5531ULL) {
+            for(n = 0; n < psx_storage_bin_size + 8; n+= 8) {
+                if(lv2peek(addr + (u64) n)) {
+                    DrawDialogOK("Error: The LV2 space for psx_storage is not empty\n\nExiting to the XMB");
+                    exit(0);
+                }
             }
         }
 
-        addr2 = lv2peek(syscall_base + (u64) (600 * 8));
-        toc   = lv2peek(addr2 + 0x8ULL);
-        addr2 = lv2peek(addr2);
-        addr3 = lv2peek(syscall_base + (u64) (604 * 8));
-        addr3 = lv2peek(addr3);
-        addr4 = lv2peek(syscall_base + (u64) (141 * 8));
-        addr5 = addr4;
-        addr4 = lv2peek(addr4);
+        base1 = lv2peek(syscall_base + (u64) (600 * 8));
+        toc   = lv2peek(base1 + 0x8ULL);
+        addr2 = lv2peek(base1);
+        base2 = lv2peek(syscall_base + (u64) (604 * 8));
+        addr3 = lv2peek(base2);
+        base3 = lv2peek(syscall_base + (u64) (141 * 8));
+      
+        addr4 = lv2peek(base3);
     
     }
 
@@ -1917,7 +1999,12 @@ void load_psx_payload()
         lv2poke(0x8000000000001870ULL, addr3); // 604
         lv2poke(0x8000000000001880ULL, toc);
         lv2poke(0x8000000000001890ULL, addr4); // 141 (usleep function)
-        lv2poke(0x8000000000001898ULL, addr5); // 141 (usleep syscall base)
+        lv2poke(0x8000000000001898ULL, base3); // 141 (usleep syscall base)
+
+        if(base1) {
+            lv2poke(0x80000000000018A0ULL, base2); // 604 (send cmd syscall base)
+            lv2poke(0x80000000000018A8ULL, base1); // 600 (open syscall base)
+        }
         
       
         addrt = addr + 0x18ULL;
@@ -1938,6 +2025,9 @@ void load_psx_payload()
        lv2poke(0x8000000000001830ULL, (u64) 0); // enable emulation
    else
        lv2poke(0x8000000000001830ULL, (u64)((1ULL<<32))); // enable emulation
+
+   // old over new
+   if(!base1) lv2poke(0x8000000000001820ULL, 0x455053315F454D55ULL);
 
 }
 
@@ -2239,7 +2329,7 @@ int open_bdvd(u64 *total_sector, u32 *sector_size)
 	if(bdvd_id < 0 && sys_storage_open(BD_DEVICE, &bdvd_id) < 0) return -1;
 	
     if(sys_storage_get_device_info(BD_DEVICE, &disc_info)<0) {
-        sys_storage_close(bdvd_id);
+        sys_storage_close(bdvd_id); bdvd_id = -1;
         return -2;
     }
 
@@ -2283,7 +2373,8 @@ int read_raw_sector_bdvd(u32 sector, void *buffer, u32 sector_size, int n_sector
     atapi_cmd.block_size = sector_size;
     atapi_cmd.proto = 3;
     atapi_cmd.in_out = 1;
-    
+
+   
     while(1) {
         ret = sys_storage_send_device_cmd(bdvd_id, 1, &atapi_cmd, sizeof(struct lv2_atapi_cmnd_block), buffer, sector_size * (u32) n_sectors);
         if(((u32) ret) != 0x8001000A) break;
@@ -2320,6 +2411,45 @@ int get_toc_bdvd(void *buffer, u32 size)
     }
 
     return ret;
+}
+
+
+int load_unload_bdvd(int mode)
+{
+    int ret;    
+
+    if(bdvd_id < 0) return -2;
+
+    memset(&atapi_cmd, 0, sizeof(struct lv2_atapi_cmnd_block));
+
+    atapi_cmd.pkt[0] = 0x1b;
+    atapi_cmd.pkt[1] = (mode & 128)!=0;
+    atapi_cmd.pkt[4] =(mode & 3);
+
+
+    atapi_cmd.pktlen = 12;
+    atapi_cmd.blocks = 0;
+    atapi_cmd.block_size = 0;
+    atapi_cmd.proto = 0;
+    atapi_cmd.in_out = 1;
+
+    while(1) {
+        ret = sys_storage_send_device_cmd(bdvd_id, 1, &atapi_cmd, sizeof(struct lv2_atapi_cmnd_block), NULL, 0);
+        if(((u32) ret) != 0x8001000A) break;
+    }
+
+    return ret;
+}
+
+void Eject_BDVD(int mode)
+{
+    int ret;
+
+    if(bdvd_id < 0 && sys_storage_open(BD_DEVICE, &bdvd_id) < 0) return;
+
+    ret=load_unload_bdvd(mode);
+
+    close_bdvd();
 }
 
 void LoadPSXOptions(char *path)

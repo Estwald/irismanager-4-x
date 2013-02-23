@@ -31,9 +31,9 @@
 #include <sys/stat.h>
 #include <lv2/sysfs.h>
 
-#ifdef USE_DISC_CALLBACK
-  #include <sysutil/disc.h>
-#endif
+
+#include <sysutil/disc.h>
+
 
 #include <sysmodule/sysmodule.h>
 #include <pngdec/pngdec.h>
@@ -60,12 +60,37 @@
 #include <gcmodplay.h>
 #include "credits.h"
 #include "main.h"
+
+#include "ttf_render.h"
+#include "gfx.h"
+#include "utils.h"
+#include "pad.h"
+
+#include "ftp.h"
+#include "psx.h"
+
+// include fonts
+#include "comfortaa_ttf_bin.h"
+#include "comfortaa_bold_ttf_bin.h"
+
+// font 2: 224 chr from 32 to 255, 16 x 32 pix 2 bit depth
+#include "font_b.h"
+
+#include "bluray_png_bin.h"
+#include "direct_png_bin.h"
+#include "usb_png_bin.h"
+#include "missing_png_bin.h"
+#include "ftp_png_bin.h"
+#include "psone_png_bin.h"
+#include "psoneiso_png_bin.h"
+
 #include "music1_mod_bin.h"
 #include "music2_mod_bin.h"
 #include "music3_mod_bin.h"
-#include "psx.h"
 
 int noBDVD = 0;
+
+int stops_BDVD = 1;
 
 int mode_homebrew = 0;
 int game_list_category = 0;
@@ -88,6 +113,12 @@ int (*lv2_unpatch_storage)(void) = NULL;
 
 void UTF8_to_Ansi(char *utf8, char *ansi, int len); // from osk_input
 
+u16 * ttf_texture;
+int update_title_utf8 = 1;
+u8 string_title_utf8[128] = "";
+int width_title_utf8 = 0;
+
+
 // music
 char * music[6] = {
             (char *) music1_mod_bin, 
@@ -108,32 +139,6 @@ sysSpuImage spu_image;
 MODPlay mod_track;
 
 u64 frame_count = 0;
-
-// you need the Oopo ps3libraries to work with freetype
-
-#include <ft2build.h>
-#include <freetype/freetype.h> 
-#include <freetype/ftglyph.h>
-
-#include "gfx.h"
-#include "utils.h"
-#include "pad.h"
-
-#include "ftp.h"
-
-// include fonts
-#include "comfortaa_ttf_bin.h"
-#include "comfortaa_bold_ttf_bin.h"
-
-// font 2: 224 chr from 32 to 255, 16 x 32 pix 2 bit depth
-#include "font_b.h"
-#include "bluray_png_bin.h"
-#include "direct_png_bin.h"
-#include "usb_png_bin.h"
-#include "missing_png_bin.h"
-#include "ftp_png_bin.h"
-#include "psone_png_bin.h"
-#include "psoneiso_png_bin.h"
 
 #define ROT_INC(x ,y , z) {x++; if(x > y) x = z;}
 #define ROT_DEC(x ,y , z) {x--; if(x < y) x = z;}
@@ -164,6 +169,8 @@ u32 Png_res_offset[16];
 
 extern char * language[];
 char self_path[MAXPATHLEN]= "/"__MKDEF_MANAGER_FULLDIR__;
+
+char temp_buffer[8192];
 
 
 int LoadPNG(PngDatas *png, const char *filename)
@@ -370,6 +377,8 @@ void get_games()
 {
     int n;
 
+    stops_BDVD = 1;
+
     if(currentdir < 0 ||  currentdir >= ndirectories) currentdir = 0;
 
     if(mode_favourites) {
@@ -406,95 +415,6 @@ void get_games()
 
 }
 
-/******************************************************************************************************************************************************/
-/* TTF functions to load and convert fonts                                                                                                             */
-/******************************************************************************************************************************************************/
-
-int ttf_inited = 0;
-
-FT_Library freetype;
-FT_Face face;
-
-/* TTFLoadFont can load TTF fonts from device or from memory:
-
-path = path to the font or NULL to work from memory
-
-from_memory = pointer to the font in memory. It is ignored if path != NULL.
-
-size_from_memory = size of the memory font. It is ignored if path != NULL.
-
-*/
-
-int TTFLoadFont(char * path, void * from_memory, int size_from_memory)
-{
-   
-    if(!ttf_inited)
-        FT_Init_FreeType(&freetype);
-    ttf_inited = 1;
-
-    if(path) {
-        if(FT_New_Face(freetype, path, 0, &face)) return -1;
-    } else {
-        if(FT_New_Memory_Face(freetype, from_memory, size_from_memory, 0, &face)) return -1;
-        }
-
-    return 0;
-}
-
-/* release all */
-
-void TTFUnloadFont()
-{
-   FT_Done_FreeType(freetype);
-   ttf_inited = 0;
-}
-
-/* function to render the character
-
-chr : character from 0 to 255
-
-bitmap: u8 bitmap passed to render the character character (max 256 x 256 x 1 (8 bits Alpha))
-
-*w : w is the bitmap width as input and the width of the character (used to increase X) as output
-*h : h is the bitmap height as input and the height of the character (used to Y correction combined with y_correction) as output
-
-y_correction : the Y correction to display the character correctly in the screen
-
-*/
-
-void TTF_to_Bitmap(u8 chr, u8 * bitmap, short *w, short *h, short *y_correction)
-{
-    FT_Set_Pixel_Sizes(face, (*w), (*h));
-    
-    FT_GlyphSlot slot = face->glyph;
-
-    memset(bitmap, 0, (*w) * (*h));
-
-    if(FT_Load_Char(face, (char) chr, FT_LOAD_RENDER )) {(*w) = 0; return;}
-
-    int n, m, ww;
-
-    *y_correction = (*h) - 1 - slot->bitmap_top;
-    
-    ww = 0;
-
-    for(n = 0; n < slot->bitmap.rows; n++) {
-        for (m = 0; m < slot->bitmap.width; m++) {
-
-            if(m >= (*w) || n >= (*h)) continue;
-            
-            bitmap[m] = (u8) slot->bitmap.buffer[ww + m];
-        }
-    
-    bitmap += *w;
-
-    ww += slot->bitmap.width;
-    }
-
-    *w = ((slot->advance.x + 31) >> 6) + ((slot->bitmap_left < 0) ? -slot->bitmap_left : 0);
-    *h = slot->bitmap.rows;
-}
-
 
 void DrawCenteredBar2D(float y, float w, float h, u32 rgba)
 {
@@ -512,6 +432,7 @@ void DrawCenteredBar2D(float y, float w, float h, u32 rgba)
     tiny3d_VertexPos(x    , y + h, 1.0f);
     tiny3d_End();
 }
+
 
 void LoadTexture()
 {
@@ -540,6 +461,15 @@ void LoadTexture()
     texture_pointer = (u32 *) AddFontFromTTF((u8 *) texture_pointer, 32, 255, 24, 24, TTF_to_Bitmap);
     TTFUnloadFont();
 
+    
+    if(TTFLoadFont("/dev_flash/data/font/SCE-PS3-NR-R-JPN.TTF", NULL, 0)!=0) {
+        sprintf(temp_buffer, "%s/font.ttf", self_path);
+        if(TTFLoadFont(temp_buffer, NULL, 0)!=0) {
+            TTFLoadFont(NULL, (void *) comfortaa_bold_ttf_bin, comfortaa_bold_ttf_bin_size);
+        }
+    }
+    
+
     Load_PNG_resources();
 
     for(i = 0; i < 16; i++) {
@@ -561,6 +491,9 @@ void LoadTexture()
     }
 
 
+    ttf_texture = (u16 *) texture_pointer;
+
+    texture_pointer += 1024 * 16;
 
     png_texture = (u8 *) texture_pointer;
 }
@@ -670,7 +603,7 @@ u64 hmanager_key = 0x1759829723742374ULL;
 
 // manager
 
-char temp_buffer[8192];
+
 char payload_str[256];
 
 int videoscale_x = 0;
@@ -778,6 +711,8 @@ void fun_exit()
     one = 0;
 
     close_language();
+    TTFUnloadFont();
+
     ftp_deinit();
 
     if(inited & INITED_SOUNDLIB) {
@@ -850,7 +785,6 @@ void LoadManagerCfg()
 // disable here the ftp init 
     if (manager_cfg.opt_flags & OPTFLAGS_FTP) // maybe we need add an icon to user...
     {
-        ftp_perms = 1;
 
         if(ftp_init() == 0)
         {
@@ -895,11 +829,11 @@ void auto_ftp(void)
     one= 0;
      if (manager_cfg.opt_flags & OPTFLAGS_FTP) // maybe we need add an icon to user...
     {
-        ftp_perms = 1;
 
         if(ftp_init() == 0)
         {
             ftp_inited = 1; //DrawDialogOK("FTP Service init on boot: OK");
+            
         }
     }
 }
@@ -1027,10 +961,10 @@ void Select_games_folder()
         }
     }
     
-    dir = opendir ("/dev_hdd0/" __MKDEF_GAMES_DIR);
+    dir = opendir ("/dev_hdd0/"__MKDEF_GAMES_DIR);
     if(dir) {
         closedir (dir);
-        sprintf(temp_buffer, "%s %s %s", language[GAMEFOLDER_WANTUSE], "/dev_hdd0/" __MKDEF_GAMES_DIR, language[GAMEFOLDER_TOINSTALLNTR]); 
+        sprintf(temp_buffer, "%s %s %s", language[GAMEFOLDER_WANTUSE], "/dev_hdd0/"__MKDEF_GAMES_DIR, language[GAMEFOLDER_TOINSTALLNTR]); 
 
         if(DrawDialogYesNo(temp_buffer) == 1) {
             strncpy(hdd_folder, "dev_hdd0", 64);
@@ -1053,7 +987,7 @@ void Select_games_folder()
 
             if(!(entry->d_type & DT_DIR)) continue;
 
-            sprintf(temp_buffer, "/dev_hdd0/game/%s/" __MKDEF_GAMES_DIR, entry->d_name);
+            sprintf(temp_buffer, "/dev_hdd0/game/%s/"__MKDEF_GAMES_DIR, entry->d_name);
         
             dir2 = opendir (temp_buffer);
 
@@ -1147,12 +1081,15 @@ int firmware = 0;
 
 /******************************************************************************************************************************************************/
 
-static int bdvd_notify = 0;
+static volatile int bdvd_notify = 0;
 
-#ifdef USE_DISC_CALLBACK
+static volatile int bdvd_ejected = 0;
+
+
 void DiscEjectCallback(void)
 {
     bdvd_notify = -1;
+    bdvd_ejected = 1;
 }
 
 void DiscInsertCallback(u32 discType, char *title)
@@ -1165,8 +1102,15 @@ void DiscInsertCallback(u32 discType, char *title)
     }
     
     bdvd_notify = 1;
+    bdvd_ejected = 0;
+
+    mode_favourites = 0;
+    select_option = 0;     
+    menu_screen = 0;
+    select_px = 0;
+    select_py = 0;
+    currentgamedir = currentdir = 0;
 }
-#endif
 
 int is_libfs_patched(void){
     struct stat s;
@@ -1423,9 +1367,9 @@ s32 main(s32 argc, const char* argv[])
         if((test & 0xff00) == 0x200)
         {
             if(payload_mode == ZERO_PAYLOAD)
-                sprintf(payload_str, "payload-sk10 - new syscall8 v%i (libfs_patched %s)", test, is_libfs_patched()? "found!": "not found");
+                sprintf(payload_str, "payload-sk10 - new syscall8 v%i (libfs_patched %s)", test & 0xff, is_libfs_patched()? "found!": "not found");
             else if (payload_mode == SKY10_PAYLOAD)
-                sprintf(payload_str, "payload-sk10 resident - new syscall8 v%i (libfs_patched %s)", test, is_libfs_patched()? "found!": "not found");
+                sprintf(payload_str, "payload-sk10 resident - new syscall8 v%i (libfs_patched %s)", test & 0xff, is_libfs_patched()? "found!": "not found");
         } else if(test < 7)
         {       sys8_disable_all = 1;
                 sprintf(payload_str, "payload-sk10 - new syscall8 Err?! v(%i)", test);
@@ -1448,9 +1392,7 @@ s32 main(s32 argc, const char* argv[])
     }
 
     // disable ps1 emulation
-    if(lv2peek(0x8000000000001820ULL) == 0x455053315F454D55ULL) {
-        lv2poke(0x8000000000001830ULL, (u64) 1); // disable emulation
-    }
+    unload_psx_payload();
 
     {
     FILE *fp =fopen("/dev_hdd0/game/HOMELAUN1/path.bin", "rb");
@@ -1582,16 +1524,19 @@ s32 main(s32 argc, const char* argv[])
     init_music();
     
     if(!noBDVD && lv2_patch_storage) {
-        if(!bdvd_notify)
-            Reset_BDVD();
-            
-            bdvd_notify = 1;
+        if(!bdvd_notify) {
+            DIR  *dir;
+            dir = opendir("/dev_bdvd");
+
+                if (dir)
+                    closedir (dir);
+                else Reset_BDVD();
+        }
+
+        bdvd_notify = 1;
     }
 
-    #ifdef USE_DISC_CALLBACK
     sysDiscRegisterDiscChangeCallback(&DiscEjectCallback, &DiscInsertCallback);
-    #endif
-
 
     sprintf(temp_buffer, "%s/config/", self_path);
 
@@ -1602,6 +1547,8 @@ s32 main(s32 argc, const char* argv[])
     LoadFavourites(temp_buffer, HOMEBREW_MODE);
 
     GetFavourites(mode_homebrew);
+
+    sys_fs_umount("/dev_rewrite");
 
     while(!exit_program) {
 
@@ -1619,14 +1566,6 @@ s32 main(s32 argc, const char* argv[])
 
         if(tiny3d_MenuActive()) frame_count = 32; // to avoid the access to hdd when menu is active
 
-        #ifndef USE_DISC_CALLBACK
-        if(!psx_inserted && !(fdevices & (1<<11)) && (frame_count & 63) == 62) {
-            if(!noBDVD && lv2_patch_storage) {
-                Reset_BDVD();
-            }
-        }
-        #endif
-        
 
         if(forcedevices || (frame_count & 63)==0 || fdevices == 0)
 	    for(find_device = 0; find_device < 12; find_device++) {
@@ -1635,18 +1574,17 @@ s32 main(s32 argc, const char* argv[])
 			else if(find_device==0) sprintf(filename, "/dev_hdd0");
 			else sprintf(filename, "/dev_usb00%c", 47+find_device);
 
-            #ifdef USE_DISC_CALLBACK
+           
             if((!forcedevices || (fdevices & 2048)) && find_device == 11 && bdvd_notify == 0) {goto skip_bdvd;}
-            #endif
+          
 
             DIR  *dir;
 
-            #ifdef USE_DISC_CALLBACK
+            
             if(find_device == 11 && psx_inserted < 0) {
                 dir = NULL;
             } else
-            #endif
-			dir = opendir (filename);
+                dir = opendir (filename);
 
 			if (dir) {
                 closedir (dir);
@@ -1679,9 +1617,8 @@ s32 main(s32 argc, const char* argv[])
                 }
             }
 
-            #ifdef USE_DISC_CALLBACK
             skip_bdvd:
-            #endif
+            
 
 			// limit to 3 the devices selectables
 			if(((fdevices>>find_device) & 1) && find_device!=11) {
@@ -1718,6 +1655,7 @@ s32 main(s32 argc, const char* argv[])
 
                     }
                     else {
+           
 					    sprintf(filename, "/dev_bdvd/PS3_GAME/PARAM.SFO");
 					    bluray_game[0]=0;
 					    // whatever... unused if -- remove later?
@@ -1728,7 +1666,7 @@ s32 main(s32 argc, const char* argv[])
 					if(((fdevices>>11) & 1)  && !mode_homebrew) {
 
 						if(ndirectories>=MAX_DIRECTORIES) ndirectories= MAX_DIRECTORIES-1;
-								
+                        					
 						sprintf(directories[ndirectories].path_name, "/dev_bdvd");
 								
 					    memcpy(directories[ndirectories].title, bluray_game, 63);
@@ -1741,11 +1679,40 @@ s32 main(s32 argc, const char* argv[])
                         } else
                             strncpy(directories[ndirectories].title_id, "PSX-GAME", 64);
 
+                        ndirectories++;
+                        found_game_insert=1;
+
+                        s32 fdr;
+
+                        if(!sysLv2FsOpen("/dev_bdvd/PS3_GAME/USRDIR/EBOOT.BIN", 0, &fdr, S_IRWXU | S_IRWXG | S_IRWXO, NULL, 0)) {
+                            u64 bytes;
+                            u32 dat;
+                            if(sysLv2FsRead(fdr, (void *) &dat, 4, &bytes)!=0) bytes =0LL;
+
+                            if(bytes == 4 && dat != 0x53434500) {
+
+                                if(!noBDVD && lv2_patch_storage) {
+                                    bdvd_notify = 0;
+                                    Eject_BDVD(EJECT_BDVD);
+                                    Eject_BDVD(NOWAIT_BDVD | LOAD_BDVD);
+                                    
+                                } else DrawDialogOK("Warning!. You must eject/load the disc");
+
+                                ndirectories--;
+                                
+                                psx_inserted = 0;
+                                fdevices&= ~ (1<<11);
+                                goto skip_bdvd;
+                            
+                            }
+                        }
+
+                        //stops_BDVD = 0;
+                        //Eject_BDVD(NOWAIT_BDVD | STOP_BDVD);
                         //parse_param_sfo_id(filename, directories[ndirectories].title_id);
                         //directories[ndirectories].title_id[63]=0;
                        
-						ndirectories++;
-                        found_game_insert=1;
+						
 
 		    	    } else {
 						
@@ -1829,6 +1796,14 @@ s32 main(s32 argc, const char* argv[])
         found_game_insert=0;
 
         pause_music(0);
+
+        if(stops_BDVD) {
+            stops_BDVD++;
+            if(stops_BDVD >= 60 * 2) {
+                stops_BDVD = 0;
+                Eject_BDVD(NOWAIT_BDVD | STOP_BDVD);
+            }
+        }
 
         /////////////////////////////////////
 
@@ -2054,7 +2029,10 @@ void draw_screen1(float x, float y)
 
     float x2;
 
-    static char str_home[2][16]={" Homebrew",""};
+    //static char str_home[2][16]={" Homebrew",""};
+    static char str_home[4][16]={" Homebrew", "", " PS3", " PSX"};
+
+    int str_type = (mode_homebrew == HOMEBREW_MODE) ? 0 : 1 + game_list_category;
 
     int selected = select_px + select_py * 4;
 
@@ -2074,19 +2052,19 @@ void draw_screen1(float x, float y)
 
     if(mode_favourites >= 131072) {
         UTF8_to_Ansi(language[DRAWSCREEN_FAVSWAP], ansi, 256);
-        DrawFormatString(x, y - 2, " %s%s", ansi, &str_home[!mode_homebrew][0]);
+        DrawFormatString(x, y - 2, " %s%s", ansi, &str_home[str_type][0]);
     }
     else if(mode_favourites >= 65536) {
         UTF8_to_Ansi(language[DRAWSCREEN_FAVINSERT], ansi, 256);
-        DrawFormatString(x, y - 2, " %s%s", ansi, &str_home[!mode_homebrew][0]);
+        DrawFormatString(x, y - 2, " %s%s", ansi, &str_home[str_type][0]);
     }
     else if(mode_favourites) {
         UTF8_to_Ansi(language[DRAWSCREEN_FAVORITES], ansi, 256);
-        DrawFormatString(x, y - 2, " %s%s", ansi, &str_home[!mode_homebrew][0]);
+        DrawFormatString(x, y - 2, " %s%s", ansi, &str_home[str_type][0]);
     }
     else {
         UTF8_to_Ansi(language[DRAWSCREEN_PAGE], ansi, 256);
-        DrawFormatString(x, y - 5, " %s %i/%i (%i %s)%s", ansi, currentdir/12 + 1, ROUND_UP12(ndirectories)/12, ndirectories, language[DRAWSCREEN_GAMES], &str_home[!mode_homebrew][0]);
+        DrawFormatString(x, y - 5, " %s %i/%i (%i %s)%s", ansi, currentdir/12 + 1, ROUND_UP12(ndirectories)/12, ndirectories, language[DRAWSCREEN_GAMES], &str_home[str_type][0]);
     }
 
     // list device space
@@ -2328,23 +2306,42 @@ void draw_screen1(float x, float y)
 
     if((Png_offset[i] && !mode_favourites) || (mode_favourites && favourites.list[i].title_id[0] != 0)) {
 
+        
+        u32 str_color = 0xffffffee;
+
         if(mode_favourites) {
 
-            utf8_to_ansi(favourites.list[i].title, temp_buffer, 65);
+            if(strncmp((char *) string_title_utf8, favourites.list[i].title, 64)) {
+                strncpy((char *) string_title_utf8, favourites.list[i].title, 128);
+                update_title_utf8 = 1;
+            }
 
         } else if((directories[(currentdir + i)].flags  & GAMELIST_FILTER)== (1<<11)) {
-            utf8_to_ansi(bluray_game, temp_buffer, 65);
-            SetFontColor(0xafd836ee, 0x00000000);
-        } else utf8_to_ansi(directories[(currentdir + i)].title, temp_buffer, 65);
+         
+            str_color = 0xafd836ee;
+            if(strncmp((char *) string_title_utf8, bluray_game, 64)) {
+                strncpy((char *) string_title_utf8, bluray_game, 128);
+                update_title_utf8 = 1;
+            }
 
-        temp_buffer[65] = 0;
+        } else {
 
-        if(strlen(temp_buffer) < 50) SetFontSize(28, 28); 
-        else SetFontSize(20, 20);
+            if(strncmp((char *) string_title_utf8, directories[(currentdir + i)].title, 64)) {
+                strncpy((char *) string_title_utf8, directories[(currentdir + i)].title, 128);
+                update_title_utf8 = 1;
+            }
+        }
 
-        SetFontAutoCenter(0);
-  
-        DrawFormatString(x + 3, y + 3 * 150, temp_buffer);
+        if(update_title_utf8) {
+            width_title_utf8 = Render_String_UTF8(ttf_texture, 768, 32, string_title_utf8, 16, 24);
+            update_title_utf8 = 0;
+        }
+
+        tiny3d_SetTextureWrap(0, tiny3d_TextureOffset(ttf_texture), 768, 
+                32, 768 * 2, 
+                TINY3D_TEX_FORMAT_A4R4G4B4,  TEXTWRAP_CLAMP, TEXTWRAP_CLAMP,1);
+        DrawTextBox(x + 3, y + 3 * 150 , 0, 768, 32, str_color);
+       
 
         SetFontAutoCenter(0);
 
@@ -2430,6 +2427,17 @@ void draw_screen1(float x, float y)
         } else {
             if(DrawDialogYesNo(language[DRAWSCREEN_EXITXMB])==1) {exit_program = 1; return;}
         }
+    }
+
+    if(new_pad & BUTTON_SQUARE) {
+       
+        if(!mode_homebrew) {
+            if(!bdvd_ejected)
+                Eject_BDVD(NOWAIT_BDVD | EJECT_BDVD);
+            else
+                Eject_BDVD(NOWAIT_BDVD | LOAD_BDVD);
+        }
+            
     }
 
     if(new_pad & BUTTON_CROSS) {
@@ -2847,6 +2855,7 @@ void draw_screen1(float x, float y)
 
         if(Png_offset[i]) {
             
+            stops_BDVD = 1;
             Png_offset[12] = 0;
 
             if(!mode_favourites || (mode_favourites != 0 && favourites.list[i].index >= 0)) {
@@ -3010,9 +3019,6 @@ void draw_screen1(float x, float y)
 
     if(new_pad & BUTTON_R3) //change games/homebrew
     {
-        SetFavourites(mode_homebrew);
-        mode_homebrew ^=HOMEBREW_MODE;
-        GetFavourites(mode_homebrew);
 
         select_px = select_py = 0;
         select_option = 0;
@@ -3025,10 +3031,60 @@ void draw_screen1(float x, float y)
         forcedevices=0;
         find_device=0;
         bdvd_notify = 1;
+        currentdir = 0;
 
-        mode_favourites = 1; currentdir = 0;
+        if(game_list_category == 0 && !mode_homebrew) {
+            SetFavourites(mode_homebrew);
+            mode_homebrew ^=HOMEBREW_MODE;
+            GetFavourites(mode_homebrew);
+            mode_favourites = 1; 
+        } else if(mode_homebrew) {
+            game_list_category=1;
+            SetFavourites(mode_homebrew);
+            mode_homebrew ^=HOMEBREW_MODE;
+            GetFavourites(mode_homebrew);
+            mode_favourites = 0;
+        } else {
+            mode_favourites = 0;
+            game_list_category++; if(game_list_category > 2) {game_list_category = 0;mode_favourites = 1;}
+        }
     }
 
+    if(new_pad & BUTTON_L3) //change games/homebrew
+    {
+
+        select_px = select_py = 0;
+        select_option = 0;
+        menu_screen = 0;
+        
+        ndirectories = 0;
+
+        fdevices=0;
+        fdevices_old=0;
+        forcedevices=0;
+        find_device=0;
+        bdvd_notify = 1;
+        currentdir = 0;
+
+        if(game_list_category == 1 && !mode_homebrew) {
+            SetFavourites(mode_homebrew);
+            mode_homebrew ^=HOMEBREW_MODE;
+            GetFavourites(mode_homebrew);
+            mode_favourites = 1; 
+        } else if(mode_homebrew) {
+            SetFavourites(mode_homebrew);
+            mode_homebrew ^=HOMEBREW_MODE;
+            GetFavourites(mode_homebrew);
+            game_list_category=0;
+            mode_favourites = 1;
+        } else {
+            mode_favourites = 0;
+            game_list_category--; 
+            if(game_list_category < 0) {game_list_category = 2;}
+        }
+    }
+
+/*
     if(!mode_homebrew && (new_pad & BUTTON_R2)) //change games category PS3/PSX PS3 PSX
     {
         game_list_category++; if(game_list_category > 2) game_list_category = 0;
@@ -3066,7 +3122,7 @@ void draw_screen1(float x, float y)
 
         mode_favourites = 0; currentdir = 0;
     }
-    
+*/
 }
 
 
@@ -3215,21 +3271,33 @@ void draw_options(float x, float y, int index)
 
     if(Png_offset[i]) {
 
+        
+        u32 str_color = 0xffffffff;
+
         if((directories[currentgamedir].flags  & GAMELIST_FILTER)== (1<<11)) {
-            utf8_to_ansi(bluray_game, temp_buffer, 65);
-            SetFontColor(0x00ff00ff, 0x00000000);
-        } else utf8_to_ansi(directories[currentgamedir].title, temp_buffer, 65);
+            if(strncmp((char *) string_title_utf8, bluray_game, 64)) {
+                strncpy((char *) string_title_utf8, bluray_game, 128);
+                update_title_utf8 = 1;
+            }
+            str_color = 0x00ff00ff;
+        } else {
+            if(strncmp((char *) string_title_utf8, directories[currentgamedir].title, 64)) {
+                strncpy((char *) string_title_utf8, directories[currentgamedir].title, 128);
+                update_title_utf8 = 1;
+            }
+        }
 
-        temp_buffer[65] = 0;
-
-        if(strlen(temp_buffer) < 50) SetFontSize(22, 32); 
-        else SetFontSize(18, 32);
-
-        SetFontAutoCenter(1);
-  
-        DrawFormatString(0, y + 3 * 150, temp_buffer);
-
-        SetFontAutoCenter(0);
+        
+        if(update_title_utf8) {
+            width_title_utf8 =  Render_String_UTF8(ttf_texture, 768, 32, string_title_utf8, 16, 24);
+            update_title_utf8 = 0;
+        }
+         
+       
+        tiny3d_SetTextureWrap(0, tiny3d_TextureOffset(ttf_texture), 768, 
+                32, 768 * 2, 
+                TINY3D_TEX_FORMAT_A4R4G4B4,  TEXTWRAP_CLAMP, TEXTWRAP_CLAMP,1);
+        DrawTextBox((848 - width_title_utf8) / 2, y + 3 * 150 , 0, 768, 32, str_color);
     
     }
     
@@ -3274,6 +3342,7 @@ void draw_options(float x, float y, int index)
                     select_px = select_py = 0;
                     select_option = 0;
                     menu_screen = 0;
+                    stops_BDVD = 1;
                  }
                  return;
 
@@ -3292,6 +3361,7 @@ void draw_options(float x, float y, int index)
                     select_px = select_py = 0;
                     select_option = 0;
                     menu_screen = 0;
+                    stops_BDVD = 1;
                  }
                  return;
             case 3:
@@ -3308,6 +3378,7 @@ void draw_options(float x, float y, int index)
                     pause_music(0);
 
                     DrawDialogOK(language[DRAWGMOPT_FIXCOMPLETE]);
+                    stops_BDVD = 1;
              
                  }
                  break;
@@ -3321,6 +3392,7 @@ void draw_options(float x, float y, int index)
                     test_game(currentgamedir);
 
                     pause_music(0);
+                    stops_BDVD = 1;
                     
                  }
                  break;
@@ -3887,7 +3959,6 @@ void draw_gbloptions(float x, float y)
             case 4:
                 if ((manager_cfg.opt_flags & OPTFLAGS_FTP) == 0)
                 {
-                    ftp_perms = 1;
 
                     if(ftp_init() == 0)
                     {
@@ -4434,6 +4505,4 @@ int move_bdemubackup_to_origin(u32 flags)
 
     return 0;
 }
-
-
 
