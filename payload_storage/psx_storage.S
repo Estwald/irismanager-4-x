@@ -28,35 +28,39 @@
 
 .org 0
 _start:
-    .quad 0x455053315F454D55 // ID
+    .quad 0x45505331454D5531    // ID     + 0x20
   
-syscall_base:
+syscall_base:                   //        + 0x28
     .quad 0x8000000000000000
 
-operation_mode:
+operation_mode:                 //        + 0x30
     .quad 0x0000000000000000 // BDVD broken: higher 32 bits (0/1) mode: lower 32 bits
 
-syscall_open_table:
+syscall_open_table:             //        + 0x38
     .long 0x80000000
     .long BASE + syscall_storage_open
-    .quad 0x8000000000000000 // TOC
-    .quad 0
-    .quad 0
+    .quad 0x8000000000000000 // TOC       + 0x40
+    .quad 0                  //           + 0x48
+    .quad 0                  //           + 0x50
 
-syscall_send_cmd_table:
+syscall_send_cmd_table:      //           + 0x58
     .long 0x80000000
     .long BASE + syscall_storage_send_cmd
-    .quad 0x8000000000000000 // TOC
-    .quad 0
-    .quad 0
+    .quad 0x8000000000000000 // TOC       + 0x60
+    .quad 0                  //           + 0x68
+    .quad 0                  //           + 0x70
 
-syscall_usleep_table:
+syscall_usleep_table:        //           + 0x78
     .long 0x80000000
     .long BASE + syscall_usleep
-    .quad 0x8000000000000000 // TOC
+    .quad 0x8000000000000000 // TOC       + 0x80
+    .quad 0                  //           + 0x88
+    .quad 0                  //           + 0x90
+syscall_usleep_base:         //           + 0x98
     .quad 0
+syscall_open_base:           //           + 0xA0
     .quad 0
-syscall_usleep_base:
+syscall_send_cmd_base:       //           + 0xA8
     .quad 0
 
 syscall_usleep:
