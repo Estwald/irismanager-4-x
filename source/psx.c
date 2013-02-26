@@ -17,7 +17,6 @@
 
 */
 
-
 #include <stdio.h>
 #include <malloc.h>
 #include <string.h>
@@ -68,10 +67,10 @@ void DrawDialogOKTimer(char * str, float milliseconds);
 
 extern int stops_BDVD;
 
-int syscall36(char * path);
+//int syscall36(char * path);
 int sys_set_leds(u64 color, u64 state);
 u64 lv2peek(u64 addr);
-u64 lv2poke(u64 addr, u64 value);
+//u64 lv2poke(u64 addr, u64 value);
 
 extern int noBDVD;
 
@@ -1440,7 +1439,7 @@ int psx_cd_with_cheats(void)
 
         load_psx_payload();
          
-        lv2poke(0x80000000000000D0, cur_sz);
+        sys8_pokeinstr(0x80000000000000D0, cur_sz);
 
         reset_sys8_path_table();
 
@@ -1488,18 +1487,19 @@ int psx_cd_with_cheats(void)
             add_sys8_path_table("/dev_flash/ps1emu/ps1_rom.bin", temp_buffer);
         }    
  
-        build_sys8_path_table();
+        //build_sys8_path_table();
 
         if(!noBDVD)
-            lv2poke(0x8000000000001830ULL, (u64) 3); // enable emulation mode 3
+            sys8_pokeinstr(0x8000000000001830ULL, (u64) 3); // enable emulation mode 3
         else
-            lv2poke(0x8000000000001830ULL, (u64)((1ULL<<32) | 3ULL));
+            sys8_pokeinstr(0x8000000000001830ULL, (u64)((1ULL<<32) | 3ULL));
 
         return 0;
                         
                     
     }
 
+    reset_sys8_path_table();
     return -1;
 
 }
@@ -1570,12 +1570,13 @@ int psx_iso_prepare(char *path, char *name)
     if(sector_size == 0) {
         DrawDialogOK(language[DRAWPSX_ERRUNKSIZE]);
         nfiles = 0;
+        reset_sys8_path_table();
         goto end;
     }
     
     if(nfiles > 0) {
        struct stat s;
-       lv2poke(0x80000000000000D0, sector_size);
+       sys8_pokeinstr(0x80000000000000D0, sector_size);
 
        reset_sys8_path_table();
 
@@ -1590,15 +1591,15 @@ int psx_iso_prepare(char *path, char *name)
             if((value == 0x455053315F454D55ULL || value == 0x45505331454D5531ULL)
                 && (old_pad & BUTTON_CIRCLE)) {
                 if(!noBDVD)
-                    lv2poke(0x8000000000001830ULL, (u64) 2); // disable CD
+                    sys8_pokeinstr(0x8000000000001830ULL, (u64) 2); // disable CD
                 else
-                    lv2poke(0x8000000000001830ULL, (u64)((1ULL<<32) | 2ULL)); // disable CD
+                    sys8_pokeinstr(0x8000000000001830ULL, (u64)((1ULL<<32) | 2ULL)); // disable CD
                  
                 DrawDialogOKTimer(language[DRAWPSX_DISCEJECT], 1500.0f);
             }
        }
 
-    } else goto end;
+    } else {reset_sys8_path_table();goto end;}
     
     for(n = 0; n < nfiles - 1; n++) 
         for(m = n; m < nfiles; m++) {
@@ -1805,13 +1806,13 @@ int psx_iso_prepare(char *path, char *name)
                 lv2_table[n][2] = (u32) lv2_addr;
                 lv2_table[n][3] = file_ndatas[n];
                 // copy full TOC datas
-                sys8_memcpy(lv2_addr, (u64) file_datas[n], (u64) file_ndatas[n]);
+                sys8_memcpyinstr(lv2_addr, (u64) file_datas[n], (u64) file_ndatas[n]);
                 lv2_addr+= (u64) ((file_ndatas[n] + 15) & ~15);
                 lv2_table[n][0] = (u32) lv2_addr;
                 
                 custom_disc_info[6] =*(((u8 *) file_datas[n])+ 3); // copy last track
                 // copy disck info datas
-                sys8_memcpy(lv2_addr, (u64) custom_disc_info, 16ULL);
+                sys8_memcpyinstr(lv2_addr, (u64) custom_disc_info, 16ULL);
                 lv2_addr+= 16;
                 free(file_datas[n]);
             }
@@ -1823,7 +1824,7 @@ int psx_iso_prepare(char *path, char *name)
         for(n = 0; n < 8; n++) {
             sprintf(files[8], "/psx_d%c", 48 + n);
             add_sys8_path_table(files[8], files[n % nfiles]);
-            sys8_memcpy(lv2_addr, (u64) &lv2_table[n  % nfiles][0], 0x10);
+            sys8_memcpyinstr(lv2_addr, (u64) &lv2_table[n  % nfiles][0], 0x10);
             lv2_addr+= 0x10ULL;
         }
         
@@ -1894,7 +1895,7 @@ int psx_iso_prepare(char *path, char *name)
         if(!stat(temp_buffer, &s))
             add_sys8_path_table("/dev_flash/ps1emu/ps1_netemu.self", temp_buffer);
 
-        build_sys8_path_table();
+        //build_sys8_path_table();
         }
 
     }
@@ -1906,27 +1907,33 @@ int psx_iso_prepare(char *path, char *name)
 
 void unload_psx_payload()
 {
-    u64 value = lv2peek(0x8000000000001820ULL);
+    volatile u64 value = lv2peek(0x8000000000001820ULL);
 
     if(value == 0x455053315F454D55ULL) { // old method
-        lv2poke(0x8000000000001830ULL, (u64) 1); // disable emulation
+        sys8_pokeinstr(0x8000000000001830ULL, (u64) 1); // disable emulation
     } else if(value == 0x45505331454D5531ULL) { // new method
-        lv2poke(0x8000000000001830ULL, (u64) 1); // disable emulation
+        sys8_pokeinstr(0x8000000000001830ULL, (u64) 1); // disable emulation
         
         // restore syscalls bases
         value = lv2peek(0x8000000000001898ULL); // 141 (usleep syscall base)
-        sys8_memcpy(syscall_base + (u64) (141 * 8),(u64) &value, 8);
+        
+        if(!syscall_base) {
+            DrawDialogOK("syscall_base is empty!");
+            return;
+        }
+      
+        sys8_pokeinstr(syscall_base + (u64) (141 * 8), value);
         value = lv2peek(0x80000000000018A0ULL); // 604 (send cmd syscall base)
-        sys8_memcpy(syscall_base + (u64) (604 * 8),(u64) &value, 8);
+        sys8_pokeinstr(syscall_base + (u64) (604 * 8), value);
         value = lv2peek(0x80000000000018A8ULL); // 600 (open syscall base)
-        sys8_memcpy(syscall_base + (u64) (600 * 8),(u64) &value, 8);
+        sys8_pokeinstr(syscall_base + (u64) (600 * 8), value);
+        usleep(1000); // very important!
     }
 }
 
 void load_psx_payload()
 {
     int n;
-
     static int one = 0;
 
     if(one) return;
@@ -1953,7 +1960,7 @@ void load_psx_payload()
         addr4 = lv2peek(0x8000000000001890ULL);  // get usleep function
         base3 = lv2peek(0x8000000000001898ULL);  // get usleep syscall base
 
-        lv2poke(syscall_base + (u64) (141 * 8), base3); // restore usleep base syscall
+        sys8_pokeinstr(syscall_base + (u64) (141 * 8), base3); // restore usleep base syscall
 
         base1 = base2 = 0;
 
@@ -1978,56 +1985,52 @@ void load_psx_payload()
         addr4 = lv2peek(base3);
     
     }
-
    
     // to be sure code is written ...
-    for(n=0; n< 100; n++) {
-        #if 1
-        sys8_memcpy(addr, // copy psx_storage routines
-                  (u64) psx_storage_bin, 
-                  psx_storage_bin_size);
-        #else
-        sys8_memcpy(addr, // copy psx_storage routines
-                  (u64) mdata, 
-                  m);
-        #endif
-                  
-        lv2poke(0x8000000000001828ULL, syscall_base);
-        lv2poke(0x8000000000001840ULL, toc);
-        lv2poke(0x8000000000001850ULL, addr2); // 600
-        lv2poke(0x8000000000001860ULL, toc);
-        lv2poke(0x8000000000001870ULL, addr3); // 604
-        lv2poke(0x8000000000001880ULL, toc);
-        lv2poke(0x8000000000001890ULL, addr4); // 141 (usleep function)
-        lv2poke(0x8000000000001898ULL, base3); // 141 (usleep syscall base)
+    
+    #if 1
+    sys8_memcpyinstr(addr, // copy psx_storage routines
+              (u64) psx_storage_bin, 
+              psx_storage_bin_size);
+    #else
+    sys8_memcpyinstr(addr, // copy psx_storage routines
+              (u64) mdata, 
+              m);
+    #endif
+              
+    sys8_pokeinstr(0x8000000000001828ULL, syscall_base);
+    sys8_pokeinstr(0x8000000000001840ULL, toc);
+    sys8_pokeinstr(0x8000000000001850ULL, addr2); // 600
+    sys8_pokeinstr(0x8000000000001860ULL, toc);
+    sys8_pokeinstr(0x8000000000001870ULL, addr3); // 604
+    sys8_pokeinstr(0x8000000000001880ULL, toc);
+    sys8_pokeinstr(0x8000000000001890ULL, addr4); // 141 (usleep function)
+    sys8_pokeinstr(0x8000000000001898ULL, base3); // 141 (usleep syscall base)
 
-        if(base1) {
-            lv2poke(0x80000000000018A0ULL, base2); // 604 (send cmd syscall base)
-            lv2poke(0x80000000000018A8ULL, base1); // 600 (open syscall base)
-        }
-        
-      
-        addrt = addr + 0x18ULL;
-        sys8_memcpy(syscall_base + (u64) (600 * 8),(u64) &addrt, 8);
-
-        addrt = addr + 0x38ULL;
-        sys8_memcpy(syscall_base + (u64) (604 * 8),(u64) &addrt, 8);
-
-       
-        usleep(10000);
-
+    if(base1) {
+        sys8_pokeinstr(0x80000000000018A0ULL, base2); // 604 (send cmd syscall base)
+        sys8_pokeinstr(0x80000000000018A8ULL, base1); // 600 (open syscall base)
     }
     
+  
+    addrt = addr + 0x18ULL;
+    sys8_pokeinstr(syscall_base + (u64) (600 * 8),addrt);
+
+    addrt = addr + 0x38ULL;
+    sys8_pokeinstr(syscall_base + (u64) (604 * 8), addrt);
+
+    usleep(10000);
+    
     addrt = addr + 0x58ULL;
-    sys8_memcpy(syscall_base + (u64) (141 * 8),(u64) &addrt, 8); // patch usleep(function)
+    sys8_pokeinstr(syscall_base + (u64) (141 * 8), addrt); // patch usleep(function)
 
    if(!noBDVD)
-       lv2poke(0x8000000000001830ULL, (u64) 0); // enable emulation
+       sys8_pokeinstr(0x8000000000001830ULL, (u64) 0); // enable emulation
    else
-       lv2poke(0x8000000000001830ULL, (u64)((1ULL<<32))); // enable emulation
+       sys8_pokeinstr(0x8000000000001830ULL, (u64)((1ULL<<32))); // enable emulation
 
    // old over new
-   if(!base1) lv2poke(0x8000000000001820ULL, 0x455053315F454D55ULL);
+   if(!base1) sys8_pokeinstr(0x8000000000001820ULL, 0x455053315F454D55ULL);
 
 }
 
@@ -2056,10 +2059,13 @@ void psx_launch(void)
 
             add_sys8_path_table("/dev_flash/ps1emu/ps1_rom.bin", temp_buffer);
         }    
-        build_sys8_path_table();
+        
     }
 
-    syscall36(self_path); // to avoid stupid check in ps1_netemu
+    //syscall36(self_path); // to avoid stupid check in ps1_netemu
+
+    add_sys8_bdvd(self_path, NULL);
+    build_sys8_path_table();
 
     sys_set_leds(2, 0);
     sys_set_leds(0, 0);

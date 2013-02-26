@@ -31,9 +31,7 @@
 #include <sys/stat.h>
 #include <lv2/sysfs.h>
 
-
 #include <sysutil/disc.h>
-
 
 #include <sysmodule/sysmodule.h>
 #include <pngdec/pngdec.h>
@@ -590,12 +588,14 @@ int lv2launch(u64 addr)
     return_to_user_prog(int);
 }
 
+/*
 int syscall36(char * path) 
 { 
     lv2syscall1(36, (u64) path);
     return_to_user_prog(int);
     
 }
+*/
 
 u64 hmanager_key = 0x1759829723742374ULL;
 
@@ -665,7 +665,7 @@ struct {
 struct {
     int version;
     int perm;
-    int xmb;
+    int useBDVD;
     int updates;
     int ext_ebootbin;
     int bdemu;
@@ -1083,7 +1083,7 @@ int firmware = 0;
 
 static volatile int bdvd_notify = 0;
 
-static volatile int bdvd_ejected = 0;
+static volatile int bdvd_ejected = 1;
 
 
 void DiscEjectCallback(void)
@@ -1250,7 +1250,7 @@ s32 main(s32 argc, const char* argv[])
                     //please, do not translate this strings - i preffer this errors in english for better support...
                     if(payload_mode == WANIN_PAYLOAD)
                     {
-                        load_payload_syscall36old(payload_mode);
+                        sys8_disable_all = 1;
                         sprintf(temp_buffer, "WANINV2 DETECTED\nOLD SYSCALL 36 LOADED (mode=%i)\n\n - no big files allowed with this payload -", payload_mode);
                         sprintf(payload_str, "wanin cfw - old syscall36, no bigfiles allowed");
                     } else {
@@ -1261,6 +1261,7 @@ s32 main(s32 argc, const char* argv[])
                     }
                     break;
 		        case SYS36_PAYLOAD:
+                    sys8_disable_all = 1;
                     sprintf(temp_buffer, "OLD SYSCALL 36 RESIDENT, RESPECT!\nNEW PAYLOAD NOT LOADED...\n\n - no big files allowed with this payload -");
                     sprintf(payload_str, "syscall36 resident - new payload no loaded, no bigfiles allowed");
                     break;
@@ -1358,19 +1359,19 @@ s32 main(s32 argc, const char* argv[])
 
     usleep(250000);
 
-    if(payload_mode >= ZERO_PAYLOAD)
+    if(payload_mode >= ZERO_PAYLOAD && sys8_disable_all == 0)
     {
         int test = 0x100;
 
         //check syscall8 status
         test = sys8_enable(0ULL);
-        if((test & 0xff00) == 0x200)
+        if((test & 0xff00) == 0x300)
         {
             if(payload_mode == ZERO_PAYLOAD)
                 sprintf(payload_str, "payload-sk10 - new syscall8 v%i (libfs_patched %s)", test & 0xff, is_libfs_patched()? "found!": "not found");
             else if (payload_mode == SKY10_PAYLOAD)
                 sprintf(payload_str, "payload-sk10 resident - new syscall8 v%i (libfs_patched %s)", test & 0xff, is_libfs_patched()? "found!": "not found");
-        } else if(test < 7)
+        } else// if(test < 8)
         {       sys8_disable_all = 1;
                 sprintf(payload_str, "payload-sk10 - new syscall8 Err?! v(%i)", test);
         }
@@ -1384,11 +1385,12 @@ s32 main(s32 argc, const char* argv[])
     usleep(250000);
 
     if(sys8_disable_all!=0) {
-         if(DrawDialogYesNo2("Syscall 8 very old or not detected\n\nWant you REBOOT the PS3?")==1) {set_install_pkg = 1; exit(0);}
+         if(DrawDialogYesNo2("Syscall 8 very old or not detected\n\nWant you REBOOT the PS3? (NO for XMB exit)")==1) {set_install_pkg = 1; exit(0);}
+         else exit(0);
     }
 
     if(must_patch) {
-        lv2poke(0x80000000007EF220ULL, 0x0ULL);
+        sys8_pokeinstr(0x80000000007EF220ULL, 0x0ULL);
     }
 
     // disable ps1 emulation
@@ -1450,7 +1452,7 @@ s32 main(s32 argc, const char* argv[])
 
     // disable ps1 emulation
     if(noBDVD && lv2peek(0x8000000000001820ULL) == 0x455053315F454D55ULL) {
-        lv2poke(0x8000000000001830ULL, (u64)((1ULL<<32) | 1ULL)); // disable emulation
+        sys8_pokeinstr(0x8000000000001830ULL, (u64)((1ULL<<32) | 1ULL)); // disable emulation
     }
     
     LoadPSXOptions(NULL);
@@ -1515,7 +1517,8 @@ s32 main(s32 argc, const char* argv[])
 	forcedevices=0;
 	find_device=0;
 
-    syscall36("/dev_bdvd");
+    //syscall36("/dev_bdvd");
+    add_sys8_bdvd(NULL, NULL);
     
     //sys8_perm_mode((u64) 0);
 
@@ -1643,6 +1646,7 @@ s32 main(s32 argc, const char* argv[])
                         psx_inserted &= ~0x100;
                         psx_inserted |= 0x80;
                         strncpy(bluray_game, "PSX-GAME", 64);
+                        bdvd_ejected = 0;
                         if(!noBDVD && lv2_patch_storage) {
                             psx_inserted|= get_psx_region_cd();
                             strncpy(bluray_game, (char *) psx_id, 64);
@@ -1687,6 +1691,7 @@ s32 main(s32 argc, const char* argv[])
                         if(!sysLv2FsOpen("/dev_bdvd/PS3_GAME/USRDIR/EBOOT.BIN", 0, &fdr, S_IRWXU | S_IRWXG | S_IRWXO, NULL, 0)) {
                             u64 bytes;
                             u32 dat;
+                            bdvd_ejected = 0;
                             if(sysLv2FsRead(fdr, (void *) &dat, 4, &bytes)!=0) bytes =0LL;
 
                             if(bytes == 4 && dat != 0x53434500) {
@@ -2347,7 +2352,7 @@ void draw_screen1(float x, float y)
 
         load_gamecfg (get_currentdir(i)); // refresh game info
 
-        if((game_cfg.xmb) || (game_cfg.direct_boot == 2))
+        if((game_cfg.useBDVD) || (game_cfg.direct_boot == 2))
         {
             tiny3d_SetTextureWrap(0, Png_res_offset[0], Png_res[0].width, 
                 Png_res[0].height, Png_res[0].wpitch, 
@@ -2594,7 +2599,7 @@ void draw_screen1(float x, float y)
 
                 }
 
-                if((game_cfg.xmb && (fdevices & 2048) == 0) || (game_cfg.direct_boot == 2))
+                if((game_cfg.useBDVD && (fdevices & 2048) == 0) || (game_cfg.direct_boot == 2))
                 {
                     if(!noBDVD && check_disc() == -1)
                         return;
@@ -2625,7 +2630,7 @@ void draw_screen1(float x, float y)
                 }
                 
                 
-                if(!game_cfg.xmb) sys8_sys_configure(CFG_XMB_DEBUG); else sys8_sys_configure(CFG_XMB_RETAIL);
+                if(!game_cfg.useBDVD) sys8_sys_configure(CFG_XMB_DEBUG); else sys8_sys_configure(CFG_XMB_RETAIL);
                 
                 sys8_sys_configure(CFG_UNPATCH_APPVER + (game_cfg.updates != 0));
                 
@@ -2647,11 +2652,13 @@ void draw_screen1(float x, float y)
                     }
                     if(n < 0)
                     {
-                        syscall36("/dev_bdvd"); // in error exits
+                        //syscall36("/dev_bdvd"); // in error exits
                         //sys8_perm_mode((u64) 0);
 
-                        if(game_cfg.ext_ebootbin)
-                            build_sys8_path_table(); //prepare extern eboot
+                        add_sys8_bdvd(NULL, NULL);
+
+                        //if(game_cfg.ext_ebootbin)
+                        build_sys8_path_table(); //prepare extern eboot
 
                         exit_program = 1; 
                         return;
@@ -2660,28 +2667,29 @@ void draw_screen1(float x, float y)
                    // if(n == 1) game_cfg.bdemu = 0; // if !dev_usb... bdemu is not usable
                 }
 
-                
-                
+               
                 // HDD BDEMU-LIBFS / USB BDEMU
                 if(((game_cfg.bdemu && (directories[currentgamedir].flags & 1)) || 
                      (!(directories[currentgamedir].flags & 1) && game_cfg.bdemu_ext==1)) && 
                     patch_bdvdemu(directories[currentgamedir].flags & GAMELIST_FILTER) == 0) {
                     
                     
-                        syscall36("//dev_bdvd"); // for hermes special flag see syscall36-3.41-hermes "//"
+                    // syscall36("//dev_bdvd"); // for hermes special flag see syscall36-3.41-hermes "//"
+                    add_sys8_bdvd(NULL, NULL);
                     
                     //we dont want libfs on USB devices
                     if(is_libfs_patched() && (game_cfg.bdemu && (directories[currentgamedir].flags & 1))) {
                         sprintf(temp_buffer + 1024, "%s/libfs_patched.sprx", self_path);
                         add_sys8_path_table("/dev_flash/sys/external/libfs.sprx", temp_buffer + 1024);
-                        lv2poke(0x80000000007EF220ULL, 0x45737477616C6420ULL);
+                        sys8_pokeinstr(0x80000000007EF220ULL, 0x45737477616C6420ULL);
 
                     }
                     
                     // HDD LIBFS
                    if((game_cfg.bdemu == 2 && (directories[currentgamedir].flags & 1))) { // new to add BD-Emu 2
                         mount_custom(directories[currentgamedir].path_name);
-                        syscall36(directories[currentgamedir].path_name);
+                        add_sys8_bdvd(directories[currentgamedir].path_name, NULL);
+                        //syscall36(directories[currentgamedir].path_name);
                    } else {
                         mount_custom(directories[currentgamedir].path_name);
                    }
@@ -2693,7 +2701,7 @@ void draw_screen1(float x, float y)
                     !(directories[currentgamedir].flags & 2048)) { // only with external bdemu LIBFS for cached files
                             sprintf(temp_buffer + 1024, "%s/libfs_patched.sprx", self_path);
                             add_sys8_path_table("/dev_flash/sys/external/libfs.sprx", temp_buffer + 1024);
-                            lv2poke(0x80000000007EF220ULL, 0x45737477616C6420ULL);
+                            sys8_pokeinstr(0x80000000007EF220ULL, 0x45737477616C6420ULL);
 
                 }
                     
@@ -2737,7 +2745,8 @@ void draw_screen1(float x, float y)
                             return;
                         }
 
-                        syscall36("/dev_bdvd");
+                        //syscall36("/dev_bdvd");
+                        add_sys8_bdvd(NULL, NULL);
 
                         if(!(directories[currentgamedir].flags & (1<<11))) {
                             
@@ -2755,6 +2764,7 @@ void draw_screen1(float x, float y)
                     } else if((directories[currentgamedir].flags>>31) & 1) { // is homebrew
                     
                         reset_sys8_path_table();
+                        add_sys8_bdvd(NULL, "/dev_kk");
 
                         sprintf(temp_buffer, "%s/PARAM.SFO", directories[currentgamedir].path_name);
                         
@@ -2805,13 +2815,32 @@ void draw_screen1(float x, float y)
                         
                         if(i!=0) 
                             add_sys8_path_table(temp_buffer + 1024, temp_buffer);
+
+                        build_sys8_path_table();
+                        exit(0);
                         
                         skip_homebrew: 
                             ;
                    
                     } else {
                         mount_custom(directories[currentgamedir].path_name);
-                        syscall36(directories[currentgamedir].path_name); // is bdvd game
+                        //syscall36(directories[currentgamedir].path_name); // is bdvd game
+
+                        if(!game_cfg.useBDVD) {
+                            sprintf(temp_buffer, "%s/PS3_DISC.SFB", directories[currentgamedir].path_name);
+                            add_sys8_path_table("/app_home/PS3_DISC.SFB", temp_buffer);
+
+                            sprintf(temp_buffer, "%s/PS3_GAME", directories[currentgamedir].path_name);
+                            add_sys8_path_table("/app_home/PS3_GAME", temp_buffer);
+
+                            sprintf(temp_buffer, "%s/PS3_GAME/USRDIR", directories[currentgamedir].path_name);
+                            add_sys8_path_table("/app_home/USRDIR", temp_buffer);
+
+                            sprintf(temp_buffer, "%s/PS3_GAME/USRDIR", directories[currentgamedir].path_name);
+                            add_sys8_path_table("/app_home", temp_buffer);
+                        }
+
+                        add_sys8_bdvd(directories[currentgamedir].path_name, NULL);
 
                     }
                 }
@@ -3593,15 +3622,11 @@ void draw_configs(float x, float y, int index)
 #endif
 
 
-#ifdef CONFIG_USE_SYS8CONFIG
-    x2 = DrawButton1_UTF8(x + 32, y2, 240, "Select XMB", (flash && select_option == 0))  + 16; // do no translate this (3.44 atm)
-    x2 = DrawButton2_UTF8(x2, y2, 0, " Debug ", (game_cfg.xmb == 0)) + 8;
-    x2 = DrawButton2_UTF8(x2, y2, 0, " Retail ", (game_cfg.xmb == 1)) + 8;
-#else
+
     x2 = DrawButton1_UTF8(x + 32, y2, 240, language[DRAWGMCFG_DSK], (flash && select_option == 0))  + 16;
-    x2 = DrawButton2_UTF8(x2, y2, 0, language[DRAWGMCFG_NO] , (game_cfg.xmb == 0)) + 8;
-    x2 = DrawButton2_UTF8(x2, y2, 0, language[DRAWGMCFG_YES], (game_cfg.xmb == 1)) + 8;
-#endif
+    x2 = DrawButton2_UTF8(x2, y2, 0, language[DRAWGMCFG_NO] , (game_cfg.useBDVD == 0)) + 8;
+    x2 = DrawButton2_UTF8(x2, y2, 0, language[DRAWGMCFG_YES], (game_cfg.useBDVD == 1)) + 8;
+
     y2+= 48;
 
     #if 0
@@ -3707,7 +3732,7 @@ void draw_configs(float x, float y, int index)
                 break;
 #endif
             case 0:
-                ROT_INC(game_cfg.xmb, 1, 0);
+                ROT_INC(game_cfg.useBDVD, 1, 0);
                 break;
             case 1:
                 ROT_INC(game_cfg.direct_boot, 2, 0);
@@ -3769,7 +3794,7 @@ void draw_configs(float x, float y, int index)
                 break;
 #endif
             case 0:
-                ROT_DEC(game_cfg.xmb, 0, 1);
+                ROT_DEC(game_cfg.useBDVD, 0, 1);
                 break;
             case 1:
                 ROT_DEC(game_cfg.direct_boot, 0, 2);
@@ -3803,7 +3828,7 @@ void draw_configs(float x, float y, int index)
                 break;
 #endif
             case 0:
-                ROT_INC(game_cfg.xmb, 1, 0);
+                ROT_INC(game_cfg.useBDVD, 1, 0);
                 break;
             case 1:
                 ROT_INC(game_cfg.direct_boot, 2, 0);
@@ -4360,7 +4385,7 @@ void unpatch_bdvdemu()
 
     // libfs
     if(lv2peek(0x80000000007EF028ULL)==0x494F533A50415441ULL)
-        lv2poke(0x80000000007EF028ULL, 0x0ULL);
+        sys8_pokeinstr(0x80000000007EF028ULL, 0x0ULL);
 }
 
 
