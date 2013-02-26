@@ -129,6 +129,7 @@ int param_sfo_patch_category_to_cb(char * path_src, char *path_dst);
 void reset_sys8_path_table();
 void add_sys8_path_table(char * compare, char * replace);
 void build_sys8_path_table();
+void add_sys8_bdvd(char * bdvd, char * app_home);
 
 // console 
 

@@ -3952,8 +3952,8 @@ int param_sfo_patch_category_to_cb(char * path_src, char *path_dst)
 /*******************************************************************************************************************************************************/
 
 
-static char *table_compare[17];
-static char *table_replace[17];
+static char *table_compare[19];
+static char *table_replace[19];
 
 static int ntable = 0;
 
@@ -3985,6 +3985,32 @@ void add_sys8_path_table(char * compare, char * replace)
     table_compare[ntable] = NULL;
 }
 
+void add_sys8_bdvd(char * bdvd, char * app_home)
+{
+    static char compare1[]="/dev_bdvd";
+    static char compare2[]="/app_home";
+    static char replace1[0x420];
+    static char replace2[0x420];
+    int pos = 17;
+
+    table_compare[pos] = NULL;
+    table_compare[pos + 1] = NULL;
+
+    if(bdvd) {
+        strncpy(replace1, bdvd, 0x420);
+        table_compare[pos] = compare1;
+        table_replace[pos] = replace1;
+        pos++;
+    }
+    
+    if(app_home) {
+        strncpy(replace2, app_home, 0x420);
+        table_compare[pos] = compare2;
+        table_replace[pos] = replace2;
+        pos++;
+    }
+    
+}
 
 void build_sys8_path_table()
 {
@@ -3999,7 +4025,27 @@ void build_sys8_path_table()
 
     sys8_path_table(0LL);
 
-    if(ntable <= 0) return;
+    if(ntable <= 0 && !table_compare[17] && !table_compare[18]) return;
+    if(ntable <= 0) {table_compare[0] = 0; ntable = 0;}
+
+    while(ntable>0 && table_compare[entries] != NULL) entries++;
+
+    // /dev_bdvd & /app_home entries
+    if(table_compare[17]) {
+        table_compare[entries] = table_compare[17]; 
+        table_replace[entries] = table_replace[17];
+        entries++;
+    }
+
+    if(table_compare[18]) {
+        table_compare[entries] = table_compare[18];
+        table_replace[entries] = table_replace[18];
+        entries++;
+    }
+
+    table_compare[entries] = NULL;
+
+    entries = 0;
 
     while(table_compare[entries] != NULL) {
         int l = strlen(table_compare[entries]);
@@ -4011,9 +4057,10 @@ void build_sys8_path_table()
     entries++;
     }
 
+
     if(!entries) return;
 
-    char * datas = memalign(16, arena_size + sizeof(path_open_entry) * (entries + 1));
+    char * datas = memalign(16, arena_size + sizeof(path_open_entry) * (entries + 2));
     
     if(!datas) return;
 
