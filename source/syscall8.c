@@ -64,6 +64,20 @@ uint64_t sys8_memcpy(uint64_t dst, uint64_t src, uint64_t size)
 
 }
 
+uint64_t sys8_memcpyinstr(uint64_t dst, uint64_t src, uint64_t size)
+{
+
+	return syscall8(12ULL, dst, src, size);
+
+}
+
+int sys8_pokeinstr(uint64_t addr, uint64_t data)
+{
+
+	return (int) syscall8(13ULL, addr, data, 0ULL);
+
+}
+
 uint64_t sys8_memset(uint64_t dst, uint64_t val, uint64_t size)
 {
 

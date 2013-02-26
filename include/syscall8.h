@@ -115,7 +115,7 @@ replace_len= strlen(replace_addr);
 	key: 64 bits key to enable syscalls
 */
 
-int sys8_disable(uint64_t key);
+int sys8_disable(uint64_t key); // don't supported yet
 
 /*
 	sys8_enable: enable syscalls 6,7, 36 and 8 when 
@@ -126,7 +126,20 @@ int sys8_disable(uint64_t key);
 
 */
 
-int sys8_enable(uint64_t key);
+int sys8_enable(uint64_t key); // don't supported yet
+
+/*
+	sys8_pokeinstr: 64 bits poke for instructions (with dcbf and icibi instructions)
+
+	addr: destination addr
+
+	data: 64 bits data to set
+
+	return: error code
+
+*/
+
+int sys8_pokeinstr(uint64_t addr, uint64_t data);
 
 /*
 	sys8_memcpy: 64 bits address memory copy
@@ -142,6 +155,23 @@ int sys8_enable(uint64_t key);
 */
 
 uint64_t sys8_memcpy(uint64_t dst, uint64_t src, uint64_t size);
+
+/*
+    note: this functions uses dcbf and icibi instructions
+
+	sys8_memcpyinstr: 64 bits address memory copy instructions
+
+	dst: destination addr for instructions
+
+	src: source addr for instructions
+
+	size: number of bytes to copy
+
+	return: destination addr
+
+*/
+
+uint64_t sys8_memcpyinstr(uint64_t dst, uint64_t src, uint64_t size);
 
 /*
 	sys8_memset: 64 bits address memory set
@@ -203,7 +233,7 @@ uint64_t  sys8_free(uint64_t addr, uint64_t pool);
 
 */
 
-void sys8_panic(void);
+void sys8_panic(void); // don't supported yet
 
 /*
 	sys8_perm_mode: function to changes as work 0x80000000000505d0 calls (connected with access permissions)
@@ -234,7 +264,7 @@ int sys8_perm_mode(uint64_t mode);
 
 
 
-int sys8_sys_configure(uint64_t mode);
+int sys8_sys_configure(uint64_t mode); // don't supported yet
 
 /*
 	sys8_lv1_syscall: call to lv1 syscall from lv2
