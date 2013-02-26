@@ -17,9 +17,6 @@ extern void pokeq32(uint64_t addr, uint32_t val);
 extern int is_firm_355(void);
 extern void set_bdvdemu_355(int current_payload);
 extern void load_payload_355(int mode);
-extern void load_payload_syscall36old(int mode);
-
-extern void sys36_memcpy( uint64_t to, const uint64_t from, size_t sz);
 
 extern int map_lv1(void);
 extern void unmap_lv1(void);

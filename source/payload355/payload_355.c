@@ -29,7 +29,6 @@
 #include "syscall8.h"
 
 #include "payload_sky_355_bin.h"
-#include "payload_syscall36_355_bin.h"
 #include "umount_355_bin.h"
 
 #define CONFIG_USE_SYS8PERMH4 1
@@ -112,9 +111,15 @@ int is_payload_loaded_355(void)
 {
 
     //1st classic syscall 36 check
-    u64 *tmp = (u64 *) (u64) & payload_syscall36_355_bin[0]; //syscall 36 payload
+    
     syscall_base = SYSCALL_BASE;
-    if(peekq(0x80000000002be4a0ULL) == *tmp)
+
+    u64 addr = peekq(0x80000000000004f8ULL);
+
+    if((addr>>32) == 0x534B3145) {is_sky = 1;return SKY10_PAYLOAD;} // new method to detect the payload
+
+
+    if(peekq(0x80000000002be4a0ULL) == 0x2564257325303136ULL)
         return SYS36_PAYLOAD;
 
     //2nd new syscall 36 - sky mod check
@@ -235,9 +240,24 @@ void load_payload_355(int mode)
                    (u64) payload_sky_355_bin, 
                    payload_sky_355_bin_size);
 
+    // copy the id
+    u64 id= 0x534B314500000000ULL | (u64) PAYLOAD_OFFSET;
+    lv2_memcpy(0x80000000000004f8ULL, (u64) &id, 8);
+
+    u64 inst8 =  peekq((SYSCALL_BASE + 8 * 8)) + 0x8ULL;               // get TOC
+    lv2_memcpy(0x8000000000000000ULL + (u64) (PAYLOAD_OFFSET + 0x28), (u64) &inst8, 8);
+    inst8 = 0x8000000000000000ULL + (u64) (PAYLOAD_OFFSET + 0x20); // syscall_8_desc - sys8
+    lv2_memcpy(SYSCALL_BASE + (u64) (8 * 8), (u64) &inst8, 8);
+
+    usleep(1000);
+
     is_sky = 1; 
 
     remove_lv2_memcpy();
+
+    pokeq(0x80000000007EF020ULL, 0ULL);
+    pokeq(0x80000000007EF028ULL, 0ULL); // BE Emu mount
+    pokeq(0x80000000007EF220ULL, 0ULL);
 
     /* BASIC PATCHES SYS36 */
     // by 2 anonymous people
@@ -252,45 +272,18 @@ void load_payload_355(int mode)
         -002b3290  f8 01 00 b0 7c 9c 23 78  7c 7d 1b 78 4b d9 b4 11  |....|.#x|}.xK...|
         +002b3290  f8 01 00 b0 7c 9c 23 78  4b d5 bf 40 4b d9 b4 11  |....|.#xK..@K...| (openhook jump - 0xF1D8)
     */
-    _poke(0x2b3298, 0x4bd5bda04bd9b411ULL); //jump hook
+    //_poke(0x2b3298, 0x4bd5bda04bd9b411ULL); //jump hook
+
+    PATCH_JUMP(0x2b3298, (PAYLOAD_OFFSET+0x30));
 
     /**  Rancid-o: Fix 0x8001003C error (incorrect version in sys_load_param) - It is present in the new game updates **/
     _poke(0x28A404, 0x386000007C6307B4);
     _poke32(0x28A40C, 0x4E800020);
 
-    /*
-        00346690  80 00 00 00 00 32 49 68  80 00 00 00 00 32 49 68  Ç....2IhÇ....2Ih
-    */
-    _poke(0x346690, 0x800000000000F010ULL); // syscall_map_open_desc - sys36
-    _poke(0x3465b0, 0x800000000000F2E0ULL); // syscall_8_desc - sys8
 
 #ifdef CONFIG_USE_SYS8PERMH4
-    PATCH_JUMP(PERMS_OFFSET, (PAYLOAD_OFFSET+0x2a8));
+    PATCH_JUMP(PERMS_OFFSET, (PAYLOAD_OFFSET+0x18));
 #endif
-
-}
-
-void load_payload_syscall36old(int mode)
-{
-
-    install_lv2_memcpy();
-    /* WARNING!! It supports only payload with a size multiple of 8 */
-    lv2_memcpy(0x80000000002be4a0ULL, 
-                   (u64) payload_syscall36_355_bin, 
-                   payload_syscall36_355_bin_size);
-    remove_lv2_memcpy();
-
-    /* by 2 anonymous people */
-    _poke32(0x55f14, 0x60000000);
-    _poke32(0x55f1c, 0x48000098);
-    _poke32(0x7af68, 0x60000000);
-    _poke32(0x7af7c, 0x60000000);
-
-    _poke(0x55EA0, 0x63FF003D60000000);  /* fix 8001003D error */
-    _poke(0x55F64, 0x3FE080013BE00000);  /* fix 8001003E error */
-
-    _poke(0x2b3274, 0x4800B32C2BA30420); /* add a jump to payload2_start - hook */
-    _poke(0x346690, 0x80000000002be570); /* syscall_map_open_desc - sys36 */
 
 }
 
@@ -359,14 +352,6 @@ void remove_new_poke(void)
     }
 }
 
-
-/* SYS36 utils */
-void sys36_memcpy( u64 to, const u64 from, size_t sz)
-{
-    install_lv2_memcpy();
-    lv2_memcpy( to, from, sz);
-    remove_lv2_memcpy();
-}
 
 
 /******************************************************************************************************************************************************/
@@ -491,14 +476,21 @@ static int lv2_unpatch_bdvdemu_355(void)
               && !memcmp(mem + n + 0x79, "esp_bdvd", 9)
               && peekq(0x80000000007EF028ULL)==0x494F533A50415441ULL)
            {
-                sys8_memcpy(LV2MOUNTADDR_355 + n, 0x80000000007EF020ULL , 0xF4);
-                if(is_sky) _poke32(UMOUNT_SYSCALL_OFFSET, 0xFBA100E8); // UMOUNT RESTORE
-                pokeq(0x80000000007EF028ULL, 0ULL);
+                int k;
+                for(k = 0;k < 20;k++) {
+                    sys8_memcpy(LV2MOUNTADDR_355 + n, 0x80000000007EF020ULL , 0xF4);
+                    if(is_sky) _poke32(UMOUNT_SYSCALL_OFFSET, 0xFBA100E8); // UMOUNT RESTORE
+                    pokeq(0x80000000007EF028ULL, 0ULL);
+                }
+
                 flag+=10;
            }
         }
     }
-    
+
+    _poke32(UMOUNT_SYSCALL_OFFSET, 0xFBA100E8); // UMOUNT RESTORE
+    pokeq(0x80000000007EF028ULL, 0ULL);
+
     if((mem[0] == 0) && (flag == 0))
         return -1;
     else
@@ -559,26 +551,33 @@ static int lv2_patch_bdvdemu_355(uint32_t flags)
     if(pos>0 && pos2>0) {
       u64 dat;
 
-      sys8_memcpy(0x80000000007EF020ULL , LV2MOUNTADDR_355 + pos2, 0xf4);
-      dat= LV2MOUNTADDR_355 + (u64) pos2;
-      sys8_memcpy(0x80000000007EF000ULL , (u64) &dat, 0x8);
-      dat= 0x8000000000000000ULL + (u64)UMOUNT_SYSCALL_OFFSET;
-      sys8_memcpy(0x80000000007EF008ULL , (u64) &dat, 0x8);
+      memcpy(mem + 0x1220, mem + pos2, 0xf4);
+      dat = LV2MOUNTADDR_355 + (u64) pos2;
+      memcpy(mem + 0x1200, &dat, 0x8);
+      dat = 0x8000000000000000ULL + (u64)UMOUNT_SYSCALL_OFFSET;
+      memcpy(mem + 0x1208, &dat, 0x8);
       n=(int) 0xFBA100E8; // UMOUNT RESTORE
-      sys8_memcpy(0x80000000007EF010ULL , (u64) &n, 0x4);
-
-      sys8_memcpy(LV2MOUNTADDR_355 + pos2, ((u64) mem) + pos , 0xF4);
+      memcpy(mem + 0x1210, &n, 0x4);
       
-      sys8_memcpy(LV2MOUNTADDR_355 + pos2 + 0x69, (u64) "dev_bdvd\0\0", 11);
-      sys8_memcpy(LV2MOUNTADDR_355 + pos2 + 0x79, (u64) "esp_bdvd\0\0", 11);
+      memcpy(mem + pos2, mem + pos, 0xf4);
+      memcpy(mem + pos2 + 0x69, "dev_bdvd\0\0", 11);
+      memcpy(mem + pos2 + 0x79, "esp_bdvd\0\0", 11);
 
-      if(is_sky) {
-          sys8_memcpy(0x8000000000000000ULL + (u64) PAYLOAD_OFFSET + 0x500ULL, // copy umount routine
+      int k;
+      for(k = 0; k < 50; k++) {
+
+          sys8_memcpyinstr(0x80000000007EF000ULL , ((u64) mem + 0x1200), 0x114);
+
+          sys8_memcpyinstr(LV2MOUNTADDR_355 + pos2, ((u64) mem + pos2), 0xf4);
+
+          sys8_memcpyinstr(0x8000000000000000ULL + (u64) PAYLOAD_OFFSET + 0x400ULL, // copy umount routine
                       (u64) umount_355_bin, 
                       umount_355_bin_size);
-          PATCH_CALL(UMOUNT_SYSCALL_OFFSET, (PAYLOAD_OFFSET+0x500)); // UMOUNT ROUTINE PATCH
+
+          PATCH_CALL(UMOUNT_SYSCALL_OFFSET, (PAYLOAD_OFFSET+0x400)); // UMOUNT ROUTINE PATCH
+          usleep(1000);
       }
-      
+
       flag = 100;
     }
     
