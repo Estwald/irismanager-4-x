@@ -82,8 +82,11 @@ char * LoadFile(char *path, int *file_size);
 int SaveFile(char *path, char *mem, int file_size);
 
 void DrawDialogOK(char * str);
+void DrawDialogOKTimer(char * str, float milliseconds);
 int DrawDialogYesNo(char * str);
 int DrawDialogYesNo2(char * str);
+int DrawDialogYesNoTimer(char * str, float milliseconds);
+int DrawDialogYesNoTimer2(char * str, float milliseconds);
 
 int parse_param_sfo(char * file, char *title_name);
 int parse_ps3_disc(char *path, char * id);
