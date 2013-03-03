@@ -1590,6 +1590,7 @@ int psx_iso_prepare(char *path, char *name)
             u64 value = lv2peek(0x8000000000001820ULL);
             if((value == 0x455053315F454D55ULL || value == 0x45505331454D5531ULL)
                 && (old_pad & BUTTON_CIRCLE)) {
+
                 if(!noBDVD)
                     sys8_pokeinstr(0x8000000000001830ULL, (u64) 2); // disable CD
                 else
@@ -2152,20 +2153,22 @@ void psx_launch(void)
             1001, SYS_PROCESS_SPAWN_STACK_SIZE_1M);
 }
 
-void Reset_BDVD(void)
+void Reset1_BDVD(void)
 {
     int ret;
     int n;
     
     ret = sys_storage_reset_bd();
-
+   
     if(ret < 0 && ((u32) ret) == 0x8001000A) {
         for(n = 0; n < 500000; n++) {
            ret = sys_storage_reset_bd();
            if(((u32) ret) != 0x8001000A) break;
         }
     }
-    
+   
+    // old method
+   
     if(ret == 0) {
         ret = sys_storage_authenticate_bd();
        if(ret < 0 && ((u32) ret) == 0x8001000A) {
@@ -2178,7 +2181,39 @@ void Reset_BDVD(void)
 
     }
 
+    sys_storage_ctrl_bd(0x3f);
 }
+
+
+void Reset2_BDVD(void)
+{
+    int ret;
+    int n;
+    
+    ret = sys_storage_reset_bd();
+   
+    if(ret < 0 && ((u32) ret) == 0x8001000A) {
+        for(n = 0; n < 500000; n++) {
+           ret = sys_storage_reset_bd();
+           if(((u32) ret) != 0x8001000A) break;
+        }
+    }
+   
+ // new method
+    if(ret == 0) {
+        ret = sys_storage_ctrl_bd(0x43);
+       if(ret < 0 && ((u32) ret) == 0x8001000A) {
+            for(n = 0; n < 500000; n++) {
+               ret = sys_storage_ctrl_bd(0x43);
+               if(((u32) ret) != 0x8001000A) break;
+            }
+            
+        }
+
+    }
+
+}
+
 
 // from Multiman modified by Estwald
 

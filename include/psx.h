@@ -27,7 +27,8 @@ void psx_launch(void);
 int psx_iso_prepare(char *path, char *name);
 int psx_cd_with_cheats(void);
 
-void Reset_BDVD();
+void Reset1_BDVD(void);
+void Reset2_BDVD(void);
 
 extern u8 psx_id[32];
 
