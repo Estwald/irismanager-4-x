@@ -1292,7 +1292,7 @@ sys8_pokeinst:
 	b	    ABS(0x000505D8)
 
 ########################################################################################################################################################	
-
+    .align 3
 # 00050F70
  memory_patch_table:
 
@@ -1311,6 +1311,7 @@ sys8_pokeinst:
 	QUAD_ABS(memory_patch_table_2)
 #endif
 	.quad	0
+    .align 2
 
 #ifndef CFW_341
 // vsh.self
@@ -1349,11 +1350,12 @@ sys8_pokeinst:
 	PATCH_DATA(0x000d68c0, 0x6d6c2372)
 	PATCH_DATA(0x000d68c4, 0x6f6f7400)
 	.long 0
-
+    .align 3
  GAME_NAME_PTR:  
 	.quad 0
  GAME_MOUNTPOINT_PTR:
 	.quad 0
+    .align 2
  INITIALIZED:
  #ifndef CFW_341
 	.long 0
@@ -1363,6 +1365,7 @@ sys8_pokeinst:
 
  patch_flag: 
 	.long 0
+    .align 3
  str_open_cmp:
 	.quad 0
  save_syscall_values: // (for stealth)
@@ -1395,17 +1398,17 @@ acompare3:
     .string "APP_VER" # 7 + 1
 aversion:
     .string "03.4100"
-
+    .align 2
 patch_app_ver:
     .long 0
-
+    .align 3
  GAME_NAME_PTR2:  
 	.quad 0
  strAppHome:
 	.string "/app_home"	
  strDevUSB:
 	.string "/dev_usb000"
-
+    .align 3
  syscall8_table:
 	QUAD_ABS(sys8_disable);
 	QUAD_ABS(sys8_enable);

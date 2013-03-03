@@ -17,4 +17,4 @@
 #define perm_patch_func             0x505d0
 
 #define BASE2        (0x50B3C+0x14)  // (syscall 838)
-#define UMOUNT_DATAS 0xf4
+

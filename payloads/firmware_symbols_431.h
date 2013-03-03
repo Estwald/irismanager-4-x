@@ -16,7 +16,8 @@
 #define memset                      0x4E548
 
 #define perm_patch_func             0x3560
+#define perm_var_offset             -0x7FF8
 
 #define BASE        0x3d90
 #define BASE2        (0x3d90+0x400)  // 0x4290  // pincha en -> 1B5070 (syscall 838)
-#define UMOUNT_DATAS 0x108
+

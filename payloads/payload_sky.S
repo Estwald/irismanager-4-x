@@ -172,7 +172,7 @@ perm_routine:
     lwz     %r0, 0(%r9)
     cmplwi  %r0, 1
     beq     return1_h4
-    ld      %r9, -0x7FF8(%rtoc)
+    ld      %r9, perm_var_offset(%rtoc)
     mflr    %r0
     b       ABS(perm_patch_func + 8)
 

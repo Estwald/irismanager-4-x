@@ -73,14 +73,18 @@ umount_sys_patch: // 0x1B509C
     li      %r5, PATHSTR_LEN
     mflr    %r31
     bl      ABS(strncmp)
-    cmpldi    %r3, 0
+    cmpldi  %r3, 0
     bne     umount_normally
     ld      %r3, 0(%r29)
+    cmpldi  %r3, 0
+    beq     umount_normally
+    li      %r0, 0
+    std     %r0, 0(%r29)
     ld      %r4, 8(%r29)
     lwz     %r5, 16(%r29)
     stw     %r5, 0(%r4)
     addi    %r4, %r29, 0x20
-    li      %r5, UMOUNT_DATAS
+    lwz     %r5, 20(%r29)
     bl       ABS(memcpy)
 
 umount_normally:
@@ -96,4 +100,4 @@ umount_normally:
 
 aDev_bdvd:    .string    "/dev_bdvd"
 
-.org 148
+.org 160

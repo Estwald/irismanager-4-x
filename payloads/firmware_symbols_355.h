@@ -13,18 +13,11 @@
 
 #define memcpy                      0x7c3a4
 #define memset                      0x4e4d8
-#define copy_from_user              0x0f8c0
-#define copy_to_user                0x0f6a4
-
-#define alloc_and_copy_from_user    0x18DE28
-#define strdup_from_user            0x192B8C
-#define strdup                      0x192B8C
 
 #define perm_patch_func             0x0e7f0
-#define rtoc_entry_1		        0x1030
-#define rtoc_entry_2		       -0x5b80
+#define perm_var_offset             -0x7B48
 
 #define BASE        0xEF48
 #define BASE2        (0xEF48+0x400)  // 0xF448  // pincha en -> 19334C (syscall 838)
-#define UMOUNT_DATAS 0xf4
+
 
