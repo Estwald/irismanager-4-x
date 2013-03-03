@@ -268,7 +268,7 @@ void install_pkg(char *path, char *filename)
     char string1[] = "80000000";
     int free_slot = -1;
     
-    if(firmware == 341 || firmware == 355) use_folder =1;
+    if(firmware == 0x341C || firmware == 0x355C || firmware == 0x355D) use_folder =1;
 
     sysFsGetFreeSize("/dev_hdd0/", &blockSize, &freeSize);
     free_hdd0 = ( ((u64)blockSize * freeSize));
@@ -379,7 +379,7 @@ void install_pkg(char *path, char *filename)
         DrawDialogOK(temp_buffer + 1024);
         return;
      } else {
-        if(firmware == 341 || firmware == 355) set_install_pkg=1;
+        if(firmware == 0x341C || firmware == 0x355C || firmware == 0x355D) set_install_pkg=1;
      }
 
     DrawDialogOK(language[GAMECPYSL_DONE]);     
