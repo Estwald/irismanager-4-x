@@ -206,7 +206,16 @@ static inline int sys_storage_reset_bd(void)
  */
 static inline int sys_storage_authenticate_bd(void)
 {
-    int func = 0x43;
+    lv2syscall2(864, 0x5004, 0x46);
+    return_to_user_prog(int);
+}
+
+/**
+ * In order to execute syscall 864 the access rights of LV2 need to be patched
+ */
+static inline int sys_storage_ctrl_bd(int _func)
+{
+    int func = _func;
     
     lv2syscall2(864, 0x5007, (uint64_t) &func);
 
