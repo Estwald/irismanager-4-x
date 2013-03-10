@@ -38,6 +38,10 @@
 #include "firmware_symbols_431.h"
 #endif
 
+#ifdef CFW_430dex
+#include "firmware_symbols_430dex.h"
+#endif
+
 #define ABS(target) ((target) - (BASE2) - .)
 
 // Dynamic macros to load a label into a register

@@ -18,7 +18,7 @@ SFOXML		:=	sfo.xml
 
 # usage:  make BUILD_STEALTH=yes
 ifndef BUILD_STEALTH
-TITLE		:=	IrisManager - v2.20
+TITLE		:=	IrisManager - v2.21
 APPID		:=	IMANAGER4
 else
 TITLE		:=	LEMMINGS™ Trial Version
@@ -47,12 +47,13 @@ SCETOOL_FLAGS	+=	--self-cap-flags 0000000000000000000000000000000000000000000000
 TARGET		:=	$(notdir $(CURDIR))
 BUILD		:=	build
 SOURCES		:=	source source/ftp
-SOURCES		+=  source/payload341 source/payload355 source/payload355dex source/payload421 source/payload421dex source/payload430 source/payload431
+SOURCES		+=  source/payload341 source/payload355 source/payload355dex source/payload421 source/payload421dex
+SOURCES		+=  source/payload430 source/payload430dex source/payload431
 DATA		:=	datas
 SHADERS		:=	shaders
 INCLUDES	:=	include include/ftp
-INCLUDES	+=  include/payload341 include/payload355 include/payload355dex include/payload421 include/payload421dex include/payload430 include/payload431
-
+INCLUDES	+=  include/payload341 include/payload355 include/payload355dex include/payload421 include/payload421dex
+INCLUDES	+=  include/payload430 include/payload430dex include/payload431
 
 #---------------------------------------------------------------------------------
 # any extra libraries we wish to link with the project

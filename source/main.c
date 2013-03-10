@@ -13,7 +13,7 @@
     GNU General Public License for more details.
 
     You should have received a copy of the GNU General Public License
-    along with HMANAGER4.  If not, see <http://www.gnu.org/licenses/>.
+    apayloadlong with HMANAGER4.  If not, see <http://www.gnu.org/licenses/>.
 
 */
 
@@ -51,6 +51,7 @@
 #include "payload421dex/payload_421dex.h"
 #include "payload430/payload_430.h"
 #include "payload431/payload_431.h"
+#include "payload430dex/payload_430dex.h"
 
 #include "spu_soundmodule.bin.h" // load SPU Module
 #include "spu_soundlib.h"
@@ -1219,6 +1220,9 @@ s32 main(s32 argc, const char* argv[])
     } else if(is_firm_431()) {
         firmware = 0x431C;
         payload_mode = is_payload_loaded_431();
+	} else if(is_firm_430dex()) {
+        firmware = 0x430D;
+        payload_mode = is_payload_loaded_430dex();
     }
     
     //sprintf(temp_buffer + 0x1000, "firmware: %xex payload %i", firmware, payload_mode);
@@ -1359,6 +1363,19 @@ s32 main(s32 argc, const char* argv[])
             {
                 case ZERO_PAYLOAD: //no payload installed
                     load_payload_431(payload_mode);
+                    __asm__("sync");
+                    sleep(1); /* maybe need it, maybe not */
+                    break;
+        		case SKY10_PAYLOAD:
+        		    break;
+            }
+            break;
+			        case 0x430D:
+            set_bdvdemu_430dex(payload_mode);
+            switch(payload_mode)
+            {
+                case ZERO_PAYLOAD: //no payload installed
+                    load_payload_430dex(payload_mode);
                     __asm__("sync");
                     sleep(1); /* maybe need it, maybe not */
                     break;
