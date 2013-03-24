@@ -52,6 +52,7 @@
 #include "payload430/payload_430.h"
 #include "payload431/payload_431.h"
 #include "payload430dex/payload_430dex.h"
+#include "payload440/payload_440.h"
 
 #include "spu_soundmodule.bin.h" // load SPU Module
 #include "spu_soundlib.h"
@@ -1136,6 +1137,7 @@ int is_libfs_patched(void){
                     
 /******************************************************************************************************************************************************/
 
+
 s32 main(s32 argc, const char* argv[])
 {
     int n;
@@ -1223,7 +1225,13 @@ s32 main(s32 argc, const char* argv[])
 	} else if(is_firm_430dex()) {
         firmware = 0x430D;
         payload_mode = is_payload_loaded_430dex();
+	} else if(is_firm_440()) {
+        firmware = 0x440C;
+        payload_mode = is_payload_loaded_440();
     }
+	
+	
+  
     
     //sprintf(temp_buffer + 0x1000, "firmware: %xex payload %i", firmware, payload_mode);
 
@@ -1383,6 +1391,19 @@ s32 main(s32 argc, const char* argv[])
         		    break;
             }
             break;
+				case 0x440C:
+            set_bdvdemu_440(payload_mode);
+            switch(payload_mode)
+            {
+                case ZERO_PAYLOAD: //no payload installed
+                    load_payload_440(payload_mode);
+                    __asm__("sync");
+                    sleep(1); /* maybe need it, maybe not */
+                    break;
+        		case SKY10_PAYLOAD:
+        		    break;
+            }
+			break;
         default:
             tiny3d_Init(1024*1024);
             ioPadInit(7);
@@ -1423,7 +1444,7 @@ s32 main(s32 argc, const char* argv[])
     ioPadInit(7);
     usleep(250000);
 
-    // DrawDialogOK(temp_buffer + 0x1000);
+   
 
     if(sys8_disable_all!=0) {
          if(DrawDialogYesNo2("Syscall 8 very old or not detected\n\nWant you REBOOT the PS3? (NO for XMB exit)")==1) 

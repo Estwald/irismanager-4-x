@@ -48,12 +48,12 @@ TARGET		:=	$(notdir $(CURDIR))
 BUILD		:=	build
 SOURCES		:=	source source/ftp
 SOURCES		+=  source/payload341 source/payload355 source/payload355dex source/payload421 source/payload421dex
-SOURCES		+=  source/payload430 source/payload430dex source/payload431
+SOURCES		+=  source/payload430 source/payload430dex source/payload431 source/payload440
 DATA		:=	datas
 SHADERS		:=	shaders
 INCLUDES	:=	include include/ftp
 INCLUDES	+=  include/payload341 include/payload355 include/payload355dex include/payload421 include/payload421dex
-INCLUDES	+=  include/payload430 include/payload430dex include/payload431
+INCLUDES	+=  include/payload430 include/payload430dex include/payload431 include/payload440
 
 #---------------------------------------------------------------------------------
 # any extra libraries we wish to link with the project
