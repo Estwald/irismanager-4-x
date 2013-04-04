@@ -157,3 +157,256 @@ int Render_String_UTF8(u16 * bitmap, int w, int h, u8 *string, int sw, int sh)
     }
     return posx;
 }
+
+// constructor dinámico de fuentes 32 x 32
+
+typedef struct ttf_dyn {
+    u32 ttf;
+    u16 *text;
+    u32 r_use;
+    u16 y_start;
+    u16 width;
+    u16 height;
+    u16 flags;
+
+} ttf_dyn;
+
+#define MAX_CHARS 1600
+
+static ttf_dyn ttf_font_datas[MAX_CHARS];
+
+static u32 r_use= 0;
+
+float Z_ttf =0.0f;
+
+static int Win_X_ttf = 0;
+static int Win_Y_ttf = 0;
+static int Win_W_ttf = 848;
+static int Win_H_ttf = 512;
+
+
+static u32 Win_flag = 0;
+
+void set_ttf_window(int x, int y, int width, int height, u32 mode)
+{
+    Win_X_ttf = x;
+    Win_Y_ttf = y;
+    Win_W_ttf = width;
+    Win_H_ttf = height;
+    Win_flag = mode;
+}
+
+u16 * init_ttf_table(u16 *texture)
+{
+    int n;
+
+    r_use= 0;
+    for(n= 0; n <  MAX_CHARS; n++) {
+        memset(&ttf_font_datas[n], 0, sizeof(ttf_dyn));
+        ttf_font_datas[n].text = texture;
+
+        texture+= 32*32;
+    }
+
+    return texture;
+
+}
+
+void reset_ttf_frame(void)
+{
+    int n;
+
+    for(n= 0; n <  MAX_CHARS; n++) {
+        
+        ttf_font_datas[n].flags &= 1;
+
+    }
+
+    r_use++;
+
+}
+
+static void DrawTextBox_ttf(float x, float y, float z, float w, float h, u32 rgba, float tx, float ty)
+{
+    tiny3d_SetPolygon(TINY3D_QUADS);
+    
+   
+    tiny3d_VertexPos(x    , y    , z);
+    tiny3d_VertexColor(rgba);
+    tiny3d_VertexTexture(0.0f , 0.0f);
+
+    tiny3d_VertexPos(x + w, y    , z);
+    tiny3d_VertexTexture(tx, 0.0f);
+
+    tiny3d_VertexPos(x + w, y + h, z);
+    tiny3d_VertexTexture(tx, ty);
+
+    tiny3d_VertexPos(x    , y + h, z);
+    tiny3d_VertexTexture(0.0f , ty);
+
+    tiny3d_End();
+}
+
+
+#define UX 30
+#define UY 24
+
+
+int display_ttf_string(int posx, int posy, char *string, u32 color, int sw, int sh)
+{
+    int l,n, m, ww, ww2;
+    u8 colorc;
+    u32 ttf_char;
+    u8 *ustring = (u8 *) string;
+
+    while(*ustring) {
+
+        if(posy >= Win_H_ttf) break;
+
+        if(*ustring == 32 || *ustring == 9) {posx += sw>>1; ustring++; continue;}
+
+        if(*ustring & 128) {
+            m = 1;
+
+            if((*ustring & 0xf8)==0xf0) { // 4 bytes
+                ttf_char = (u32) (*(ustring++) & 3);
+                m = 3;
+            } else if((*ustring & 0xE0)==0xE0) { // 3 bytes
+                ttf_char = (u32) (*(ustring++) & 0xf);
+                m = 2;
+            } else if((*ustring & 0xE0)==0xC0) { // 2 bytes
+                ttf_char = (u32) (*(ustring++) & 0x1f);
+                m = 1;
+            } else {ustring++;continue;} // error!
+
+             for(n = 0; n < m; n++) {
+                if(!*ustring) break; // error!
+                    if((*ustring & 0xc0) != 0x80) break; // error!
+                    ttf_char = (ttf_char <<6) |((u32) (*(ustring++) & 63));
+             }
+           
+            if((n != m) && !*ustring) break;
+        
+        } else ttf_char = (u32) *(ustring++);
+
+
+        if(Win_flag & WIN_SKIP_LF) {
+            if(ttf_char == '\r' || ttf_char == '\n') ttf_char='/';
+        } else {
+            if(Win_flag & WIN_DOUBLE_LF) {
+                if(ttf_char == '\r') {posx = 0;continue;}
+                if(ttf_char == '\n') {posy += sh;continue;}
+            } else {
+                if(ttf_char == '\n') {posx = 0;posy += sh;continue;}
+            }
+        }
+
+        if(ttf_char < 32) ttf_char='?';
+
+        
+
+        // search ttf_char
+        if(ttf_char < 128) n= ttf_char;
+        else {
+            m= 0;
+            int rel=0;
+            
+            for(n= 128; n < MAX_CHARS; n++) {
+                if(!(ttf_font_datas[n].flags & 1)) m= n;
+                
+                if((ttf_font_datas[n].flags & 3)==1) {
+                    int trel= r_use - ttf_font_datas[n].r_use;
+                    if(m==0) {m= n;rel = trel;}
+                    else if(rel > trel) {m= n;rel = trel;}
+
+                }
+                if(ttf_font_datas[n].ttf == ttf_char) break;
+            }
+
+            if(m==0) m = 128;
+
+        }
+
+        if(n >= MAX_CHARS) {ttf_font_datas[m].flags = 0; l= m;} else l=n;
+
+        u16 * bitmap = ttf_font_datas[l].text;
+        
+        // building the character
+
+        if(!(ttf_font_datas[l].flags & 1)) { 
+
+            FT_Set_Pixel_Sizes(face, UX, UY);
+            FT_GlyphSlot slot = face->glyph;
+            
+           
+            memset(bitmap, 0, 32 * 32 * 2);
+
+            ///////////
+            if(FT_Load_Char(face, ttf_char, FT_LOAD_RENDER )==0) {
+                ww = ww2 = 0;
+
+                int y_correction = UY - 1 - slot->bitmap_top;
+                if(y_correction < 0) y_correction = 0;
+
+                ttf_font_datas[l].flags = 1;
+                ttf_font_datas[l].y_start = y_correction;
+                ttf_font_datas[l].height = slot->bitmap.rows;
+                ttf_font_datas[l].width = slot->bitmap.width;
+                ttf_font_datas[l].ttf = ttf_char;
+                
+
+                for(n = 0; n < slot->bitmap.rows; n++) {
+                    if(n >= 32) break;
+                    for (m = 0; m < slot->bitmap.width; m++) {
+
+                        if(m >= 32) continue;
+                        
+                        colorc = (u8) slot->bitmap.buffer[ww + m];
+                        
+                        if(colorc) bitmap[m + ww2] = (colorc<<8) | 0xfff;
+                    }
+                
+                ww2 += 32;
+
+                ww += slot->bitmap.width;
+                }
+                
+            }
+        }
+
+        // displaying the character
+        ttf_font_datas[l].flags |= 2; // in use
+        ttf_font_datas[l].r_use = r_use;
+
+        tiny3d_SetTextureWrap(0, tiny3d_TextureOffset(bitmap), 32, 
+                32, 32 * 2, 
+                TINY3D_TEX_FORMAT_A4R4G4B4,  TEXTWRAP_CLAMP, TEXTWRAP_CLAMP,1);
+
+        //DrawTextBox_ttf((float) posx, (float) posy/* + ((float) ttf_font_datas[l].y_start * sh) * 0.03125f*/, 0.0f, (float) sw, (float) sh, color,
+        //    0.0309375f * (float) ttf_font_datas[l].width, 0.0309375f * (float) ttf_font_datas[l].height);
+
+        
+        if((Win_flag & WIN_AUTO_LF) && (posx + (ttf_font_datas[l].width * sw / 32) + 1) > Win_W_ttf) {
+            posx = 0;
+            posy += sh;
+        }
+
+        u32 ccolor = color;
+        u32 cx =(ttf_font_datas[l].width * sw / 32) + 1;
+
+        // skip if out of window
+        if((posx + cx) > Win_W_ttf || (posy + sh) > Win_H_ttf ) ccolor = 0;
+
+        if(ccolor)
+            DrawTextBox_ttf((float) (Win_X_ttf + posx), (float) (Win_Y_ttf + posy) + ((float) ttf_font_datas[l].y_start * sh) * 0.03125f,
+            Z_ttf, (float) sw, (float) sh, color,
+            0.99f, 0.99f);
+
+        posx+= cx;
+
+
+    }
+
+    return posx;
+
+}
