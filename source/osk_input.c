@@ -82,6 +82,46 @@ void UTF16_to_UTF8(u16 *stw, u8 *stb)
     *stb= 0;
 }
 
+void UTF8_to_UTF16(u8 *stb, u16 *stw)
+{
+   int n, m;
+   u32 UTF32;
+   while(*stb) {
+       if(*stb & 128) {
+            m = 1;
+
+            if((*stb & 0xf8)==0xf0) { // 4 bytes
+                UTF32 = (u32) (*(stb++) & 3);
+                m = 3;
+            } else if((*stb & 0xE0)==0xE0) { // 3 bytes
+                UTF32 = (u32) (*(stb++) & 0xf);
+                m = 2;
+            } else if((*stb & 0xE0)==0xC0) { // 2 bytes
+                UTF32 = (u32) (*(stb++) & 0x1f);
+                m = 1;
+            } else {stb++;continue;} // error!
+
+             for(n = 0; n < m; n++) {
+                if(!*stb) break; // error!
+                    if((*stb & 0xc0) != 0x80) break; // error!
+                    UTF32 = (UTF32 <<6) |((u32) (*(stb++) & 63));
+             }
+           
+            if((n != m) && !*stb) break;
+        
+        } else UTF32 = (u32) *(stb++);
+
+        if(UTF32<65536)
+            *stw++= (u16) UTF32;
+        else {//110110ww wwzzzzyy 110111yy yyxxxxxx
+            *stw++= (((u16) (UTF32>>10)) & 0x3ff) | 0xD800;
+            *stw++= (((u16) (UTF32)) & 0x3ff) | 0xDC00;
+        }
+   }
+
+   *stw++ = 0;
+}
+
 void UTF8_to_Ansi(char *utf8, char *ansi, int len)
 {
 u8 *ch= (u8 *) utf8;
@@ -150,10 +190,11 @@ int Get_OSK_String(char *caption, char *str, int len)
     
 	int ret = 0;
     
-    wchar_t *message = NULL;
-    wchar_t *OutWcharTex = NULL;
+    u16 * message = NULL;
+    u16 * OutWcharTex = NULL;
+    u16 * InWcharTex = NULL;
     
-    if(len>255) len = 255;
+    if(len>256) len = 256;
      
     osk_level = 0;
     atexit(OSK_exit);
@@ -162,13 +203,21 @@ int Get_OSK_String(char *caption, char *str, int len)
 
     osk_level = 1;
                 
-    message = malloc(64);
-    OutWcharTex = malloc(1024);
+    message = malloc(strlen(caption)*2+32);
+    if(!message) goto end;
 
-    memset(message, 0, 64);
+    OutWcharTex = malloc(0x420*2);
+    if(!OutWcharTex) goto end;
+
+    InWcharTex = malloc(0x420*2);
+    if(!InWcharTex) goto end;
+
+    //memset(message, 0, 64);
+    UTF8_to_UTF16((u8 *) caption, (u16 *) message);
+    UTF8_to_UTF16((u8 *) str, (u16 *) InWcharTex);
 
     inputFieldInfo.message =  (u16 *) message;
-    inputFieldInfo.startText = (u16 *) OutWcharTex;
+    inputFieldInfo.startText = (u16 *) InWcharTex;
     inputFieldInfo.maxLength = len;
        
     OutputReturnedParam.res = OSK_NO_TEXT; //OSK_OK;     
@@ -185,7 +234,8 @@ int Get_OSK_String(char *caption, char *str, int len)
             OSK_PANEL_TYPE_ENGLISH |
             OSK_PANEL_TYPE_DEFAULT |
             OSK_PANEL_TYPE_SPANISH |
-            OSK_PANEL_TYPE_FRENCH );
+            OSK_PANEL_TYPE_FRENCH |
+            OSK_PANEL_TYPE_JAPANESE);
 
     if(oskAddSupportLanguage (DialogOskParam.allowedPanels)<0) {ret= -3; goto end;}
 
@@ -281,8 +331,9 @@ end:
     sysMemContainerDestroy(container_mem);
 
     osk_level = 0;
-    free(message);
-    free(OutWcharTex);
+    if(message) free(message);
+    if(OutWcharTex) free(OutWcharTex);
+    if(InWcharTex) free(InWcharTex);
 
     return ret;
     

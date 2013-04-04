@@ -1038,7 +1038,9 @@ static int fast_copy_add(char *pathr, char *pathw, char *file)
             sprintf(buff, "%s/%s", pathr, file);
 
             char * a = strstr((char *) buff, ".66600");
-            if(a) a[0] = 0;
+            
+            if(a && a[6]==0) a[0] = 0;
+            //if(a) a[0] = 0;
 
             int n;
 
@@ -3353,10 +3355,10 @@ void DeleteDirectory(const char* path)
 
 		if (dir.d_type & DT_DIR) {
 			DeleteDirectory(newpath);
-            sysFsChmod(newpath, FS_S_IFDIR | 0777);
+            sysLv2FsChmod(newpath, FS_S_IFDIR | 0777);
             sysLv2FsRmdir(newpath);
 		} else {
-            sysFsChmod(path, FS_S_IFMT | 0777);
+            sysLv2FsChmod(path, FS_S_IFMT | 0777);
 			sysLv2FsUnlink(newpath);
 		}
 	}

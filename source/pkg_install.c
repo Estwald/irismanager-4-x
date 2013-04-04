@@ -17,6 +17,7 @@
     along with HMANAGER4.  If not, see <http://www.gnu.org/licenses/>.
 
 */
+
 #include <stdio.h>
 #include <malloc.h>
 #include <string.h>
@@ -26,7 +27,6 @@
 #include <time.h>
 
 #include <lv2/process.h>
-#include <lv2/sysfs.h>
 #include <ppu-lv2.h>
 #include <sys/stat.h>
 
@@ -67,6 +67,7 @@ typedef struct {
 
 static t_list * entries = NULL;
 
+static char path_hdd[1024];
 static char path_name[1024];
 
 static int compare(const void *va, const void *vb)
@@ -97,32 +98,68 @@ int pos = 0;
 int flash = 0;
 u64 frame_count = 0;
 
+int is_hdd=0;
+
+char path_pkghdd[256];
+
 char ansi[256];
 
     entries = (t_list *) malloc(sizeof(t_list)*1024);
     if(!entries) return; // out of memory
 
-    sprintf(path_name,"/dev_usb000");
+    sprintf(path_name, "/dev_usb000");
+    sprintf(path_hdd, "%s/PKG", self_path);
+    sprintf(path_pkghdd, "%s/PKG", self_path);
 
     while(1) {
         flash = (frame_count >> 4) & 1;
 
         frame_count++;
 
-        if(!flash) {
+        if((frame_count & 7)==1) {
 
             char l= path_name[11]; path_name[11] = 0; // break to "/dev_usb00x"
             dir = opendir(path_name);
-            if(dir) closedir(dir); else {autolist = 2; nentries = 0;}
+            if(dir) closedir(dir);
+            else {
+                
+
+                for(n = 0; n < 10; n++) {
+                    sprintf(path_name,"/dev_usb00%c", 48+n);
+                    dir = opendir(path_name);
+                    if(dir) {closedir(dir);break;}
+                }
+                 
+                if(n<10) {autolist = 2 + n;nentries = 0;}
+                else {
+                    sprintf(path_name,"/dev_usb00%c", 48);
+                    
+                    if(!is_hdd) {
+                        nentries = 0;
+                        dir = opendir(path_pkghdd);
+
+                        if(dir)  {closedir(dir); autolist = 12;}
+                    }
+                }
+               
+            }
             path_name[11]= l;
         }
+        
 
         if(autolist) {
             pos= sel = 0; nentries = 0;
 
-            if(autolist > 1) {sprintf(path_name,"/dev_usb00%c", 46 + autolist); autolist++;if(autolist>=12) autolist = 2;}
+            if(autolist > 1 && autolist!=12) 
+                {sprintf(path_name,"/dev_usb00%c", 46 + autolist);}
 
             dir = opendir (path_name);
+            is_hdd=0;
+            if(!dir) {
+                dir = opendir (path_pkghdd); 
+                if(dir) {is_hdd=1;autolist=12;}
+                else autolist = 2;
+            }
             if(dir) {
                 
                 while(1) {
@@ -131,18 +168,22 @@ char ansi[256];
                     if(nentries >= 1024) break;
                     if(entry->d_name[0]=='.' && entry->d_name[1]==0) continue;
 
+                    if((entry->d_type & DT_DIR) && is_hdd) continue;
+
                     if((entry->d_type & DT_DIR)) entries[nentries].flags = 1;
                     else {
                         if(strncmp(entry->d_name + strlen(entry->d_name)-4, ".pkg",5) && strncmp(entry->d_name + strlen(entry->d_name)-4, ".PKG",5))
                             continue;
                         entries[nentries].flags = 0;
                     }
+
                     strncpy(entries[nentries].name, entry->d_name, 256);
                     nentries++;
                 }
             closedir (dir);
 
             qsort(entries, nentries, sizeof(t_list), compare);
+
             autolist = 0;
             }
         }
@@ -220,21 +261,39 @@ char ansi[256];
 
         if(new_pad & BUTTON_CROSS) {
             if(entries[sel].flags & 1) { // change dir
-                if(!strcmp(entries[sel].name,"..")) {
-                    n = strlen(path_name);
-                    while(n>0 && path_name[n]!='/') n--;
+                if(is_hdd) {
+                    if(!strcmp(entries[sel].name,"..")) {
+                        n = strlen(path_hdd);
+                        while(n>0 && path_hdd[n]!='/') n--;
 
-                    if(n!=0) path_name[n] = 0;
-                }
-                else {
-                    strcat(path_name, "/");
-                    strcat(path_name, entries[sel].name);
+                        if(n!=0) path_hdd[n] = 0;
+                    }
+                    else {
+                        strcat(path_hdd, "/");
+                        strcat(path_hdd, entries[sel].name);
+                    }
+                } else {
+                    if(!strcmp(entries[sel].name,"..")) {
+                        n = strlen(path_name);
+                        while(n>0 && path_name[n]!='/') n--;
+
+                        if(n!=0) path_name[n] = 0;
+                    }
+                    else {
+                        strcat(path_name, "/");
+                        strcat(path_name, entries[sel].name);
+                    }
                 }
                 autolist = 1;
             }
             else {
                 //install
-                install_pkg(path_name, entries[sel].name);
+                if(is_hdd) {
+                    autolist = 12;nentries = 0;
+                    install_pkg(path_hdd, entries[sel].name);
+                }
+                else
+                    install_pkg(path_name, entries[sel].name);
             }
 
         }
@@ -253,7 +312,7 @@ char ansi[256];
 extern int firmware;
 int flag_build = 1;
 
-int build_pkg(char *path, char *title, char *path_icon, u32 size);
+int build_pkg(char *path, char *title, char *path_icon, u64 size);
 
 int use_folder = 0;
 char pkg_folder[2][16]= {"game_pkg", "task"};
@@ -274,10 +333,10 @@ void install_pkg(char *path, char *filename)
     free_hdd0 = ( ((u64)blockSize * freeSize));
 
     sprintf(temp_buffer, "%s/%s", path, filename);
-
+    
     if(stat(temp_buffer, &s) == 0) {
                  
-    if(s.st_size + 0x40000000ULL > free_hdd0 || s.st_size >= 0x100000000ULL) 
+    if(s.st_size + 0x40000000ULL > free_hdd0/*|| s.st_size >= 0x100000000ULL*/) 
         {DrawDialogOK(language[PKG_ERRTOBIG]);return;}
     } else return; // error
 
@@ -325,13 +384,20 @@ void install_pkg(char *path, char *filename)
 
     sprintf(temp_buffer + 3072, "/dev_hdd0/vsh/%s/%s/ICON_FILE", &pkg_folder[use_folder][0], string1);
 
+
     if(build_pkg(temp_buffer + 2048, filename, temp_buffer + 3072, s.st_size)) {
         DeleteDirectory(temp_buffer + 2048);rmdir(temp_buffer + 2048);
         DrawDialogOK(language[PKG_ERRBUILD]);return;
     }
 
+    
 
-    int ret = copy_async(temp_buffer, temp_buffer + 1024, s.st_size, language[PKG_COPYING], NULL);
+    int ret = 0;
+    
+    if(!strncmp(temp_buffer, "/dev_hdd0", 9))
+        ret= sysLv2FsRename(temp_buffer, temp_buffer  + 1024);
+    else
+        ret = copy_async(temp_buffer, temp_buffer + 1024, s.st_size, language[PKG_COPYING], NULL);
 
     if(ret < 0) {DeleteDirectory(temp_buffer + 2048);rmdir(temp_buffer + 2048);}
     if(ret == -3) {DrawDialogOK(language[OUT_OFMEMORY]);return;}
@@ -402,7 +468,7 @@ unsigned char data_pdb2[13] = {
 #undef FWRITE
 #define FWRITE(a, b, c) if(fwrite(a, 1, b, c)!=b) goto error
 
-int build_pkg(char *path, char *title, char *path_icon, u32 size)
+int build_pkg(char *path, char *title, char *path_icon, u64 size)
 {
     FILE *fp1;
     FILE *fp2 = NULL;
@@ -421,9 +487,9 @@ int build_pkg(char *path, char *title, char *path_icon, u32 size)
         FWRITE(data_pdb, 112, fp1);
         if(!use_folder) FWRITE(data_pdb, 112, fp2);
 
-        data= 0;
-        FWRITE(&data, 1, fp1);
-        if(!use_folder) FWRITE(&data, 1, fp2);
+        data2= (size>>32);
+        FWRITE(&data2, 1, fp1);
+        if(!use_folder) FWRITE(&data2, 1, fp2);
 
         data= (size);
         FWRITE(&data, 4, fp1);
@@ -445,9 +511,9 @@ int build_pkg(char *path, char *title, char *path_icon, u32 size)
         FWRITE(&data, 4, fp1);
         if(!use_folder) FWRITE(&data, 4, fp2);
 
-        data= 1;
-        FWRITE(&data, 1, fp1);
-        if(!use_folder) FWRITE(&data, 1, fp2);
+        data2= (size>>32);
+        FWRITE(&data2, 1, fp1);
+        if(!use_folder) FWRITE(&data2, 1, fp2);
 
         data= (size);
         FWRITE(&data, 4, fp1);

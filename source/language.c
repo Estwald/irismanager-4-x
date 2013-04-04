@@ -177,6 +177,7 @@ t_lngstr lang_strings[] =
     { DRAWTOOLS_NOBDVD,   "DRAWTOOLS_NOBDVD"         , "Without BDVD Controller"},
     
     { DRAWTOOLS_PKGTOOLS, "DRAWTOOLS_PKGTOOLS"         , ".PKG Install" },
+    { DRAWTOOLS_ARCHIVEMAN, "DRAWTOOLS_ARCHIVEMAN"         , "Archive Manager" },
 
     //MAIN - OTHERS
     { DRAWCACHE_CACHE, "DRAWCACHE_CACHE"         , "Delete Cache Tool" },

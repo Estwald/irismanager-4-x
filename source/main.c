@@ -68,6 +68,7 @@
 
 #include "ftp.h"
 #include "psx.h"
+#include "archive_manager.h"
 
 // include fonts
 #include "comfortaa_ttf_bin.h"
@@ -83,6 +84,10 @@
 #include "ftp_png_bin.h"
 #include "psone_png_bin.h"
 #include "psoneiso_png_bin.h"
+#include "folder_png_bin.h"
+#include "file_png_bin.h"
+#include "pkg_png_bin.h"
+#include "self_png_bin.h"
 
 #include "music1_mod_bin.h"
 #include "music2_mod_bin.h"
@@ -237,6 +242,18 @@ void Load_PNG_resources()
 
     Png_res[6].png_in   = (void *) psoneiso_png_bin;
     Png_res[6].png_size = psoneiso_png_bin_size;
+
+    Png_res[7].png_in   = (void *) folder_png_bin;
+    Png_res[7].png_size = folder_png_bin_size;
+
+    Png_res[8].png_in   = (void *) file_png_bin;
+    Png_res[8].png_size = file_png_bin_size;
+
+    Png_res[9].png_in   = (void *) pkg_png_bin;
+    Png_res[9].png_size = pkg_png_bin_size;
+
+    Png_res[10].png_in   = (void *) self_png_bin;
+    Png_res[10].png_size = self_png_bin_size;
 
     // load PNG from memory
 
@@ -497,6 +514,8 @@ void LoadTexture()
 
     texture_pointer += 1024 * 16;
 
+    texture_pointer = (u32 *) init_ttf_table((u16 *) texture_pointer);
+
     png_texture = (u8 *) texture_pointer;
 }
 
@@ -527,6 +546,7 @@ void cls()
             tiny3d_BlendFunc(1, TINY3D_BLEND_FUNC_SRC_RGB_SRC_ALPHA | TINY3D_BLEND_FUNC_SRC_ALPHA_SRC_ALPHA,
                 TINY3D_BLEND_FUNC_DST_RGB_ONE_MINUS_SRC_ALPHA | TINY3D_BLEND_FUNC_DST_ALPHA_ZERO,
                 TINY3D_BLEND_RGB_FUNC_ADD | TINY3D_BLEND_ALPHA_FUNC_ADD);
+    reset_ttf_frame();
 }
 
 void cls2()
@@ -540,6 +560,7 @@ void cls2()
             tiny3d_BlendFunc(1, TINY3D_BLEND_FUNC_SRC_RGB_SRC_ALPHA | TINY3D_BLEND_FUNC_SRC_ALPHA_SRC_ALPHA,
                 TINY3D_BLEND_FUNC_DST_RGB_ONE_MINUS_SRC_ALPHA | TINY3D_BLEND_FUNC_DST_ALPHA_ZERO,
                 TINY3D_BLEND_RGB_FUNC_ADD | TINY3D_BLEND_ALPHA_FUNC_ADD);
+    reset_ttf_frame();
 }
 
 /******************************************************************************************************************************************************/
@@ -1491,6 +1512,9 @@ s32 main(s32 argc, const char* argv[])
     mkdir_secure(temp_buffer);
     
     sprintf(temp_buffer, "%s/self", self_path);
+    mkdir_secure(temp_buffer);
+
+    sprintf(temp_buffer, "%s/PKG", self_path);
     mkdir_secure(temp_buffer);
     
         
@@ -4231,11 +4255,15 @@ void draw_toolsoptions(float x, float y)
 
     y2+= 48;
 
-    DrawButton1_UTF8((848 - 520) / 2, y2, 520, language[GLOBAL_RETURN], (flash && select_option == 5));
+    DrawButton1_UTF8((848 - 520) / 2, y2, 520, language[DRAWTOOLS_ARCHIVEMAN], (flash && select_option == 5));
+
+    y2+= 48;
+
+    DrawButton1_UTF8((848 - 520) / 2, y2, 520, language[GLOBAL_RETURN], (flash && select_option == 6));
     
     y2+= 48;
     
-    for(n = 0; n < 3; n++) {
+    for(n = 0; n < 2; n++) {
         
         DrawButton1_UTF8((848 - 520) / 2, y2, 520, "", -1);
     
@@ -4299,6 +4327,25 @@ void draw_toolsoptions(float x, float y)
                 exit(0);
                 break;
             case 5:
+                archive_manager();
+
+                select_px = select_py = 0;
+                select_option = 0;
+                menu_screen = 0;
+                
+                ndirectories = 0;
+
+                fdevices=0;
+                fdevices_old=0;
+                forcedevices=0;
+                find_device=0;
+                bdvd_notify = 1;
+                currentdir = 0;
+
+                select_option = 0;
+                menu_screen = 0; 
+                return;
+            case 6:
                 select_option = 0;
                 menu_screen = 0; 
                 return;
@@ -4318,7 +4365,7 @@ void draw_toolsoptions(float x, float y)
 
         frame_count = 32;
 
-        ROT_DEC(select_option, 0, 5);
+        ROT_DEC(select_option, 0, 6);
         
     }
 
@@ -4326,7 +4373,7 @@ void draw_toolsoptions(float x, float y)
 
         frame_count = 32;
         
-        ROT_INC(select_option, 5, 0);
+        ROT_INC(select_option, 6, 0);
         
     }
     

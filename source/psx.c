@@ -2212,6 +2212,8 @@ void Reset2_BDVD(void)
 
     }
 
+    sys_storage_ctrl_bd(0x3f);
+
 }
 
 
