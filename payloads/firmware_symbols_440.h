@@ -1,6 +1,8 @@
 // Defines for PS3 4.40 cex from Miralatijera
 #define strncmp                     0x4D690
-#define strcpy                      0x4D704
+#define strcpy                      0x4d63c // nein! 0x4D704
+
+
 #define strlen                      0x4D664
 #define alloc                       0x62F74
 #define free                        0x633B0
