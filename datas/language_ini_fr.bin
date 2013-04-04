@@ -28,13 +28,13 @@ DRAWSCREEN_EXITXMB      = Sortir du XMB?
 DRAWSCREEN_CANRUNFAV    = Impossible de lancer ce favori
 DRAWSCREEN_MARKNOTEXEC  = Marquer comme non executable. Essayez d installer dans HDD0 cache
 DRAWSCREEN_MARKNOTEX4G  = Marquer comme non executable. - Contient des fichiers spliter> = 4 Go
-DRAWSCREEN_GAMEINOFMNT  = Je ne peux pas trouver un dossier ‡ monter / dev_hdd0/game dans l USB
-DRAWSCREEN_GAMEIASKDIR  = Vous voulez crÈer dans / dev_usb00
-DRAWSCREEN_GAMEICANTFD  = Je ne peux pas trouver un pÈriphÈrique USB ‡ monter / dev_hdd0/game dans l USB
+DRAWSCREEN_GAMEINOFMNT  = Je ne peux pas trouver un dossier √† monter / dev_hdd0/game dans l USB
+DRAWSCREEN_GAMEIASKDIR  = Vous voulez cr√©er dans / dev_usb00
+DRAWSCREEN_GAMEICANTFD  = Je ne peux pas trouver un p√©riph√©rique USB √† monter / dev_hdd0/game dans l USB
 DRAWSCREEN_GAMEIWLAUNCH = Voulez-vous lancer le jeu?
 DRAWSCREEN_EXTEXENOTFND = executable externe ne fonctionne pas
 DRAWSCREEN_EXTEXENOTCPY = Utiliser 'Copier l EBOOT.BIN vers l USB' pour l importer.
-DRAWSCREEN_REQBR        = Requiere BR-Disc @ RÈessayer?
+DRAWSCREEN_REQBR        = Requiere BR-Disc @ R√©essayer?
 
 # DRAW OPTIONS
 DRAWGMOPT_OPTS          = Options
@@ -76,24 +76,25 @@ DRAWGLOPT_INITFTP       = Initializer le Server FTP
 DRAWGLOPT_TOOLS         = Outils
 DRAWGLOPT_CREDITS       = Credits
 DRAWGLOPT_FTPINITED     = Serveur FTP initialises @ Voulez-vous auto-activer le service FTP sur init?
-DRAWGLOPT_FTPARINITED   = Serveur FTP dÈj‡ initialisÈ
+DRAWGLOPT_FTPARINITED   = Serveur FTP d√©j√† initialis√©
 DRAWGLOPT_FTPSTOPED     = Server FTP Stopper @Retirez le service FTP sur init.
 
 # DRAW TOOLS
 DRAWTOOLS_TOOLS         = Outils
 DRAWTOOLS_DELCACHE      = Supprimer le Cache Tool
-# DRAWTOOLS_SECDISABLE    = Appuyez pour dÈsactiver la sÈcuritÈ Syscall
-# DRAWTOOLS_SECENABLE     = Appuyez pour activer la sÈcuritÈ Syscall
+# DRAWTOOLS_SECDISABLE    = Appuyez pour d√©sactiver la s√©curit√© Syscall
+# DRAWTOOLS_SECENABLE     = Appuyez pour activer la s√©curit√© Syscall
 DRAWTOOLS_PKGTOOLS      = Installer un .PKG
 DRAWTOOLS_COPYFROM      = Copy from /dev_usb/iris to Iris folder
 DRAWTOOLS_WITHBDVD      = With BDVD Controller
 DRAWTOOLS_NOBDVD        = Without BDVD Controller
+DRAWTOOLS_ARCHIVEMAN    = Archive Manager
 
 # MAIN - OTHERS
 DRAWCACHE_CACHE         = Supprimer le Cache Tool
 DRAWCACHE_ERRNEEDIT     = Vous avez besoin %1.2f GB libre pour installer
 DRAWCACHE_ASKTODEL      = Supprimer %s Cache?
-PATCHBEMU_ERRNOUSB      = BDEMU est uniquement pour les pÈriphÈriques USB
+PATCHBEMU_ERRNOUSB      = BDEMU est uniquement pour les p√©riph√©riques USB
 MOVEOBEMU_ERRSAVE       = Erreur Saving:@%s
 MOVEOBEMU_ERRMOVE       = Erreur deplacer vers:@%s exists
 MOVEOBEMU_MOUNTOK       = BDEMU monter dans:@%s
@@ -104,7 +105,7 @@ MOVETBEMU_ERRMOVE       = Erreur deplacer vers:@%s exists
 FASTCPADD_FAILED        = Erreur dans fast_copy_process() ret
 FASTCPADD_ERRTMFILES    = Trop de fichiers
 FASTCPADD_FAILEDSTAT    = Erreur dans les stats()
-FASTCPADD_ERROPEN       = Erreur d ouverture0 (Ècriture)
+FASTCPADD_ERROPEN       = Erreur d ouverture0 (√©criture)
 FASTCPADD_COPYING       = Copier
 FASTCPADD_FAILFASTFILE  = Erreur dans fast_files(fast_num_files).mem
 
@@ -126,27 +127,27 @@ GAMEDELFL_DELETING      = Effacer... Fichier
 
 # GAME COPY
 GAMECPYSL_GSIZEABCNTASK = Obtenir taille: Abondonner - Continuer la copie?
-GAMECPYSL_STARTED       = DÈmarrer... @ copie
-GAMECPYSL_SPLITEDHDDNFO = %s@@Split jeu copiÈ dans HDD0 (non bootable)
-GAMECPYSL_SPLITEDUSBNFO = %s@@Split jeu copiÈ dans USB00%c (non bootable)
-GAMECPYSL_DONE          = Fini! Fichiers CopiÈs
+GAMECPYSL_STARTED       = D√©marrer... @ copie
+GAMECPYSL_SPLITEDHDDNFO = %s@@Split jeu copi√© dans HDD0 (non bootable)
+GAMECPYSL_SPLITEDUSBNFO = %s@@Split jeu copi√© dans USB00%c (non bootable)
+GAMECPYSL_DONE          = Fini! Fichiers Copi√©s
 GAMECPYSL_FAILDELDUMP   = Supprimer mauvais dump dans
 
 # GAME CACHE COPY
-GAMECHCPY_ISNEEDONEFILE = DÈsolÈ , mais vous devez installer au moins un gro fichier
-GAMECHCPY_NEEDMORESPACE = Vous avez %.2fGB libre et vous avez besoin %.2fGB@@S il vous plait, supprimer les entrÈes Caches 
-GAMECHCPY_NOSPACE       = DÈsolÈ, vous avez %.2fGB libre@@et vous avez besoin %.2fGB
-GAMECHCPY_CACHENFOSTART = Fichiers Caches: %.2fGB - Total Fichiers: %.2fGB@ vous sauvez %.2fGB sur HDD0 (%.2fGB Total)@@appuyer sur un bouton pour dÈmarrer
+GAMECHCPY_ISNEEDONEFILE = D√©sol√© , mais vous devez installer au moins un gro fichier
+GAMECHCPY_NEEDMORESPACE = Vous avez %.2fGB libre et vous avez besoin %.2fGB@@S il vous plait, supprimer les entr√©es Caches 
+GAMECHCPY_NOSPACE       = D√©sol√©, vous avez %.2fGB libre@@et vous avez besoin %.2fGB
+GAMECHCPY_CACHENFOSTART = Fichiers Caches: %.2fGB - Total Fichiers: %.2fGB@ vous sauvez %.2fGB sur HDD0 (%.2fGB Total)@@appuyer sur un bouton pour d√©marrer
 GAMECHCPY_FAILDELFROM   = Supprimer Cache failed dump from
 
 # GAME DELETE
-GAMEDELSL_WANTDELETE    = Voulez vous supprimÈ
-GAMEDELSL_STARTED       = DÈmarrer... @ supprimÈ
+GAMEDELSL_WANTDELETE    = Voulez vous supprim√©
+GAMEDELSL_STARTED       = D√©marrer... @ supprim√©
 GAMEDELSL_DONE          = Fini! Fichiers Supprimes
 
 # GAME TEST
-GAMETSTSL_FINALNFO      = Repertoires: %i Fichiers: %i@Gros fichiers: %i Fichiers SplitÈs: %i
-GAMETSTSL_TESTED        = Fichiers TestÈs
+GAMETSTSL_FINALNFO      = Repertoires: %i Fichiers: %i@Gros fichiers: %i Fichiers Split√©s: %i
+GAMETSTSL_TESTED        = Fichiers Test√©s
 
 #GLOBAL UTILS
 GLUTIL_SPLITFILE        = Spliter un fichier
@@ -163,7 +164,7 @@ GLUTIL_WTO              = to
 
 # GLOBAL
 GLOBAL_RETURN           = Retour
-GLOBAL_SAVED            = Fichiers SauvÈs
+GLOBAL_SAVED            = Fichiers Sauv√©s
 
 # INSTALL .PKG
 PKG_HEADER              = Install .PKG Utility -_____Use CROSS to select and CIRCLE to exit

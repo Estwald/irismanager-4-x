@@ -87,6 +87,7 @@ DRAWTOOLS_PKGTOOLS      = .PKG Installere
 DRAWTOOLS_COPYFROM      = Kopier fra /dev_usb/iris til Iris mappe
 DRAWTOOLS_WITHBDVD      = Med BDVD kontroller
 DRAWTOOLS_NOBDVD        = Uten BDVD kontroller
+DRAWTOOLS_ARCHIVEMAN    = Archive Manager
 
 # MAIN - OTHERS
 DRAWCACHE_CACHE         = Slett buffer verktøy
