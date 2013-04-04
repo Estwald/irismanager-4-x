@@ -213,6 +213,19 @@ static inline int sys_storage_authenticate_bd(void)
 /**
  * In order to execute syscall 864 the access rights of LV2 need to be patched
  */
+
+static inline int sys_storage_ctrl_bd(int _func)
+{
+    uint64_t func[0x18/8];
+    func[0]= (uint64_t) _func;
+    
+    lv2syscall2(864, 0x5007, (uint64_t) &func[0]);
+
+    return_to_user_prog(int);
+    
+}
+
+/*
 static inline int sys_storage_ctrl_bd(int _func)
 {
     int func = _func;
@@ -222,6 +235,7 @@ static inline int sys_storage_ctrl_bd(int _func)
     return_to_user_prog(int);
     
 }
+*/
 
 #ifdef __cplusplus
 };
