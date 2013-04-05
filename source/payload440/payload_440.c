@@ -263,8 +263,8 @@ void load_payload_440(int mode)
     /* BASIC PATCHES SYS36 */
     // by 2 anonymous people
 	
-   // _poke32(0x056130, 0x60000000); // portado
-   // PATCH_JUMP(0x056138, 0x561D0); // portado
+    _poke32(0x056130, 0x60000000); // portado
+    PATCH_JUMP(0x056138, 0x561D0); // portado
     _poke32(0x059AF4, 0x60000000); // portado
     _poke32(0x059B08, 0x60000000); // portado
 
