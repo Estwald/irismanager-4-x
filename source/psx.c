@@ -39,7 +39,7 @@
 #include "osk_input.h"
 
 #include <tiny3d.h>
-#include <libfont.h>
+#include "libfont2.h"
 #include "language.h"
 #include "syscall8.h"
 #include "payload.h"
@@ -62,7 +62,6 @@ extern int width_title_utf8;
 
 #define FS_S_IFMT 0170000
 
-void UTF8_to_Ansi(char *utf8, char *ansi, int len); // from osk_input
 void DrawDialogOKTimer(char * str, float milliseconds);
 
 extern int stops_BDVD;
@@ -181,10 +180,8 @@ void draw_psx_options(float x, float y, int index)
     int selected = select_px + select_py * 4;
 
     char *mc_name = NULL;
-
-    char ansi[256];
     
-    SetCurrentFont(FONT_DEFAULT);
+    SetCurrentFont(FONT_TTF);
 
     // header title
 
@@ -195,9 +192,8 @@ void draw_psx_options(float x, float y, int index)
     SetFontSize(18, 20);
 
     SetFontAutoCenter(0);
-  
-    UTF8_to_Ansi(language[DRAWGMOPT_OPTS], ansi, 256);
-    DrawFormatString(x, y - 2, " PSX %s", ansi);
+
+    DrawFormatString(x, y - 2, " PSX %s", language[DRAWGMOPT_OPTS]);
 
 
     if(!(directories[currentgamedir].flags & 2048) && 
@@ -205,7 +201,7 @@ void draw_psx_options(float x, float y, int index)
         (strcmp(psx_options.mc2, "No Memory Card") && strcmp(psx_options.mc2, "Internal_MC.VM1") && select_option == 1))) {
     
         SetFontSize(18, 22);
-        utf8_to_ansi("Press [] to copy MC as Internal_MC", temp_buffer, 64);
+        utf8_truncate("Press [] to copy MC as Internal_MC", temp_buffer, 64);
        
         x2= DrawFormatString(1024, y - 2, "%s", temp_buffer);
         DrawFormatString(848 - x2 + 1024 - x, y - 2, "%s", temp_buffer);
@@ -214,7 +210,7 @@ void draw_psx_options(float x, float y, int index)
 
     } else mc_name = NULL;;
 
-    SetCurrentFont(FONT_BUTTON);
+    SetCurrentFont(FONT_TTF);
         
     SetFontSize(16, 20);
 
@@ -231,16 +227,16 @@ void draw_psx_options(float x, float y, int index)
     if(!(directories[currentgamedir].flags & 2048) && !strcmp(psx_options.mc1, "No Memory Card")) strncpy(psx_options.mc1, "Internal_MC.VM1", 256);
     if((directories[currentgamedir].flags & 2048) && !strcmp(psx_options.mc1, "Internal_MC.VM1")) strncpy(psx_options.mc1, "No Memory Card", 256);
     
-    utf8_to_ansi(psx_options.mc1, temp_buffer + 1024, 32);
+    utf8_truncate(psx_options.mc1, temp_buffer + 1024, 32);
     sprintf(temp_buffer, " %s ", temp_buffer + 1024);
-    x2 = DrawButton2(x2, y2, 0, temp_buffer, 1) + 8;
+    x2 = DrawButton2_UTF8(x2, y2, 0, temp_buffer, 1) + 8;
     
     y2+= 48;
 
     x2=DrawButton1_UTF8(x + 32, y2, 320, "MC Slot 2 ", (flash && select_option == 1)) + 8;
-    utf8_to_ansi(psx_options.mc2, temp_buffer + 1024, 32);
+    utf8_truncate(psx_options.mc2, temp_buffer + 1024, 32);
     sprintf(temp_buffer, " %s ", temp_buffer + 1024);
-    x2 = DrawButton2(x2, y2, 0, temp_buffer, 1) + 8;
+    x2 = DrawButton2_UTF8(x2, y2, 0, temp_buffer, 1) + 8;
     
     y2+= 48;
 
@@ -280,9 +276,7 @@ void draw_psx_options(float x, float y, int index)
     DrawButton1_UTF8(x + 32, y2, 320, language[GLOBAL_RETURN], (flash && select_option == 8));
     
     y2+= 48;
-    
-
-    SetCurrentFont(FONT_DEFAULT);
+   
 
     // draw game name
 
@@ -671,10 +665,7 @@ void draw_psx_options2(float x, float y, int index)
 
     int selected = select_px + select_py * 4;
 
-    char ansi[256];
-    
-
-    SetCurrentFont(FONT_DEFAULT);
+    SetCurrentFont(FONT_TTF);
 
     // header title
 
@@ -685,11 +676,9 @@ void draw_psx_options2(float x, float y, int index)
     SetFontSize(18, 20);
 
     SetFontAutoCenter(0);
-  
-    UTF8_to_Ansi(language[DRAWPSX_VIDEOPS], ansi, 256);
-    DrawFormatString(x, y - 2, " %s", ansi);
 
-    SetCurrentFont(FONT_BUTTON);
+    DrawFormatString(x, y - 2, " %s", language[DRAWPSX_VIDEOPS]);
+
         
     SetFontSize(16, 20);
 
@@ -758,7 +747,6 @@ void draw_psx_options2(float x, float y, int index)
     y2+= 48;
     
 
-    SetCurrentFont(FONT_DEFAULT);
 
     // draw game name
 
@@ -956,7 +944,7 @@ void draw_psx_options2(float x, float y, int index)
      
         frame_count = 32;
 
-        if(select_option > 7) {
+        if(select_option > 6) {
            
             select_option = 0;
            
@@ -1511,8 +1499,6 @@ int psx_iso_prepare(char *path, char *name)
     char *files[9];
     u8 *file_datas[9];
     int file_ndatas[9];
-
-    char ansi[256];
    
     u32 sector_size = 0;
 
@@ -1625,7 +1611,7 @@ int psx_iso_prepare(char *path, char *name)
             update_twat();
             
 
-            SetCurrentFont(FONT_DEFAULT);
+            SetCurrentFont(FONT_TTF);
 
             // header title
 
@@ -1637,16 +1623,7 @@ int psx_iso_prepare(char *path, char *name)
 
             SetFontAutoCenter(0);
           
-            UTF8_to_Ansi(language[DRAWPSX_DISCORDER], ansi, 256);
-            DrawFormatString(x, y - 2, " %s", ansi);
-
-            /*utf8_to_ansi((char *) name, temp_buffer, 65);
-
-            SetFontSize(16, 20);
-
-            x2 = DrawFormatString(1024, y - 2, "%s", temp_buffer);
-            DrawFormatString(848 -(x2 -1024) - x , y - 2, "%s", temp_buffer);
-            */
+            DrawFormatString(x, y - 2, " %s", language[DRAWPSX_DISCORDER]);
 
             if(strncmp((char *) string_title_utf8, name, 64)) {
                 strncpy((char *) string_title_utf8, name, 128);
@@ -1671,7 +1648,7 @@ int psx_iso_prepare(char *path, char *name)
             y2 = y + 32;
 
             for(n = 0; n < nfiles; n++) {
-                utf8_to_ansi(((char *) files[n]) + strlen(path) + 1, temp_buffer, 40);
+                utf8_truncate(((char *) files[n]) + strlen(path) + 1, temp_buffer, 40);
                 DrawButton1_UTF8((848 - 720) / 2, y2, 720, temp_buffer, (flash && select_option == n));
                 y2+= 48;
             }
@@ -1679,14 +1656,16 @@ int psx_iso_prepare(char *path, char *name)
             for(; n < 8; n++) {DrawButton1_UTF8((848 - 720) / 2, y2, 720, "", -1); y2+= 48;}
 
             
+            SetCurrentFont(FONT_TTF);
             SetFontColor(0xffffffff, 0x00000000);
             SetFontSize(16, 20);
       
-            UTF8_to_Ansi(language[DRAWPSX_PRESSOB], temp_buffer, 256);
-            DrawFormatString((848 - 16 * strlen(temp_buffer))/2, 150 * 3 + y - 8, "%s", temp_buffer);
+            SetFontAutoCenter(1);
+           
+            DrawFormatString(0, 150 * 3 + y - 8, "%s", language[DRAWPSX_PRESSOB]);
 
-            UTF8_to_Ansi(language[DRAWPSX_PRESSXB], temp_buffer, 256);
-            DrawFormatString((848 - 16 * strlen(temp_buffer))/2, 150 * 3 + y + 16 - 8, "%s", temp_buffer);
+            DrawFormatString(0, 150 * 3 + y + 16 - 8, "%s", language[DRAWPSX_PRESSXB]);
+            SetFontAutoCenter(0);
 
             tiny3d_Flip();
 
@@ -2554,7 +2533,7 @@ void copy_PSX_game_from_CD()
         memset(temp_buffer, 0, 512);
         memset(output, 0, 64);
         if(Get_OSK_String(language[DRAWPSX_PUTFNAME], temp_buffer, 63)==0) {
-            UTF8_to_Ansi(temp_buffer, output, 63);
+            utf8_truncate(temp_buffer, output, 63);
             if(strlen(output)<3) DrawDialogOK(language[DRAWPSX_FMUSTB]);
             else break;
         } else goto end;

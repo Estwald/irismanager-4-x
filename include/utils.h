@@ -27,9 +27,8 @@
 
 #include "syscall8.h"
 
-#define FONT_DEFAULT 0
-#define FONT_BUTTON  2
-#define FONT_NEWBUTTON  3
+#define FONT_TTF -1
+#define FONT_BUTTON  0
 
 #define DT_DIR 1
 
@@ -92,6 +91,7 @@ int parse_param_sfo(char * file, char *title_name);
 int parse_ps3_disc(char *path, char * id);
 int parse_param_sfo_id(char * file, char *title_id);
 void utf8_to_ansi(char *utf8, char *ansi, int len);
+void utf8_truncate(char *utf8, char *utf8_trunc, int len);
 
 void sort_entries(t_directories *list, int *max);
 void delete_entries(t_directories *list, int *max, u32 flag);

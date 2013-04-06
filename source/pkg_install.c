@@ -36,7 +36,7 @@
 #include <io/pad.h>
 
 #include <tiny3d.h>
-#include <libfont.h>
+#include "libfont2.h"
 #include "language.h"
 #include "syscall8.h"
 #include "utils.h"
@@ -47,8 +47,6 @@
 extern char * language[];
 extern char temp_buffer[8192];
 extern char self_path[MAXPATHLEN];
-
-void UTF8_to_Ansi(char *utf8, char *ansi, int len); // from osk_input
 
 #undef AUTO_BUTTON_REP2
 #define AUTO_BUTTON_REP2(v, b) if(v && (old_pad & b)) { \
@@ -101,8 +99,6 @@ u64 frame_count = 0;
 int is_hdd=0;
 
 char path_pkghdd[256];
-
-char ansi[256];
 
     entries = (t_list *) malloc(sizeof(t_list)*1024);
     if(!entries) return; // out of memory
@@ -191,7 +187,7 @@ char ansi[256];
         x=xold; y=yold;
 
         cls();
-        SetCurrentFont(FONT_DEFAULT);
+        SetCurrentFont(FONT_TTF);
 
         // header title
 
@@ -202,9 +198,8 @@ char ansi[256];
         SetFontSize(18, 20);
 
         SetFontAutoCenter(0);
-      
-        UTF8_to_Ansi(language[PKG_HEADER], ansi, 256);
-        DrawFormatString(x, y - 2, " %s", ansi);
+   
+        DrawFormatString(x, y - 2, " %s", language[PKG_HEADER]);
         update_twat();
 
         y += 24;
@@ -236,8 +231,7 @@ char ansi[256];
             SetFontColor(0xffffffff, 0x00000000); 
             x2 = x;
             if(flash) {
-                UTF8_to_Ansi(language[PKG_INSERTUSB], ansi, 256);
-                DrawFormatString(x2, y2, "%s", ansi);
+                DrawFormatString(x2, y2, "%s", language[PKG_INSERTUSB]);
             }
         }
 

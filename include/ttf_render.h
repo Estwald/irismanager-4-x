@@ -2,9 +2,9 @@
 #define TTF_RENDER_H
 
 #include <tiny3d.h>
-#include <libfont.h>
+#include "libfont2.h"
 
-int TTFLoadFont(char * path, void * from_memory, int size_from_memory);
+int TTFLoadFont(int set, char * path, void * from_memory, int size_from_memory);
 void TTFUnloadFont();
 
 void TTF_to_Bitmap(u8 chr, u8 * bitmap, short *w, short *h, short *y_correction);
@@ -25,6 +25,9 @@ void reset_ttf_frame(void);
 #define WIN_DOUBLE_LF  4
 
 void set_ttf_window(int x, int y, int width, int height, u32 mode);
+
+extern float Y_ttf;
+extern float Z_ttf;
 
 // display UTF8 string int posx/posy position. With color 0 don´t display and refrest/calculate the width. 
 // color is the character color and sw/sh de width/height of the characters

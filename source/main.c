@@ -40,7 +40,7 @@
 #include <io/pad.h>
 
 #include <tiny3d.h>
-#include <libfont.h>
+#include "libfont2.h"
 #include "language.h"
 #include "syscall8.h"
 #include "payload.h"
@@ -71,8 +71,6 @@
 #include "archive_manager.h"
 
 // include fonts
-#include "comfortaa_ttf_bin.h"
-#include "comfortaa_bold_ttf_bin.h"
 
 // font 2: 224 chr from 32 to 255, 16 x 32 pix 2 bit depth
 #include "font_b.h"
@@ -467,25 +465,39 @@ void LoadTexture()
 
     ResetFont();
 
+    //debug font
+    texture_pointer = (u32 *) AddFontFromBitmapArray((u8 *) font_b, (u8 *) texture_pointer, 32, 255, 16, 32, 2, BIT0_FIRST_PIXEL);
+
+/*
     TTFLoadFont(NULL, (void *) comfortaa_ttf_bin, comfortaa_ttf_bin_size);
     texture_pointer = (u32 *) AddFontFromTTF((u8 *) texture_pointer, 32, 255, 32, 32, TTF_to_Bitmap);
     texture_pointer = (u32 *) AddFontFromTTF((u8 *) texture_pointer, 32, 255, 20, 20, TTF_to_Bitmap);
     TTFUnloadFont();
 
-    //debug font
-    texture_pointer = (u32 *) AddFontFromBitmapArray((u8 *) font_b, (u8 *) texture_pointer, 32, 255, 16, 32, 2, BIT0_FIRST_PIXEL);
 
     //new button font
     TTFLoadFont(NULL, (void *) comfortaa_bold_ttf_bin, comfortaa_bold_ttf_bin_size);
     texture_pointer = (u32 *) AddFontFromTTF((u8 *) texture_pointer, 32, 255, 24, 24, TTF_to_Bitmap);
     TTFUnloadFont();
-
+*/
     
-    if(TTFLoadFont("/dev_flash/data/font/SCE-PS3-NR-R-JPN.TTF", NULL, 0)!=0) {
+    {
+        struct stat s;
         sprintf(temp_buffer, "%s/font.ttf", self_path);
-        if(TTFLoadFont(temp_buffer, NULL, 0)!=0) {
-            TTFLoadFont(NULL, (void *) comfortaa_bold_ttf_bin, comfortaa_bold_ttf_bin_size);
+        
+        if(stat(temp_buffer, &s)<0 || TTFLoadFont(0, temp_buffer, NULL, 0)!=0) {//
+            if(TTFLoadFont(0, "/dev_flash/data/font/SCE-PS3-SR-R-JPN.TTF", NULL, 0)!=0)
+                if(TTFLoadFont(0, "/dev_flash/data/font/SCE-PS3-NR-R-JPN.TTF", NULL, 0)!=0)
+                    exit(0);
+                //TTFLoadFont(NULL, (void *) comfortaa_bold_ttf_bin, comfortaa_bold_ttf_bin_size);
         }
+    
+
+        TTFLoadFont(1, "/dev_flash/data/font/SCE-PS3-DH-R-CGB.TTF", NULL, 0);
+        TTFLoadFont(2, "/dev_flash/data/font/SCE-PS3-SR-R-LATIN2.TTF", NULL, 0);
+        TTFLoadFont(3, "/dev_flash/data/font/SCE-PS3-YG-R-KOR.TTF", NULL, 0);
+    
+
     }
     
 
@@ -528,7 +540,7 @@ u32 background_colors[8] = {
     0xff606060,
     0xff904f80,
     // new hermes colors
-    0xff0040ff,
+    0xff0040cf,
     0xff80804f,
     0xff300060,
     0xff904f80,
@@ -538,6 +550,7 @@ void cls()
 {
     
     tiny3d_Clear(background_colors[background_sel & 7], TINY3D_CLEAR_ALL);
+
         
     // Enable alpha Test
     tiny3d_AlphaTest(1, 0x10, TINY3D_ALPHA_FUNC_GEQUAL);
@@ -873,8 +886,8 @@ int SaveManagerCfg()
 
 void video_adjust()
 {
-    char ansi[256];
-
+    
+    SetCurrentFont(FONT_TTF);
     while(1) {
 
         double sx = (double) Video_Resolution.width;
@@ -900,18 +913,15 @@ void video_adjust()
 
         SetFontAutoCenter(1);
 
-        UTF8_to_Ansi(language[VIDEOADJUST_POSITION], ansi, 256);
-        DrawFormatString(0, (512 - 24)/2 - 64, "%s", ansi);
+        DrawFormatString(0, (512 - 24)/2 - 64, "%s", language[VIDEOADJUST_POSITION]);
 
-        UTF8_to_Ansi(language[VIDEOADJUST_SCALEINFO], ansi, 256);
-        DrawFormatString(0, (512 - 24)/2, ansi, videoscale_x, videoscale_y);
+        DrawFormatString(0, (512 - 24)/2, language[VIDEOADJUST_SCALEINFO], videoscale_x, videoscale_y);
 
-        UTF8_to_Ansi(language[VIDEOADJUST_EXITINFO], ansi, 256);
-        DrawFormatString(0, (512 - 24)/2 + 64, "%s", ansi);
-        UTF8_to_Ansi(language[VIDEOADJUST_DEFAULTS], ansi, 256);
-        DrawFormatString(0, (512 - 24)/2 + 96, "%s", ansi);
+        DrawFormatString(0, (512 - 24)/2 + 64, "%s", language[VIDEOADJUST_EXITINFO]);
+       
+        DrawFormatString(0, (512 - 24)/2 + 96, "%s", language[VIDEOADJUST_DEFAULTS]);
 
-        // Warning!! don�t traslate this string!
+        // Warning!! don´t traslate this string!
         DrawFormatString(0, (512 - 24)/2 + 128, "%s", "Press [] to English language");
 
         SetFontAutoCenter(0);
@@ -967,6 +977,7 @@ void video_adjust()
 
         frame_count++;
     }
+
 }
 
 void Select_games_folder() 
@@ -2124,9 +2135,7 @@ void draw_screen1(float x, float y)
 
     int selected = select_px + select_py * 4;
 
-    char ansi[256];
-
-    SetCurrentFont(FONT_DEFAULT);
+    SetCurrentFont(FONT_TTF);
 
     // header title
 
@@ -2139,20 +2148,16 @@ void draw_screen1(float x, float y)
     SetFontAutoCenter(0);
 
     if(mode_favourites >= 131072) {
-        UTF8_to_Ansi(language[DRAWSCREEN_FAVSWAP], ansi, 256);
-        DrawFormatString(x, y - 2, " %s%s", ansi, &str_home[str_type][0]);
+        DrawFormatString(x, y - 2, " %s%s", language[DRAWSCREEN_FAVSWAP], &str_home[str_type][0]);
     }
     else if(mode_favourites >= 65536) {
-        UTF8_to_Ansi(language[DRAWSCREEN_FAVINSERT], ansi, 256);
-        DrawFormatString(x, y - 2, " %s%s", ansi, &str_home[str_type][0]);
+        DrawFormatString(x, y - 2, " %s%s", language[DRAWSCREEN_FAVINSERT], &str_home[str_type][0]);
     }
     else if(mode_favourites) {
-        UTF8_to_Ansi(language[DRAWSCREEN_FAVORITES], ansi, 256);
-        DrawFormatString(x, y - 2, " %s%s", ansi, &str_home[str_type][0]);
+        DrawFormatString(x, y - 2, " %s%s", language[DRAWSCREEN_FAVORITES], &str_home[str_type][0]);
     }
     else {
-        UTF8_to_Ansi(language[DRAWSCREEN_PAGE], ansi, 256);
-        DrawFormatString(x, y - 5, " %s %i/%i (%i %s)%s", ansi, currentdir/12 + 1, ROUND_UP12(ndirectories)/12, ndirectories, language[DRAWSCREEN_GAMES], &str_home[str_type][0]);
+        DrawFormatString(x, y - 2, " %s %i/%i (%i %s)%s", language[DRAWSCREEN_PAGE], currentdir/12 + 1, ROUND_UP12(ndirectories)/12, ndirectories, language[DRAWSCREEN_GAMES], &str_home[str_type][0]);
     }
 
     // list device space
@@ -2177,9 +2182,9 @@ void draw_screen1(float x, float y)
                 
                 if(m == i) SetFontColor(0xafd836ff, 0x00000000); else SetFontColor(0xffffff44, 0x00000000);
                 if(i==0)
-                    x2= DrawFormatString(x2, -4, "hdd0: %.2fGB ", freeSpace[i]);
+                    x2= DrawFormatString(x2, -2, "hdd0: %.2fGB ", freeSpace[i]);
                 else
-                    x2= DrawFormatString(x2, -4, "usb00%c: %.2fGB ", 47 + i, freeSpace[i]);
+                    x2= DrawFormatString(x2, -2, "usb00%c: %.2fGB ", 47 + i, freeSpace[i]);
             }
 
         }
@@ -2330,59 +2335,55 @@ void draw_screen1(float x, float y)
             sys_game_get_temperature(1, &temp2);
         }
 
-        SetCurrentFont(FONT_DEFAULT);
+        SetCurrentFont(FONT_TTF);
         SetFontSize(20, 20);
         
-        x2= DrawFormatString(1024, 0, " Temp CPU: 99�C RSX: 99�C ");
+        x2= DrawFormatString(1024, 0, " Temp CPU: 99ºC RSX: 99ºC ");
 
         y2= y + 3 * 150 - 4 + 12;
         SetFontColor(0xffffffff, 0x0020c020);
         x2= DrawFormatString(x + 4 * 200 - (x2 - 1024) - 12 , y2, " Temp CPU: ");
         if(temp < 80) SetFontColor(0xfff000ff, 0x0020c020); else SetFontColor(0xff0000ff, 0x0020c020);
-        x2= DrawFormatString(x2, y2, "%u�C",  temp);
+        x2= DrawFormatString(x2, y2, "%uºC",  temp);
         SetFontColor(0xffffffff, 0x0020c020);
         x2= DrawFormatString(x2, y2, " RSX: ");
         if(temp2 < 75) SetFontColor(0xfff000ff, 0x0020c020); else SetFontColor(0xff0000ff, 0x0020c020);
-        x2= DrawFormatString(x2, y2, "%u�C ", temp2);
+        x2= DrawFormatString(x2, y2, "%uºC ", temp2);
 
         SetFontColor(0xffffffff, 0x00000000);
     }
     else if(Png_offset[i])
     {
-        SetCurrentFont(FONT_DEFAULT);
+        SetCurrentFont(FONT_TTF);
         SetFontSize(20, 20);
-        UTF8_to_Ansi(language[DRAWSCREEN_SOPTIONS], ansi, 256);
-        x2= DrawFormatString(1024, 0, " %s ", ansi);
-        DrawFormatString(x + 4 * 200 - (x2 - 1024) - 12 , y + 3 * 150 - 4, " %s ", ansi);
+        x2= DrawFormatString(1024, 0, " %s ", language[DRAWSCREEN_SOPTIONS]);
+        DrawFormatString(x + 4 * 200 - (x2 - 1024) - 12 , y + 3 * 150 - 2, " %s ", language[DRAWSCREEN_SOPTIONS]);
    
     }
     else if(mode_favourites && mode_favourites < 65536 && favourites.list[i].title_id[0] != 0) 
     {
-        SetCurrentFont(FONT_DEFAULT);
+        SetCurrentFont(FONT_TTF);
         SetFontSize(20, 20);
-        UTF8_to_Ansi(language[DRAWSCREEN_SDELETE], ansi, 256);
-        x2= DrawFormatString(1024, 0, " %s ", ansi);
-        DrawFormatString(x + 4 * 200 - (x2 - 1024) - 12 , y + 3 * 150 - 4, " %s ", ansi);
+        x2= DrawFormatString(1024, 0, " %s ", language[DRAWSCREEN_SDELETE]);
+        DrawFormatString(x + 4 * 200 - (x2 - 1024) - 12 , y + 3 * 150 - 2, " %s ", language[DRAWSCREEN_SDELETE]);
     }
     else
     {
         DrawBox(x + 200 * select_px , y + select_py * 150 , 0, 192, 142, 0x404040a0);
-        SetCurrentFont(FONT_DEFAULT); // get default
+        SetCurrentFont(FONT_TTF); // get default
         SetFontSize(20, 20);
     }
     
     if(!(frame_count & 0x100)) {
-        UTF8_to_Ansi(language[DRAWSCREEN_STGLOPT], ansi, 256);
-        x2= DrawFormatString(1024, 0, " %s ", ansi);
-        DrawFormatString(x + 4 * 200 - (x2 - 1024) - 12 , y + 3 * 150 + 18, " %s ", ansi);
+        x2= DrawFormatString(1024, 0, " %s ", language[DRAWSCREEN_STGLOPT]);
+        DrawFormatString(x + 4 * 200 - (x2 - 1024) - 12 , y + 3 * 150 + 18, " %s ", language[DRAWSCREEN_STGLOPT]);
     }
     
     if((Png_offset[i])||(mode_favourites && mode_favourites < 65536 && favourites.list[i].title_id[0] != 0)) {
         DrawBox(x + 200 * select_px - 8 + (200 - 24 * 8)/2, y + select_py * 150 - 4 + 150 - 40, 0, 200, 40, 0x404040a0);
-        SetCurrentFont(FONT_NEWBUTTON);
+        SetCurrentFont(FONT_TTF);
         SetFontSize(24, 24);
-        UTF8_to_Ansi(language[DRAWSCREEN_PLAY], ansi, 256);
-        x2 = DrawFormatString(x + 200 * select_px - 4 + (200 - 24 * 8)/2, y + select_py * 150 - 4 + 150 - 40, "  %s", ansi);
+        x2 = DrawFormatString(x + 200 * select_px - 4 + (200 - 24 * 8)/2, y + select_py * 150 - 4 + 150 - 40, "  %s", language[DRAWSCREEN_PLAY]);
     }
 
     // draw game name
@@ -3254,45 +3255,6 @@ void draw_screen1(float x, float y)
         }
     }
 
-/*
-    if(!mode_homebrew && (new_pad & BUTTON_R2)) //change games category PS3/PSX PS3 PSX
-    {
-        game_list_category++; if(game_list_category > 2) game_list_category = 0;
-
-        select_px = select_py = 0;
-        select_option = 0;
-        menu_screen = 0;
-        
-        ndirectories = 0;
-
-        fdevices=0;
-        fdevices_old=0;
-        forcedevices=0;
-        find_device=0;
-        bdvd_notify = 1;
-
-        mode_favourites = 0; currentdir = 0;
-    }
-
-    if(!mode_homebrew && (new_pad & BUTTON_L2)) //change games category PS3/PSX PS3 PSX
-    {
-        game_list_category--; if(game_list_category < 0) game_list_category = 2;
-
-        select_px = select_py = 0;
-        select_option = 0;
-        menu_screen = 0;
-        
-        ndirectories = 0;
-
-        fdevices=0;
-        fdevices_old=0;
-        forcedevices=0;
-        find_device=0;
-        bdvd_notify = 1;
-
-        mode_favourites = 0; currentdir = 0;
-    }
-*/
 }
 
 
@@ -3308,10 +3270,7 @@ void draw_options(float x, float y, int index)
 
     int selected = select_px + select_py * 4;
 
-    char ansi[256];
-    
-
-    SetCurrentFont(FONT_DEFAULT);
+    SetCurrentFont(FONT_TTF);
 
     // header title
 
@@ -3323,9 +3282,8 @@ void draw_options(float x, float y, int index)
 
     SetFontAutoCenter(0);
 
-    UTF8_to_Ansi(language[DRAWGMOPT_OPTS], ansi, 256);
   
-    DrawFormatString(x, y - 2, " %s", ansi);
+    DrawFormatString(x, y - 2, " %s", language[DRAWGMOPT_OPTS]);
 
 
     if(directories[currentgamedir].flags & 1) {
@@ -3429,7 +3387,7 @@ void draw_options(float x, float y, int index)
     }
     */
 
-    SetCurrentFont(FONT_DEFAULT);
+    SetCurrentFont(FONT_TTF);
 
     // draw game name
 
@@ -3703,12 +3661,10 @@ void draw_configs(float x, float y, int index)
     int i;
 
     float y2, x2;
-
-    char ansi[256];
    
     int selected = select_px + select_py * 4;
 
-    SetCurrentFont(FONT_DEFAULT);
+    SetCurrentFont(FONT_TTF);
 
     // header title
 
@@ -3720,8 +3676,7 @@ void draw_configs(float x, float y, int index)
 
     SetFontAutoCenter(0);
   
-    UTF8_to_Ansi(language[DRAWGMCFG_CFGS], ansi, 256);
-    DrawFormatString(x, y - 2, " %s", ansi);
+    DrawFormatString(x, y - 2, " %s", language[DRAWGMCFG_CFGS]);
 
     i = selected;
 
@@ -3753,7 +3708,7 @@ void draw_configs(float x, float y, int index)
 
 
 #ifdef CONFIG_USE_SYS8PERMH4
-    x2 = DrawButton1_UTF8(x + 32, y2, 240, "Fix Permissions", (flash && select_option == 0)) + 16; // do no translate this (3.44)
+    x2 = DrawButton1_UTF8(x + 32, y2, 320, "Fix Permissions", (flash && select_option == 0)) + 16; // do no translate this (3.44)
     
     x2 = DrawButton2_UTF8(x2, y2, 0, " Default ", (game_cfg.perm == 0) ) + 8;
     x2 = DrawButton2_UTF8(x2, y2, 0, " PS jailbreak ", (game_cfg.perm == 1)) + 8;
@@ -3764,22 +3719,13 @@ void draw_configs(float x, float y, int index)
 
 
 
-    x2 = DrawButton1_UTF8(x + 32, y2, 240, language[DRAWGMCFG_DSK], (flash && select_option == 0))  + 16;
+    x2 = DrawButton1_UTF8(x + 32, y2, 320, language[DRAWGMCFG_DSK], (flash && select_option == 0))  + 16;
     x2 = DrawButton2_UTF8(x2, y2, 0, language[DRAWGMCFG_NO] , (game_cfg.useBDVD == 0)) + 8;
     x2 = DrawButton2_UTF8(x2, y2, 0, language[DRAWGMCFG_YES], (game_cfg.useBDVD == 1)) + 8;
 
     y2+= 48;
 
-    #if 0
-    x2 = DrawButton1_UTF8(x + 32, y2, 240, language[DRAWGMCFG_UPD], (flash && select_option == 1))  + 16;
-        
-    x2 = DrawButton2_UTF8(x2, y2, 0, language[DRAWGMCFG_ON] , /*(game_cfg.updates == 0)*/ -1) + 8;
-    x2 = DrawButton2_UTF8(x2, y2, 0, language[DRAWGMCFG_OFF], /*(game_cfg.updates != 0)*/ 1) + 8;
-
-    y2+= 48;
-    #endif
-
-    x2 = DrawButton1_UTF8(x + 32, y2, 240, "Direct Boot", (flash && select_option == 1)) + 16;
+    x2 = DrawButton1_UTF8(x + 32, y2, 320, "Direct Boot", (flash && select_option == 1)) + 16;
     
     x2 = DrawButton2_UTF8(x2, y2, 0, language[DRAWGMCFG_NO], (game_cfg.direct_boot == 0) ) + 8;
     x2 = DrawButton2_UTF8(x2, y2, 0, language[DRAWGMCFG_YES], (game_cfg.direct_boot == 1)) + 8;
@@ -3787,14 +3733,14 @@ void draw_configs(float x, float y, int index)
 
     y2+= 48;
 
-    x2 = DrawButton1_UTF8(x + 32, y2, 240, language[DRAWGMCFG_EXTBOOT], (flash && select_option == 2))  + 16;
+    x2 = DrawButton1_UTF8(x + 32, y2, 320, language[DRAWGMCFG_EXTBOOT], (flash && select_option == 2))  + 16;
         
     x2 = DrawButton2_UTF8(x2, y2, 0, language[DRAWGMCFG_ON] , (payload_mode >= ZERO_PAYLOAD) ? (game_cfg.ext_ebootbin != 0) : -1 ) + 8;
     x2 = DrawButton2_UTF8(x2, y2, 0, language[DRAWGMCFG_OFF], (game_cfg.ext_ebootbin == 0)) + 8;
 
     y2+= 48;
 
-    x2 = DrawButton1_UTF8(x + 32, y2, 240, language[DRAWGMCFG_BDEMU], (flash && select_option == 3))  + 16;
+    x2 = DrawButton1_UTF8(x + 32, y2, 320, language[DRAWGMCFG_BDEMU], (flash && select_option == 3))  + 16;
     
     if(directories[currentgamedir].flags & 1) {
         x2 = DrawButton2_UTF8(x2, y2, 0, "Mount BDVD" ,(game_cfg.bdemu == 1)) + 8;
@@ -3808,21 +3754,21 @@ void draw_configs(float x, float y, int index)
 
     y2+= 48;
 
-    x2 = DrawButton1_UTF8(x + 32, y2, 240, language[DRAWGMCFG_EXTHDD0GAME], (flash && select_option == 4))  + 16;
+    x2 = DrawButton1_UTF8(x + 32, y2, 320, language[DRAWGMCFG_EXTHDD0GAME], (flash && select_option == 4))  + 16;
         
     x2 = DrawButton2_UTF8(x2, y2, 0, language[DRAWGMCFG_ON] , (payload_mode >= ZERO_PAYLOAD) ? (game_cfg.exthdd0emu != 0): -1) + 8;
     x2 = DrawButton2_UTF8(x2, y2, 0, language[DRAWGMCFG_OFF], (game_cfg.exthdd0emu == 0)) + 8;
 
     y2+= 48;
 
-    x2 = DrawButton1_UTF8(x + 32, y2, 240, language[DRAWGMCFG_SAVECFG], (flash && select_option == 5))  + 16;
+    x2 = DrawButton1_UTF8(x + 32, y2, 320, language[DRAWGMCFG_SAVECFG], (flash && select_option == 5))  + 16;
     y2+= 48;
 
-    x2 = DrawButton1_UTF8(x + 32, y2, 240, language[GLOBAL_RETURN], (flash && select_option == 6))  + 16;
+    x2 = DrawButton1_UTF8(x + 32, y2, 320, language[GLOBAL_RETURN], (flash && select_option == 6))  + 16;
     y2+= 48;
 
 
-    SetCurrentFont(FONT_DEFAULT);
+    SetCurrentFont(FONT_TTF);
 
     // draw game name
 
@@ -3834,22 +3780,31 @@ void draw_configs(float x, float y, int index)
 
     if(Png_offset[i]) {
 
+        u32 str_color = 0xffffffff;
+
         if((directories[currentgamedir].flags  & GAMELIST_FILTER)== (1<<11)) {
-            utf8_to_ansi(bluray_game, temp_buffer, 65);
-            SetFontColor(0x00ff00ff, 0x00000000);
-        } else utf8_to_ansi(directories[currentgamedir].title, temp_buffer, 65);
+            if(strncmp((char *) string_title_utf8, bluray_game, 64)) {
+                strncpy((char *) string_title_utf8, bluray_game, 128);
+                update_title_utf8 = 1;
+            }
+            str_color = 0x00ff00ff;
+        } else {
+            if(strncmp((char *) string_title_utf8, directories[currentgamedir].title, 64)) {
+                strncpy((char *) string_title_utf8, directories[currentgamedir].title, 128);
+                update_title_utf8 = 1;
+            }
+        }
 
-        temp_buffer[65] = 0;
-
-        if(strlen(temp_buffer) < 50) SetFontSize(22, 32); 
-        else SetFontSize(18, 32);
-
-        SetFontAutoCenter(1);
-  
-        
-        DrawFormatString(0, y + 3 * 150, temp_buffer);
-
-        SetFontAutoCenter(0);
+        if(update_title_utf8) {
+            width_title_utf8 =  Render_String_UTF8(ttf_texture, 768, 32, string_title_utf8, 16, 24);
+            update_title_utf8 = 0;
+        }
+         
+       
+        tiny3d_SetTextureWrap(0, tiny3d_TextureOffset(ttf_texture), 768, 
+                32, 768 * 2, 
+                TINY3D_TEX_FORMAT_A4R4G4B4,  TEXTWRAP_CLAMP, TEXTWRAP_CLAMP,1);
+        DrawTextBox((848 - width_title_utf8) / 2, y + 3 * 150 , 0, 768, 32, str_color);
     }
    
 
@@ -3995,14 +3950,27 @@ void draw_configs(float x, float y, int index)
 
 }
 
+static char help1[]= {
+    "Test of Character Set\n"
+    "Hola Hello Bonjour Ciao Hallo مرحبا\n"
+    "привет Γεια σας もしもし Merhaba ğ\n"
+    "안녕하세요. 你好\n"
+    "Dışişleri Bakanlığı\n"
+    "Мне нужно немного водки\n"
+    "我想貴國訪問\n"
+    "Γαμημένοι πολιτικοί που έχουν προκαλέσει αναστάτωση\n"
+    "スペインからのご挨拶\n"
+    "تحيات من اسبانيا\n"
+};
+
 void draw_gbloptions(float x, float y)
 {
 
     float y2, x2;
     static float x3 = -1;
-    char ansi[256];
+    static int help = 0;
     
-    SetCurrentFont(FONT_DEFAULT);
+    SetCurrentFont(FONT_TTF);
 
     // header title
 
@@ -4013,10 +3981,8 @@ void draw_gbloptions(float x, float y)
     SetFontSize(18, 20);
 
     SetFontAutoCenter(0);
-
-    UTF8_to_Ansi(language[DRAWGLOPT_OPTS], ansi, 256);
   
-    DrawFormatString(x, y - 2, " %s", ansi);
+    DrawFormatString(x, y - 2, " %s", language[DRAWGLOPT_OPTS]);
 
     if(x3 < 0)
     {
@@ -4069,16 +4035,39 @@ void draw_gbloptions(float x, float y)
     DrawBox(x, y + 3 * 150, 0, 200 * 4 - 8, 40, 0x00000028);
 
     // draw sys version
-    SetCurrentFont(FONT_DEFAULT);
+    SetCurrentFont(FONT_TTF);
 
     SetFontColor(0xccccffff, 0x00000000);
     SetFontSize(18, 20);
     SetFontAutoCenter(1);
     DrawFormatString(0, y2 + 40, payload_str );
+    SetFontAutoCenter(0);
+    
+    if(help) {
+        
+        DrawBox((848 - 624)/2, (512 - 424)/2, 0, 624, 424, 0x602060ff);
+        DrawBox((848 - 616)/2, (512 - 416)/2, 0, 616, 416, 0x802080ff);
+        set_ttf_window((848 - 600)/2, (512 - 416)/2, 600, 416, WIN_AUTO_LF);
+
+        display_ttf_string(0, 0, help1, 0xffffffff, 18, 24);
+
+
+    }
 
     tiny3d_Flip();
 
     ps3pad_read();
+
+    if(new_pad & BUTTON_SELECT) {
+        help^=1;
+    }
+
+    if(new_pad & BUTTON_CIRCLE) {
+        help = 0;
+        menu_screen = 0; return;
+    }
+
+    if(help) return;
 
     if(new_pad & BUTTON_CROSS) {
     
@@ -4170,10 +4159,6 @@ void draw_gbloptions(float x, float y)
     
     }
 
-    if(new_pad & BUTTON_CIRCLE) {
-        menu_screen = 0; return;
-    }
-   
 
     if(new_pad & BUTTON_UP) {
 
@@ -4200,10 +4185,7 @@ void draw_toolsoptions(float x, float y)
 
     float y2, x2;
 
-    char ansi[256];
-    
-
-    SetCurrentFont(FONT_DEFAULT);
+    SetCurrentFont(FONT_TTF);
 
     // header title
 
@@ -4215,14 +4197,12 @@ void draw_toolsoptions(float x, float y)
 
     SetFontAutoCenter(0);
   
-    UTF8_to_Ansi(language[DRAWTOOLS_TOOLS], ansi, 256);
-    DrawFormatString(x, y - 2, " %s", ansi);
+    DrawFormatString(x, y - 2, " %s", language[DRAWTOOLS_TOOLS]);
 
     y += 24;
 
     DrawBox(x, y, 0, 200 * 4 - 8, 150 * 3 - 8, 0x00000028);
 
-    SetCurrentFont(FONT_BUTTON);
 
     x2 = x;
     y2 = y + 32;
@@ -4271,7 +4251,7 @@ void draw_toolsoptions(float x, float y)
     }
 
 
-    SetCurrentFont(FONT_DEFAULT);
+    SetCurrentFont(FONT_TTF);
 
     // draw game name
 
@@ -4410,11 +4390,8 @@ void draw_cachesel(float x, float y)
     int n;
 
     float y2, x2;
-
-    char ansi[256];
     
-
-    SetCurrentFont(FONT_DEFAULT);
+    SetCurrentFont(FONT_TTF);
 
     // header title
 
@@ -4426,8 +4403,7 @@ void draw_cachesel(float x, float y)
 
     SetFontAutoCenter(0);
   
-    UTF8_to_Ansi(language[DRAWCACHE_CACHE], ansi, 256);
-    DrawFormatString(x, y - 2, " %s", ansi);
+    DrawFormatString(x, y - 2, " %s", language[DRAWCACHE_CACHE]);
     
     x2= DrawFormatString(2000, -2, "hdd0: %.2fGB ", freeSpace[0]);
     x2 = 848 -(x2 - 2000) - x;
@@ -4451,7 +4427,7 @@ void draw_cachesel(float x, float y)
         y2+= 48;
     }
 
-    SetCurrentFont(FONT_DEFAULT);
+    SetCurrentFont(FONT_TTF);
 
     // draw game name
 
@@ -4459,12 +4435,10 @@ void draw_cachesel(float x, float y)
 
     
     if(flash && cache_need_free != 0) {
-        SetCurrentFont(FONT_DEFAULT);
         SetFontSize(20, 20);
         SetFontColor(0xffff00ff, 0x00000000);
         SetFontAutoCenter(1);
-        UTF8_to_Ansi(language[DRAWCACHE_ERRNEEDIT], ansi, 256);
-        DrawFormatString(0, y + 3 * 150 + 6, ansi, cache_need_free);
+        DrawFormatString(0, y + 3 * 150 + 6, language[DRAWCACHE_ERRNEEDIT], cache_need_free);
         SetFontAutoCenter(0);
 
     } else if(select_option < ncache_list){
@@ -4472,7 +4446,7 @@ void draw_cachesel(float x, float y)
 
         SetFontColor(0xffffffff, 0x00000000);
 
-        utf8_to_ansi(cache_list[select_option].title, temp_buffer, 65);
+        utf8_truncate(cache_list[select_option].title, temp_buffer, 65);
 
         temp_buffer[65] = 0;
 

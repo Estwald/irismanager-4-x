@@ -1087,7 +1087,7 @@ skip:
     return ret;
 }
 
-char help2[]= {
+static char help2[]= {
     "CROSS - Enter to the selected option\n"
     "UP/DOWN - Select option\n"
     "\n"
@@ -1097,7 +1097,7 @@ char help2[]= {
     "Special Note: WTF! You needs help up to piss XD\n"
 };
 
-char help3[]= {
+static char help3[]= {
     "CROSS - Decrease the selected nibble\n"
     "CIRCLE - Increase the selected nibble\n"
     "L1/R1 - Decrease/increase the selected byte (pressing to auto-repeat)\n"
@@ -1118,7 +1118,7 @@ char help3[]= {
     "in the editor window. Pressing SELECT you can save or discard the window changes.\n"
 };
 
-char help4[]= {
+static char help4[]= {
     "CROSS - Set the hex number\n"
     "UP/DOWN/LEFT/RIGHT - Move the cursor to the keyboard\n"
     "L2/R2 - Move back/forward from the number window\n"
@@ -1133,7 +1133,7 @@ char help4[]= {
     "Special Note: jump to the absolute file address"
 };
 
-char help5[]= {
+static char help5[]= {
     "CROSS - Set the hex number\n"
     "UP/DOWN/LEFT/RIGHT - Move the cursor to the keyboard\n"
     "L2/R2 - Move back/forward from the number window\n"
@@ -1249,7 +1249,6 @@ read_file:
     
     SetFontColor(0xffffffff, 0x0);
 
-    //SetCurrentFont(FONT_DEFAULT);
     SetCurrentFont(FONT_BUTTON);
 
     SetFontSize(8, 16);
@@ -1956,7 +1955,7 @@ read_file:
     if(fd >=0) sysLv2FsClose(fd); fd = -1;
 }
 
-char help1[]= {
+static char help1[]= {
     "CROSS - Action for files/folders\n"
     "CIRCLE - One to one group selection\n"
     "SQUARE - Select/Deselect all files/folders\n"

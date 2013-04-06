@@ -39,6 +39,8 @@
 int cqueue = 0;
 int dqueue = 0;
 
+extern int pad_last_time; // to prevent shutdown when FTP is used
+
 void client_thread(void *conn_s_p)
 {
 	int conn_s = *(int *)conn_s_p;	// control connection socket
@@ -417,6 +419,8 @@ void client_thread(void *conn_s_p)
 					
 					while(sysLv2FsReadDir(fd, &entry, &read) == 0 && read > 0)
 					{
+                        pad_last_time = 0;
+
 						if(strcmp2(cwd, "/") == 0
 						&& (strcmp2(entry.d_name, "app_home") == 0
 						|| strcmp2(entry.d_name, "host_root") == 0))
@@ -529,6 +533,8 @@ void client_thread(void *conn_s_p)
 					
 					while(sysLv2FsReadDir(fd, &entry, &read) == 0 && read > 0)
 					{
+                        pad_last_time = 0;
+
 						if(strcmp2(cwd, "/") == 0
 						&& (strcmp2(entry.d_name, "app_home") == 0
 						|| strcmp2(entry.d_name, "host_root") == 0))
@@ -609,6 +615,8 @@ void client_thread(void *conn_s_p)
 					
 					while(sysLv2FsReadDir(fd, &entry, &read) == 0 && read > 0)
 					{
+                        pad_last_time = 0;
+
 						if(strcmp2(cwd, "/") == 0
 						&& (strcmp2(entry.d_name, "app_home") == 0
 						|| strcmp2(entry.d_name, "host_root") == 0))
@@ -729,6 +737,7 @@ void client_thread(void *conn_s_p)
 					
 					while(sysLv2FsReadDir(fd, &entry, &read) == 0 && read > 0)
 					{
+                        pad_last_time = 0;
 						bytes = sprintf(temp, "%s\r\n", entry.d_name);
 						send(data_s, temp, bytes, 0);
 					}
@@ -830,6 +839,8 @@ void client_thread(void *conn_s_p)
 								dqueue++;
 								
 								while((dqueue - 1) > itemp);
+
+                                pad_last_time = 0;
 								
 								if(sysLv2FsWrite(fd, databuf, read, &written) != 0 || written < read)
 								{
@@ -951,6 +962,8 @@ void client_thread(void *conn_s_p)
 								
 								while((dqueue - 1) > itemp);
 								
+                                pad_last_time = 0;
+
 								if((u64)send(data_s, databuf, (size_t)read, 0) < read)
 								{
 									err = 1;

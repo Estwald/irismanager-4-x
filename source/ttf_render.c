@@ -13,20 +13,25 @@
 static int ttf_inited = 0;
 
 static FT_Library freetype;
-static FT_Face face;
+static FT_Face face[4];
+static int f_face[4] = {0, 0, 0, 0};
 
-int TTFLoadFont(char * path, void * from_memory, int size_from_memory)
+int TTFLoadFont(int set, char * path, void * from_memory, int size_from_memory)
 {
    
     if(!ttf_inited)
         FT_Init_FreeType(&freetype);
     ttf_inited = 1;
 
+    f_face[set] = 0;
+
     if(path) {
-        if(FT_New_Face(freetype, path, 0, &face)) return -1;
+        if(FT_New_Face(freetype, path, 0, &face[set])<0) return -1;
     } else {
-        if(FT_New_Memory_Face(freetype, from_memory, size_from_memory, 0, &face)) return -1;
+        if(FT_New_Memory_Face(freetype, from_memory, size_from_memory, 0, &face[set])) return -1;
         }
+
+    f_face[set] = 1;
 
     return 0;
 }
@@ -55,13 +60,26 @@ y_correction : the Y correction to display the character correctly in the screen
 
 void TTF_to_Bitmap(u8 chr, u8 * bitmap, short *w, short *h, short *y_correction)
 {
-    FT_Set_Pixel_Sizes(face, (*w), (*h));
+    if(f_face[0]) FT_Set_Pixel_Sizes(face[0], (*w), (*h));
+    if(f_face[1]) FT_Set_Pixel_Sizes(face[1], (*w), (*h));
+    if(f_face[2]) FT_Set_Pixel_Sizes(face[2], (*w), (*h));
+    if(f_face[3]) FT_Set_Pixel_Sizes(face[3], (*w), (*h));
     
-    FT_GlyphSlot slot = face->glyph;
+    FT_GlyphSlot slot;
 
     memset(bitmap, 0, (*w) * (*h));
 
-    if(FT_Load_Char(face, (char) chr, FT_LOAD_RENDER )) {(*w) = 0; return;}
+    FT_UInt index;
+
+    if(f_face[0] && (index = FT_Get_Char_Index(face[0], (char) chr))!=0 
+        && !FT_Load_Glyph(face[0], index, FT_LOAD_RENDER )) slot = face[0]->glyph;
+    else if(f_face[1] && (index = FT_Get_Char_Index(face[1], (char) chr))!=0 
+        && !FT_Load_Glyph(face[1], index, FT_LOAD_RENDER )) slot = face[1]->glyph;
+    else if(f_face[2] && (index = FT_Get_Char_Index(face[2], (char) chr))!=0 
+        && !FT_Load_Glyph(face[2], index, FT_LOAD_RENDER )) slot = face[2]->glyph;
+    else if(f_face[3] && (index = FT_Get_Char_Index(face[3], (char) chr))!=0 
+        && !FT_Load_Glyph(face[3], index, FT_LOAD_RENDER )) slot = face[3]->glyph;
+    else {(*w) = 0; return;}
 
     int n, m, ww;
 
@@ -93,8 +111,13 @@ int Render_String_UTF8(u16 * bitmap, int w, int h, u8 *string, int sw, int sh)
     u8 color;
     u32 ttf_char;
 
-    FT_Set_Pixel_Sizes(face, sw, sh);
-    FT_GlyphSlot slot = face->glyph;
+    if(f_face[0]) FT_Set_Pixel_Sizes(face[0], sw, sh);
+    if(f_face[1]) FT_Set_Pixel_Sizes(face[1], sw, sh);
+    if(f_face[2]) FT_Set_Pixel_Sizes(face[2], sw, sh);
+    if(f_face[3]) FT_Set_Pixel_Sizes(face[3], sw, sh);
+
+    //FT_Set_Pixel_Sizes(face, sw, sh);
+    FT_GlyphSlot slot = NULL;
 
     memset(bitmap, 0, w * h * 2);
 
@@ -128,7 +151,19 @@ int Render_String_UTF8(u16 * bitmap, int w, int h, u8 *string, int sw, int sh)
 
         if(ttf_char == 13 || ttf_char == 10) ttf_char='/';
 
-        if(FT_Load_Char(face, ttf_char, FT_LOAD_RENDER )==0) {
+        FT_UInt index;
+
+        if(f_face[0] && (index = FT_Get_Char_Index(face[0], ttf_char))!=0 
+            && !FT_Load_Glyph(face[0], index, FT_LOAD_RENDER )) slot = face[0]->glyph;
+        else if(f_face[1] && (index = FT_Get_Char_Index(face[1], ttf_char))!=0 
+            && !FT_Load_Glyph(face[1], index, FT_LOAD_RENDER )) slot = face[1]->glyph;
+        else if(f_face[2] && (index = FT_Get_Char_Index(face[2], ttf_char))!=0 
+            && !FT_Load_Glyph(face[2], index, FT_LOAD_RENDER )) slot = face[2]->glyph;
+        else if(f_face[3] && (index = FT_Get_Char_Index(face[3], ttf_char))!=0 
+            && !FT_Load_Glyph(face[3], index, FT_LOAD_RENDER )) slot = face[3]->glyph;
+        else ttf_char = 0;
+
+        if(ttf_char!=0) {
             ww = ww2 = 0;
 
             int y_correction = sh - 1 - slot->bitmap_top;
@@ -153,7 +188,7 @@ int Render_String_UTF8(u16 * bitmap, int w, int h, u8 *string, int sw, int sh)
             
         }
 
-        posx+= slot->bitmap.width;
+        if(slot) posx+= slot->bitmap.width;
     }
     return posx;
 }
@@ -177,7 +212,8 @@ static ttf_dyn ttf_font_datas[MAX_CHARS];
 
 static u32 r_use= 0;
 
-float Z_ttf =0.0f;
+float Y_ttf = 0.0f;
+float Z_ttf = 0.0f;
 
 static int Win_X_ttf = 0;
 static int Win_Y_ttf = 0;
@@ -194,6 +230,9 @@ void set_ttf_window(int x, int y, int width, int height, u32 mode)
     Win_W_ttf = width;
     Win_H_ttf = height;
     Win_flag = mode;
+    Y_ttf = 0.0f;
+    Z_ttf = 0.0f;
+   
 }
 
 u16 * init_ttf_table(u16 *texture)
@@ -335,14 +374,32 @@ int display_ttf_string(int posx, int posy, char *string, u32 color, int sw, int 
 
         if(!(ttf_font_datas[l].flags & 1)) { 
 
-            FT_Set_Pixel_Sizes(face, UX, UY);
-            FT_GlyphSlot slot = face->glyph;
+            if(f_face[0]) FT_Set_Pixel_Sizes(face[0], UX, UY);
+            if(f_face[1]) FT_Set_Pixel_Sizes(face[1], UX, UY);
+            if(f_face[2]) FT_Set_Pixel_Sizes(face[2], UX, UY);
+            if(f_face[3]) FT_Set_Pixel_Sizes(face[3], UX, UY);
+
+            FT_GlyphSlot slot = NULL;
             
            
             memset(bitmap, 0, 32 * 32 * 2);
 
             ///////////
-            if(FT_Load_Char(face, ttf_char, FT_LOAD_RENDER )==0) {
+
+            FT_UInt index;
+
+            if(f_face[0] && (index = FT_Get_Char_Index(face[0], ttf_char))!=0 
+                && !FT_Load_Glyph(face[0], index, FT_LOAD_RENDER )) slot = face[0]->glyph;
+            else if(f_face[1] && (index = FT_Get_Char_Index(face[1], ttf_char))!=0 
+                && !FT_Load_Glyph(face[1], index, FT_LOAD_RENDER )) slot = face[1]->glyph;
+            else if(f_face[2] && (index = FT_Get_Char_Index(face[2], ttf_char))!=0 
+                && !FT_Load_Glyph(face[2], index, FT_LOAD_RENDER )) slot = face[2]->glyph;
+            else if(f_face[3] && (index = FT_Get_Char_Index(face[3], ttf_char))!=0 
+                && !FT_Load_Glyph(face[3], index, FT_LOAD_RENDER )) slot = face[3]->glyph;
+            else ttf_char = 0;
+    
+
+            if(ttf_char!=0) {
                 ww = ww2 = 0;
 
                 int y_correction = UY - 1 - slot->bitmap_top;
@@ -407,6 +464,7 @@ int display_ttf_string(int posx, int posy, char *string, u32 color, int sw, int 
 
     }
 
+    Y_ttf = (float) posy;
     return posx;
 
 }

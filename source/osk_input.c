@@ -6,7 +6,7 @@
 #include <math.h>
 
 #include <tiny3d.h>
-#include <libfont.h>
+#include "libfont2.h"
 
 #include "gfx.h"
 #include "utils.h"
@@ -266,7 +266,7 @@ int Get_OSK_String(char *caption, char *str, int len)
         update_twat();
         
 
-        SetCurrentFont(FONT_DEFAULT);
+        SetCurrentFont(FONT_TTF);
 
         // header title
 

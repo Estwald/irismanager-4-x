@@ -44,7 +44,7 @@ unsigned ps3pad_read()
             pad_last_time = sec;
 
         if((sec - pad_last_time) > 3600) {
-            if(DrawDialogYesNoTimer("System shutdown in one minute by inactivity\nSelect YES to abort the countdown", 60000.0f)!=1) {
+            if(DrawDialogYesNoTimer("System shutdown in two minutes by inactivity\nSelect YES to abort the countdown", 120000.0f)!=1) {
                 fun_exit();sys_shutdown();exit(0);
             } else pad_last_time= 0;
         }

@@ -5,12 +5,12 @@
 #include <string.h>
 #include <math.h>
 #include "utils.h"
-
+#include "ttf_render.h"
 
 struct {
     float x, y, dx, dy, r, rs;
 
-} m_twat[32];
+} m_twat[6];
 
 void DrawAdjustBackground(u32 rgba)
 {
@@ -63,6 +63,7 @@ void DrawBox(float x, float y, float z, float w, float h, u32 rgba)
     tiny3d_End();
 }
 
+
 void DrawTextBox(float x, float y, float z, float w, float h, u32 rgba)
 {
     tiny3d_SetPolygon(TINY3D_QUADS);
@@ -100,6 +101,26 @@ void DrawLineBox(float x, float y, float z, float w, float h, u32 rgba)
     tiny3d_End();
 }
 
+static void DrawBox2(float x, float y, float z, float w, float h, u32 rgba, u32 rgba2)
+{
+    tiny3d_SetPolygon(TINY3D_QUADS);
+       
+    tiny3d_VertexPos(x    , y    , z);
+    tiny3d_VertexColor(rgba);
+
+    tiny3d_VertexPos(x + w, y    , z);
+    tiny3d_VertexColor(rgba2);
+
+    tiny3d_VertexPos(x + w, y + h, z);
+    tiny3d_VertexColor(rgba);
+
+    tiny3d_VertexPos(x    , y + h, z);
+    tiny3d_VertexColor(rgba2);
+
+    tiny3d_End();
+}
+
+/*
 
 float DrawButton1(float x, float y, float w, char * t, int select)
 {
@@ -155,145 +176,131 @@ float DrawButton2(float x, float y, float w, char * t, int select)
 
 }
 
-static void UTF8_to_Ansi(char *utf8, char *ansi, int len)
-{
-u8 *ch= (u8 *) utf8;
-u8 c;
-
-    *ansi = 0;
-
-	while(*ch!=0 && len>0){
-
-        // 3, 4 bytes utf-8 code 
-        if(((*ch & 0xF1)==0xF0 || (*ch & 0xF0)==0xe0) && (*(ch+1) & 0xc0)==0x80){
-
-        *ansi++=' '; // ignore
-        len--;
-        ch+=2+1*((*ch & 0xF1)==0xF0);
-        
-        }
-        else 
-        // 2 bytes utf-8 code	
-        if((*ch & 0xE0)==0xc0 && (*(ch+1) & 0xc0)==0x80){
-        
-        c= (((*ch & 3)<<6) | (*(ch+1) & 63));
-
-        *ansi++=c;
-        len--;
-        ch++;
-	
-	    } else {
-	
-            if(*ch<32) *ch=32;
-            *ansi++=*ch;
-            len--;
-        }
-
-	    ch++;
-	}
-
-	while(len>0) {
-	    *ansi++=0;
-	    len--;
-	}
-}
+*/
 
 float DrawButton1_UTF8(float x, float y, float w, char * t, int select)
 {
-    char text[1024];
+    int len = 0;
+    u32 rgba = 0xffffffff, brgba = 0x101010ff;
+    u32 brgba2 = 0x404040ff;
 
-    UTF8_to_Ansi(t, text, 1024);
-    return DrawButton1(x, y, w, text, select);
+    set_ttf_window(0, 0, 848, 512, WIN_SKIP_LF);
+    len = display_ttf_string(0, 0, t, 0, 16, 32);
+
+    if(w < (len + 24)) w = (len + 24);
+
+    if(select == 1) {rgba = 0x000000ff; brgba2 = 0xc0c0c0ff;brgba = 0xffffffff;}
+        else
+    if(select == -1) {rgba = 0x0000006f; brgba = brgba2 = 0xffffff6f;}
+        
+
+    DrawBox2(x, y, 0.0f, w, 40, brgba, brgba2);
+    DrawLineBox(x, y, 0.0f, w, 40, rgba);
+
+    //DrawString(x + (w - len * 12) / 2, y + 4, t);
+
+    display_ttf_string(x + (w - len) / 2, y + 4, t, rgba, 16, 32);
+
+    return x + w;
+
 }
 
 float DrawButton2_UTF8(float x, float y, float w, char * t, int select)
 {
-    char text[1024];
+    int len = 0;
+    u32 rgba = 0xffffffff, brgba = 0x0030d0ff;
+    u32 brgba2 = 0x003080ff;
 
-    UTF8_to_Ansi(t, text, 1024);
-    return DrawButton2(x, y, w, text, select);
+    set_ttf_window(0, 0, 848, 512, WIN_SKIP_LF);
+    len = display_ttf_string(0, 0, t, 0, 14, 32);
+
+    if(w < (len + 20)) w = (len + 20);
+
+    if(select == 2) {rgba = 0xffffffff; brgba = 0xd01000ff;brgba2 = 0x801000ff;}
+        else
+    if(select == 1) {rgba = 0xffffffff; brgba = 0x00d000ff;brgba2 = 0x008030ff;}
+        else
+    if(select == -1) {rgba = 0xffffff6f; brgba= 0x0040006f; brgba2 = 0x00d0006f;}
+        
+    DrawBox2(x, y, 0.0f, w, 40, brgba, brgba2);
+    DrawLineBox(x, y, 0.0f, w, 40, 0xc0c0c0ff);
+
+    //DrawString(x + (w - len * 10) / 2, y + 4, t);
+    display_ttf_string(x + (w - len) / 2, y + 4, t, rgba, 14, 32);
+
+    return x + w;
+
 }
+
 
 void init_twat()
 {
-    int i;
-
-    for(i = 0; i < 32; i++) {
-        m_twat[i].x = (rand() % 640) + 104;
-        m_twat[i].y = (rand() % 300) + 106;
-
-        m_twat[i].dx = ((float) ((int) (rand() & 7) - 3)) / 12.0f;
-        m_twat[i].dy = ((float) ((int) (rand() & 7) - 3)) / 12.0f;
-        m_twat[i].r = 0;
-        m_twat[i].rs = ((float) ((int) (rand() & 7) - 3)) / 80.0f;
-    }
+    m_twat[0].r = m_twat[1].r = m_twat[2].r = 0.0f;
+    m_twat[3].r = m_twat[4].r = m_twat[5].r = 0.0f;
 }
 
 void update_twat()
 {
-    int i;
-
-    for(i = 0; i < 32; i++) {
-
-        if((rand() & 0x1ff) == 5) {
-            m_twat[i].dx = ((float) ((int) (rand() & 7) - 3)) / 12.0f;
-            m_twat[i].dy = ((float) ((int) (rand() & 7) - 3)) / 12.0f;
-            m_twat[i].rs = ((float) ((int) (rand() & 7) - 3)) / 80.0f;
-            
-        }
-
-        if(m_twat[i].dx == 0.0f && m_twat[i].dy == 0.0f) {m_twat[i].dy = 0.25f; m_twat[i].dx = (rand() & 1) ? 0.25f : -0.25f;}
-        if(m_twat[i].rs == 0.0f) m_twat[i].rs = (rand() & 1) ? .001f : -0.001f;
-        
-        m_twat[i].x += m_twat[i].dx;
-        m_twat[i].y += m_twat[i].dy;
-        m_twat[i].r += m_twat[i].rs;
     
-        if(i & 1) {
-            if(m_twat[i].x < 0)  {
-                if(m_twat[i].dx < 0) m_twat[i].dx = -m_twat[i].dx;
-            }
+    float x = 840.0f - 170.0f, y = 512.0f - 180.0f;
 
-            if(m_twat[i].y < 0)  {
-                if(m_twat[i].dy < 0) m_twat[i].dy = -m_twat[i].dy;
-            }
+    m_twat[0].r += .01f;
+    m_twat[1].r -= .01f;
+    m_twat[2].r += .01f;
 
-            if(m_twat[i].x >= 600)  {
-                if(m_twat[i].dx > 0) m_twat[i].dx = -m_twat[i].dx;
-            }
+    draw_twat(x + 70.0f, y - 70.0f, m_twat[0].r + 0.196349540875f);
+    draw_twat(x, y, m_twat[1].r);
+    draw_twat(x + 70.0f, y + 70.0f, m_twat[2].r + 0.196349540875f);
 
-            if(m_twat[i].y >= 480)  {
-                if(m_twat[i].dy > 0) m_twat[i].dy = -m_twat[i].dy;
-            }
-        } else {
-            if(m_twat[i].x < 248)  {
-                if(m_twat[i].dx < 0) m_twat[i].dx = -m_twat[i].dx;
-            }
 
-            if(m_twat[i].y < 32)  {
-                if(m_twat[i].dy < 0) m_twat[i].dy = -m_twat[i].dy;
-            }
+    x= 240.0f; y = 512.0f - 120.0f;
+    draw_twat2(x + 35.0f, y - 35.0f, m_twat[0].r + 0.196349540875f);
+    draw_twat2(x, y, m_twat[1].r);
+    draw_twat2(x + 35.0f, y + 35.0f, m_twat[2].r + 0.196349540875f);
 
-            if(m_twat[i].x >= 848)  {
-                if(m_twat[i].dx > 0) m_twat[i].dx = -m_twat[i].dx;
-            }
+    x= 848 - 280.0f; y = 512.0f - 120.0f;
+    draw_twat2(x, y + 35.0f, m_twat[2].r + 0.196349540875f);
 
-            if(m_twat[i].y >= 512)  {
-                if(m_twat[i].dy > 0) m_twat[i].dy = -m_twat[i].dy;
-            }
-        
-        }
-        
-        draw_twat(m_twat[i].x, m_twat[i].y, m_twat[i].r);
-    }
-    
+
+    x = 840.0f - 170.0f; y = 180.0f + 50.0f;
+    draw_twat(x + 70.0f, y - 70.0f, m_twat[1].r);
+
+
+    x = 848.0f / 2.0f - 70.0f; y = 512.0f / 2.0f;
+
+    draw_twat(x + 70.0f, y - 70.0f, m_twat[0].r + 0.196349540875f);
+    draw_twat(x, y, m_twat[1].r);
+    draw_twat(x + 70.0f, y + 70.0f, m_twat[2].r + 0.196349540875f);
+
+    x = 100.0f; y = 200.0f;
+
+    m_twat[3].r -= .01f;
+    m_twat[4].r += .01f;
+    m_twat[5].r -= .01f;
+
+    draw_twat(x, y - 70.0f, m_twat[3].r + 0.196349540875f);
+    draw_twat(x + 70.0f, y, m_twat[4].r);
+    draw_twat(x, y + 70.0f, m_twat[5].r + 0.196349540875f);
+
+    x= 848 - 280.0f; y = 140.0f;
+
+    draw_twat2(x, y - 35.0f, m_twat[3].r + 0.196349540875f);
+    draw_twat2(x + 35.0f, y, m_twat[4].r);
+    draw_twat2(x, y + 35.0f, m_twat[5].r + 0.196349540875f);
+
+    x= 215.0f + 60.0f; y = 140.0f;
+
+    draw_twat2(x, y - 35.0f, m_twat[3].r + 0.196349540875f);
+
+    x = 100.0f; y = 512.0f - 170.0f - 40.0f;
+    draw_twat(x, y + 70.0f, m_twat[4].r);
 }
 
 void draw_twat(float x, float y, float angle)
 {
     int n;
 
-    float ang, angs = 6.2831853071796 / 8, angs2 = 6.2831853071796 / 32;
+    float ang, angs = 6.2831853071796 / 16, angs2 = 6.2831853071796 / 32;
 
     MATRIX matrix;
     
@@ -308,14 +315,14 @@ void draw_twat(float x, float y, float angle)
 
     ang = 0.0f;
 
-    for(n = 0; n <8; n++) {
+    for(n = 0; n < 16; n++) {
 
-        tiny3d_VertexPos(4.0f *sinf(ang), 4.0f *cosf(ang), 0);
-        tiny3d_VertexColor(0xffffff30);
-        tiny3d_VertexPos(7.0f *sinf(ang+angs/2), 7.0f *cosf(ang+angs/2), 0);
-        tiny3d_VertexColor(0xff00ff40);
-        tiny3d_VertexPos(4.0f *sinf(ang+angs), 4.0f *cosf(ang+angs), 0);
-        tiny3d_VertexColor(0xffffff30);
+        tiny3d_VertexPos(40.0f *sinf(ang), 40.0f *cosf(ang), 1000);
+        tiny3d_VertexColor(0xffffff18);
+        tiny3d_VertexPos(60.0f *sinf(ang+angs/2), 60.0f *cosf(ang+angs/2), 1000);
+        tiny3d_VertexColor(0xffffff18);
+        tiny3d_VertexPos(40.0f *sinf(ang+angs), 40.0f *cosf(ang+angs), 1000);
+        tiny3d_VertexColor(0xffffff18);
 
         ang += angs;
     }
@@ -326,9 +333,11 @@ void draw_twat(float x, float y, float angle)
 
     ang = 0.0f;
 
-    for(n = 0; n <32; n++) {
-        tiny3d_VertexPos(3.0f * sinf(ang), 3.0f * cosf(ang), 0);
-        if(n & 1) tiny3d_VertexColor(0x80ffff40); else tiny3d_VertexColor(0xffffff40);
+    tiny3d_VertexPos(0.0f * sinf(ang), 0.0f * cosf(ang), 1000);
+    tiny3d_VertexColor(0xffffff18);
+    for(n = 0; n < 33; n++) {
+        tiny3d_VertexPos(30.0f * sinf(ang), 30.0f * cosf(ang), 1000);
+        if(n & 1) tiny3d_VertexColor(0x80ffff18); else tiny3d_VertexColor(0xffffff18);
         ang += angs2;
     }
 
@@ -338,3 +347,53 @@ void draw_twat(float x, float y, float angle)
 
 }
 
+void draw_twat2(float x, float y, float angle)
+{
+    int n;
+
+    float ang, angs = 6.2831853071796 / 16, angs2 = 6.2831853071796 / 32;
+
+    MATRIX matrix;
+    
+    // rotate and translate the sprite
+    matrix = MatrixRotationZ(angle);
+    matrix = MatrixMultiply(matrix, MatrixTranslation(x , y , 65535.0f));
+
+    // fix ModelView Matrix
+    tiny3d_SetMatrixModelView(&matrix);
+
+    tiny3d_SetPolygon(TINY3D_TRIANGLES);
+
+    ang = 0.0f;
+
+    for(n = 0; n < 16; n++) {
+
+        tiny3d_VertexPos(20.0f *sinf(ang), 20.0f *cosf(ang), 1000);
+        tiny3d_VertexColor(0xffffff18);
+        tiny3d_VertexPos(30.0f *sinf(ang+angs/2), 30.0f *cosf(ang+angs/2), 1000);
+        tiny3d_VertexColor(0xffffff18);
+        tiny3d_VertexPos(20.0f *sinf(ang+angs), 20.0f *cosf(ang+angs), 1000);
+        tiny3d_VertexColor(0xffffff18);
+
+        ang += angs;
+    }
+
+    tiny3d_End();
+
+    tiny3d_SetPolygon(TINY3D_POLYGON);
+
+    ang = 0.0f;
+
+    tiny3d_VertexPos(0.0f * sinf(ang), 0.0f * cosf(ang), 1000);
+    tiny3d_VertexColor(0xffffff18);
+    for(n = 0; n < 33; n++) {
+        tiny3d_VertexPos(15.0f * sinf(ang), 15.0f * cosf(ang), 1000);
+        if(n & 1) tiny3d_VertexColor(0x80ffff18); else tiny3d_VertexColor(0xffffff18);
+        ang += angs2;
+    }
+
+    tiny3d_End();
+
+    tiny3d_SetMatrixModelView(NULL); // set matrix identity
+
+}
