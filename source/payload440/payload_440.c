@@ -285,6 +285,7 @@ void load_payload_440(int mode)
     */
     //0x7C7D1B78
    PATCH_JUMP(0x2C42A8, (PAYLOAD_OFFSET+0x30)); // patch openhook
+   _poke(0x2C428C, 0xFB810080FBA10088ULL); // free openhook Rogero 4.40 :-/
 
 
    // deleted _poke((u32) (SYSCALL_BASE + 36 * 8), 0x8000000000000000ULL + (u64) (PAYLOAD_OFFSET + 0xC8)); // syscall_map_open_desc - sys36
