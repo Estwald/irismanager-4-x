@@ -319,7 +319,7 @@ void draw_twat(float x, float y, float angle)
 
         tiny3d_VertexPos(40.0f *sinf(ang), 40.0f *cosf(ang), 1000);
         tiny3d_VertexColor(0xffffff18);
-        tiny3d_VertexPos(60.0f *sinf(ang+angs/2), 60.0f *cosf(ang+angs/2), 1000);
+        tiny3d_VertexPos(58.0f *sinf(ang+angs/2), 58.0f *cosf(ang+angs/2), 1000);
         tiny3d_VertexColor(0xffffff18);
         tiny3d_VertexPos(40.0f *sinf(ang+angs), 40.0f *cosf(ang+angs), 1000);
         tiny3d_VertexColor(0xffffff18);
@@ -370,7 +370,7 @@ void draw_twat2(float x, float y, float angle)
 
         tiny3d_VertexPos(20.0f *sinf(ang), 20.0f *cosf(ang), 1000);
         tiny3d_VertexColor(0xffffff18);
-        tiny3d_VertexPos(30.0f *sinf(ang+angs/2), 30.0f *cosf(ang+angs/2), 1000);
+        tiny3d_VertexPos(28.0f *sinf(ang+angs/2), 28.0f *cosf(ang+angs/2), 1000);
         tiny3d_VertexColor(0xffffff18);
         tiny3d_VertexPos(20.0f *sinf(ang+angs), 20.0f *cosf(ang+angs), 1000);
         tiny3d_VertexColor(0xffffff18);
@@ -397,3 +397,4 @@ void draw_twat2(float x, float y, float angle)
     tiny3d_SetMatrixModelView(NULL); // set matrix identity
 
 }
+
