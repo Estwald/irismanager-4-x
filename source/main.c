@@ -91,11 +91,16 @@
 #include "music2_mod_bin.h"
 #include "music3_mod_bin.h"
 
+#include "cricket_raw_bin.h"
+
+#include "ps3_discless.h"
 
 u64 restore_syscall8[2]= {0,0};
 
 int noBDVD = 0;
 int stops_BDVD = 1;
+
+int is_ps3game_running = 0;
 
 int mode_homebrew = 0;
 int game_list_category = 0;
@@ -580,6 +585,15 @@ void cls2()
 /* Payload functions                                                                                                                                  */
 /******************************************************************************************************************************************************/
 
+static u64 syscall_40(u64 cmd, u64 arg)
+{
+    lv2syscall2(40, cmd, arg);
+
+    return_to_user_prog(u64);
+    
+}
+
+
 int sys_set_leds(u64 color, u64 state) 
 {
     lv2syscall2(386,  (u64) color, (u64) state);
@@ -619,6 +633,7 @@ u64 lv2poke(u64 addr, u64 value)
     lv2syscall2(7, (u64) addr, (u64) value); 
     return_to_user_prog(u64);
 }
+
 
 int lv2launch(u64 addr) 
 { 
@@ -747,6 +762,8 @@ void fun_exit()
     static int one = 1;
     if(!one) return;
     one = 0;
+
+    if(!is_ps3game_running && lv2peek(0x80000000000004E8ULL)) syscall_40(1, 0); // disables PS3 Disc-less
 
     close_language();
     TTFUnloadFont();
@@ -1128,6 +1145,8 @@ static volatile int bdvd_notify = 0;
 
 static volatile int bdvd_ejected = 1;
 
+static volatile int disc_less_on = 0;
+
 void DiscEjectCallback(void)
 {
     bdvd_notify = -1;
@@ -1147,15 +1166,17 @@ void DiscInsertCallback(u32 discType, char *title)
             Reset2_BDVD();
     }
     
-    bdvd_notify = 1;
-    bdvd_ejected = 0;
+    if(noBDVD !=2) {
+        bdvd_notify = 1;
+        bdvd_ejected = 0;
 
-    mode_favourites = 0;
-    select_option = 0;     
-    menu_screen = 0;
-    select_px = 0;
-    select_py = 0;
-    currentgamedir = currentdir = 0;
+        mode_favourites = 0;
+        select_option = 0;     
+        menu_screen = 0;
+        select_px = 0;
+        select_py = 0;
+        currentgamedir = currentdir = 0;
+    } else disc_less_on = 1;
 }
 
 int is_libfs_patched(void){
@@ -1177,6 +1198,8 @@ s32 main(s32 argc, const char* argv[])
     u32 entry = 0;
     u32 segmentcount = 0;
     sysSpuSegment * segments;
+
+    if(lv2peek(0x80000000000004E8ULL)) syscall_40(1, 0); // disables PS3 Disc-less 
 
     atexit(fun_exit);
 
@@ -1549,10 +1572,19 @@ s32 main(s32 argc, const char* argv[])
 
     noBDVD = manager_cfg.noBDVD;
 
+/*
     // disable ps1 emulation
     if(noBDVD && lv2peek(0x8000000000001820ULL) == 0x455053315F454D55ULL) {
         sys8_pokeinstr(0x8000000000001830ULL, (u64)((1ULL<<32) | 1ULL)); // disable emulation
     }
+*/
+    // load ps3 disc less payload
+    if(noBDVD == 2) {
+        //lv2poke(syscall_base +(u64) (40 * 8), lv2peek(syscall_base));
+        load_ps3_discless_payload();
+
+    }
+
     
     LoadPSXOptions(NULL);
 
@@ -1643,6 +1675,14 @@ s32 main(s32 argc, const char* argv[])
     GetFavourites(mode_homebrew);
 
     sys_fs_umount("/dev_rewrite");
+
+    if(lv2peek(0x80000000000004E8ULL) && noBDVD == 2) {
+        syscall_40(1, 2);
+    }
+
+    if(noBDVD == 2 && syscall_40(3, 0) == 0) {
+        DrawDialogTimer(language[PLUG_STORAGE1], 2000.0f);
+    }
 
     while(!exit_program) {
 
@@ -1910,6 +1950,7 @@ s32 main(s32 argc, const char* argv[])
 
         update_twat();
 
+
         x= (848 - 640) / 2; y=(512 - 360) / 2;
 //        DrawBox(x - 16, y - 16, 65535.0f, 640.0f + 32, 360 + 32, 0x00000028);
   //      DrawBox(x, y, 65535.0f, 640.0f, 360, 0x30003018);
@@ -1939,7 +1980,53 @@ s32 main(s32 argc, const char* argv[])
                 if(directories[favourites.list[n].index].flags == 0) exit(0);
             }
         }
-                
+        
+        // fake disc insertion
+
+        if(noBDVD == 2 && disc_less_on == 1  && syscall_40(3, 0) == 1) {
+            int u;
+            
+            s16 * sound = memalign(32, (cricket_raw_bin_size + 31) & ~31);
+            
+            if(sound) {
+                memset((void *) sound, 0, (cricket_raw_bin_size + 31) & ~31);
+                memcpy((void *) sound, (void *)  cricket_raw_bin + 1, cricket_raw_bin_size - 1);
+            
+                SND_SetVoice(1, VOICE_MONO_16BIT, 22050, 0, sound, cricket_raw_bin_size - 1, 0x40, 0x20, NULL);
+                SND_SetVoice(1, VOICE_MONO_16BIT, 22050, 1000, sound, cricket_raw_bin_size - 1, 0x20, 0x40, NULL);
+            }
+
+            for(u = 0; u <200; u++)  {
+                cls();
+              
+                tiny3d_SetTextureWrap(0, Png_res_offset[0], Png_res[0].width, 
+                    Png_res[0].height, Png_res[0].wpitch, 
+                    TINY3D_TEX_FORMAT_A8R8G8B8,  TEXTWRAP_CLAMP, TEXTWRAP_CLAMP,1);
+                update_twat();
+                DrawTextBox((848 - 300)/2,(512 - 300)/2, 0, 300, 300, ((u>=64) ? 0xff : u<<2) | 0xffffff00);
+                SetCurrentFont(FONT_TTF);
+                SetFontColor(((u & 16)) ? 0x0 : 0xffffffff, 0x00000000);
+
+                SetFontSize(32, 48);
+
+                SetFontAutoCenter(1);
+                DrawString(0, 512 - 75,  language[PLUG_STORAGE2]);
+                SetFontAutoCenter(0);
+                tiny3d_Flip();
+
+                ps3pad_read();
+            }
+
+            if(sound) free(sound);
+
+            cls();
+            update_twat();
+            disc_less_on = 2;
+
+            if(new_pad & BUTTON_CROSS) new_pad ^= BUTTON_CROSS;
+
+            
+        }
             
         switch(menu_screen) {
             case 0:
@@ -2739,6 +2826,7 @@ void draw_screen1(float x, float y)
                      (!(directories[currentgamedir].flags & 1) && game_cfg.bdemu_ext==2)) { // new to add BD-Emu 2
 
                          n = 0;
+                       
                     }
                     else {
                         n = move_origin_to_bdemubackup(directories[currentgamedir].path_name);
@@ -2758,6 +2846,8 @@ void draw_screen1(float x, float y)
                         exit_program = 1; 
                         return;
                     }
+
+                    is_ps3game_running = 1;
 
                    // if(n == 1) game_cfg.bdemu = 0; // if !dev_usb... bdemu is not usable
                 }
@@ -2779,7 +2869,8 @@ void draw_screen1(float x, float y)
                         sys8_pokeinstr(0x80000000007EF220ULL, 0x45737477616C6420ULL);
 
                     }
-                    
+
+                
                     // HDD LIBFS
                    if((game_cfg.bdemu == 2 && (directories[currentgamedir].flags & 1))) { // new to add BD-Emu 2
                         mount_custom(directories[currentgamedir].path_name);
@@ -2820,6 +2911,8 @@ void draw_screen1(float x, float y)
                         }
 
                    }
+
+                   
                 }
                 else {
 
@@ -2831,7 +2924,7 @@ void draw_screen1(float x, float y)
                             sys8_pokeinstr(0x80000000007EF220ULL, 0x45737477616C6420ULL);
 
                 }
-                    
+                
                 if(use_cache) {
                        
                         sprintf(temp_buffer + 1024, "%s/cache/%s/%s", self_path,  //check replace (1024)
@@ -2877,6 +2970,8 @@ void draw_screen1(float x, float y)
 
                         if(!(directories[currentgamedir].flags & (1<<11))) {
                             
+                            if(lv2peek(0x80000000000004E8ULL)) syscall_40(1, 0); // disables PS3 Disc-less 
+                            
                             // load PSX options
                             LoadPSXOptions(directories[currentgamedir].path_name);
                                
@@ -2886,7 +2981,7 @@ void draw_screen1(float x, float y)
                             }
                             
                         } else psx_cd_with_cheats();
-                        
+
                         psx_launch();
                     } else if((directories[currentgamedir].flags>>31) & 1) { // is homebrew
                     
@@ -2967,6 +3062,8 @@ void draw_screen1(float x, float y)
 
                         }
 
+                        is_ps3game_running = 1;
+
                         //syscall36(directories[currentgamedir].path_name); // is bdvd game
 
                         add_sys8_bdvd(directories[currentgamedir].path_name, NULL);
@@ -2986,7 +3083,12 @@ void draw_screen1(float x, float y)
                             sprintf(temp_buffer, "%s/explore_plugin_%x.sprx", self_path, firmware>>4);
 
                         if(stat(temp_buffer, &s)<0) 
-                            {strcat(temp_buffer, " not found\n\npath from /app_home"); DrawDialogOK(temp_buffer+strlen(self_path)+1);}
+                            {
+                            
+                             if(noBDVD == 2) strcat(temp_buffer, " not found\n\nIt reduces the game compatibility");
+                             else strcat(temp_buffer, " not found\n\npath from /app_home"); 
+                             DrawDialogOKTimer(temp_buffer+strlen(self_path)+1, 2000.0f);
+                            }
                         else
                             add_sys8_path_table("/dev_flash/vsh/module/explore_plugin.sprx", temp_buffer);
                     }
@@ -2994,7 +3096,8 @@ void draw_screen1(float x, float y)
                 }
 
                 build_sys8_path_table();
-               
+
+   
                 exit_program = 1; 
                 
                 skip_sys8: 
@@ -4051,6 +4154,10 @@ void draw_gbloptions(float x, float y)
 
         display_ttf_string(0, 0, help1, 0xffffffff, 18, 24);
 
+        SetFontAutoCenter(1);
+        if(lv2peek(0x80000000000004E8ULL))
+            DrawFormatString(0, (512 - 416)/2 - 20, "Event ID: %x", (u32) syscall_40(4, 0));
+        SetFontAutoCenter(0);
 
     }
 
@@ -4230,6 +4337,8 @@ void draw_toolsoptions(float x, float y)
 
     if(!manager_cfg.noBDVD)
         DrawButton1_UTF8((848 - 520) / 2, y2, 520, language[DRAWTOOLS_WITHBDVD], (flash && select_option == 4));
+    else if(manager_cfg.noBDVD == 2)
+        DrawButton1_UTF8((848 - 520) / 2, y2, 520, language[DRAWTOOLS_NOBDVD2], (flash && select_option == 4));
     else
         DrawButton1_UTF8((848 - 520) / 2, y2, 520, language[DRAWTOOLS_NOBDVD], (flash && select_option == 4));
 
@@ -4296,13 +4405,42 @@ void draw_toolsoptions(float x, float y)
                 break;
 
             case 4:
-                manager_cfg.noBDVD = (manager_cfg.noBDVD ^ 1) & 1;
-                noBDVD = manager_cfg.noBDVD & 1;
+                manager_cfg.noBDVD = 0; //(manager_cfg.noBDVD ==0) & 1;
+
+                sprintf(temp_buffer, "%s\n\n%s?", language[GAMEFOLDER_WANTUSE], language[DRAWTOOLS_NOBDVD2]);
+                
+                if(DrawDialogYesNo(temp_buffer) == 1) {
+                    manager_cfg.noBDVD = 2;
+                } else {
+
+                    sprintf(temp_buffer, "%s\n\n%s?", language[GAMEFOLDER_WANTUSE], language[DRAWTOOLS_NOBDVD]);
+
+                    if(DrawDialogYesNo(temp_buffer) == 1) {
+                        manager_cfg.noBDVD = 1;
+                    }
+                }
+
+
+                noBDVD = manager_cfg.noBDVD & 3;
                 SaveManagerCfg();
                 sys_fs_umount("/dev_bdvd");
                 sys_fs_umount("/dev_ps2disc");
                 if(noBDVD) Eject_BDVD(NOWAIT_BDVD | EJECT_BDVD);
-                DrawDialogOKTimer("Exiting to the XMB: launch Iris Manager again\n\nSaliendo al XMB: lanza Iris Manager de nuevo", 2000.0f);
+                
+                if(!manager_cfg.noBDVD)
+                      sprintf(temp_buffer, "%s\n\n%s\n\n%s?", language[DRAWTOOLS_WITHBDVD],
+                            "Exiting to the XMB: launch Iris Manager again",
+                            "Saliendo al XMB: lanza Iris Manager de nuevo");
+                else if(manager_cfg.noBDVD == 2)
+                      sprintf(temp_buffer, "%s\n\n%s\n\n%s?", language[DRAWTOOLS_NOBDVD2],
+                            "Exiting to the XMB: launch Iris Manager again",
+                            "Saliendo al XMB: lanza Iris Manager de nuevo");
+                else 
+                      sprintf(temp_buffer, "%s\n\n%s\n\n%s?", language[DRAWTOOLS_NOBDVD],
+                            "Exiting to the XMB: launch Iris Manager again",
+                            "Saliendo al XMB: lanza Iris Manager de nuevo");
+
+                DrawDialogOKTimer(temp_buffer, 2000.0f);
                 game_cfg.direct_boot=0;
                 exit(0);
                 break;
@@ -4538,8 +4676,12 @@ int patch_bdvdemu(u32 flags)
 
     if(one) return 0; // only one time
 
+
     if(((flags & 1) && game_cfg.bdemu == 2) 
-        || (!(flags & 1) && game_cfg.bdemu_ext == 2) || (flags & 2048) ) return 0; // new to add BD-Emu 2
+        || (!(flags & 1) && game_cfg.bdemu_ext == 2) || (flags & 2048) ) 
+    {
+        if(noBDVD == 2) flags= (1<<15); else return 0; // new to add BD-Emu 2
+    }
 
     one = 1;
 

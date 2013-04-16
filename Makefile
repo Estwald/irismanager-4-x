@@ -18,7 +18,7 @@ SFOXML		:=	sfo.xml
 
 # usage:  make BUILD_STEALTH=yes
 ifndef BUILD_STEALTH
-TITLE		:=	IrisManager - v2.30
+TITLE		:=	IrisManager - v2.35
 APPID		:=	IMANAGER4
 else
 TITLE		:=	LEMMINGS™ Trial Version
@@ -48,7 +48,7 @@ TARGET		:=	$(notdir $(CURDIR))
 BUILD		:=	build
 SOURCES		:=	source source/ftp
 SOURCES		+=  source/payload341 source/payload355 source/payload355dex source/payload421 source/payload421dex
-SOURCES		+=  source/payload430 source/payload430dex source/payload431 source/payload440
+SOURCES		+=  source/payload430 source/payload430dex source/payload431 source/payload440 source/rebuild
 DATA		:=	datas
 SHADERS		:=	shaders
 INCLUDES	:=	include include/ftp
