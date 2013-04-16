@@ -298,6 +298,8 @@ int display_ttf_string(int posx, int posy, char *string, u32 color, int sw, int 
     u32 ttf_char;
     u8 *ustring = (u8 *) string;
 
+    int lenx = 0;
+
     while(*ustring) {
 
         if(posy >= Win_H_ttf) break;
@@ -333,10 +335,10 @@ int display_ttf_string(int posx, int posy, char *string, u32 color, int sw, int 
             if(ttf_char == '\r' || ttf_char == '\n') ttf_char='/';
         } else {
             if(Win_flag & WIN_DOUBLE_LF) {
-                if(ttf_char == '\r') {posx = 0;continue;}
+                if(ttf_char == '\r') {if(posx > lenx) lenx = posx; posx = 0;continue;}
                 if(ttf_char == '\n') {posy += sh;continue;}
             } else {
-                if(ttf_char == '\n') {posx = 0;posy += sh;continue;}
+                if(ttf_char == '\n') {if(posx > lenx) lenx = posx; posx = 0;posy += sh;continue;}
             }
         }
 
@@ -465,6 +467,8 @@ int display_ttf_string(int posx, int posy, char *string, u32 color, int sw, int 
     }
 
     Y_ttf = (float) posy;
+
+    if(posx < lenx) posx = lenx;
     return posx;
 
 }

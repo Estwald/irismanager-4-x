@@ -510,9 +510,9 @@ float DrawString(float x, float y, char *str)
 
             tiny3d_VertexPos(x + (float) len, y     , font_datas.Z);
 
-            tiny3d_VertexPos(x + (float) len, y + (float) font_datas.sy , font_datas.Z);
+            tiny3d_VertexPos(x + (float) len, y + (float) Y_ttf/*font_datas.sy*/ , font_datas.Z);
 
-            tiny3d_VertexPos(x              , y + (float) font_datas.sy, font_datas.Z);
+            tiny3d_VertexPos(x              , y + (float) Y_ttf/*font_datas.sy*/, font_datas.Z);
 
             tiny3d_End();
         }
@@ -594,9 +594,9 @@ float DrawFormatString(float x, float y, char *format, ...)
 
             tiny3d_VertexPos(x + (float) len, y     , font_datas.Z);
 
-            tiny3d_VertexPos(x + (float) len, y + (float) font_datas.sy , font_datas.Z);
+            tiny3d_VertexPos(x + (float) len, y + (float) Y_ttf/*font_datas.sy*/ , font_datas.Z);
 
-            tiny3d_VertexPos(x              , y + (float) font_datas.sy, font_datas.Z);
+            tiny3d_VertexPos(x              , y + (float) Y_ttf/*font_datas.sy*/, font_datas.Z);
 
             tiny3d_End();
         }
