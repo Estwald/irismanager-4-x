@@ -49,8 +49,8 @@ t_lngstr lang_strings[] =
     // VIDEO - ADJUST
     {VIDEOADJUST_POSITION, "VIDEOADJUST_POSITION"    , "Use LEFT (-X) / RIGHT (+X) / UP (-Y) / DOWN (+Y) to adjust the screen" },
     {VIDEOADJUST_SCALEINFO, "VIDEOADJUST_SCALEINFO"   , "Video Scale X: %i Y: %i" },
-    {VIDEOADJUST_EXITINFO, "VIDEOADJUST_EXITINFO"    , "Press 'X' to exit" },
-    {VIDEOADJUST_DEFAULTS, "VIDEOADJUST_DEFAULTS"    , "Press 'O' to default values" },
+    {VIDEOADJUST_EXITINFO, "VIDEOADJUST_EXITINFO"    , "Press CROSS to exit" },
+    {VIDEOADJUST_DEFAULTS, "VIDEOADJUST_DEFAULTS"    , "Press CIRCLE to default values" },
 
     //SELECT - GAME FOLDER
     {GAMEFOLDER_WANTUSE, "GAMEFOLDER_WANTUSE"      , "Want to use" },
@@ -118,8 +118,8 @@ t_lngstr lang_strings[] =
     { DRAWPSX_ERRUNKSIZE,"DRAWPSX_ERRUNKSIZE" , "Error: Unknown Sector Size" },
     { DRAWPSX_DISCEJECT ,"DRAWPSX_DISCEJECT"  , "PSX CD Ejected" },
     { DRAWPSX_DISCORDER , "DRAWPSX_DISCORDER" , "Select Disc Order" },
-    { DRAWPSX_PRESSOB   ,"DRAWPSX_PRESSOB"    , "Press O to change the order" },
-    { DRAWPSX_PRESSXB   ,"DRAWPSX_PRESSXB"    , "Press X to launch de game" },
+    { DRAWPSX_PRESSOB   ,"DRAWPSX_PRESSOB"    , "Press CIRCLE to change the order" },
+    { DRAWPSX_PRESSXB   ,"DRAWPSX_PRESSXB"    , "Press CROSS to launch de game" },
     { DRAWPSX_CHEATMAKE ,"DRAWPSX_CHEATMAKE"  , "PSX Cheat disc found, but different sector size\n\nWant you build one compatible?" },
     { DRAWPSX_COPYMC    ,"DRAWPSX_COPYMC"     , "Copying Memory Card to HDD0 device..." },
     { DRAWPSX_ERRCOPYMC ,"DRAWPSX_ERRCOPYMC"  , "Error copying the Memory Card to HDD0 device" },
@@ -174,7 +174,8 @@ t_lngstr lang_strings[] =
     
     { DRAWTOOLS_COPYFROM, "DRAWTOOLS_COPYFROM"     , "Copy from /dev_usb/iris to Iris folder"},
     { DRAWTOOLS_WITHBDVD, "DRAWTOOLS_WITHBDVD"     , "With BDVD Controller"},
-    { DRAWTOOLS_NOBDVD,   "DRAWTOOLS_NOBDVD"         , "Without BDVD Controller"},
+    { DRAWTOOLS_NOBDVD,   "DRAWTOOLS_NOBDVD"         , "Without BDVD Device"},
+    { DRAWTOOLS_NOBDVD2,   "DRAWTOOLS_NOBDVD2"         , "Disc - Less payload"},
     
     { DRAWTOOLS_PKGTOOLS, "DRAWTOOLS_PKGTOOLS"         , ".PKG Install" },
     { DRAWTOOLS_ARCHIVEMAN, "DRAWTOOLS_ARCHIVEMAN"         , "Archive Manager" },
@@ -239,7 +240,8 @@ t_lngstr lang_strings[] =
     { GAMEDELSL_DONE, "GAMEDELSL_DONE"          , "Done!  Files Deleted" },
 
     //GAME TEST
-    { GAMETSTSL_FINALNFO, "GAMETSTSL_FINALNFO"      , "Directories: %i Files: %i\nBig files: %i Split files: %i" },
+    // warning! don't translate GAMETSTSL_FINALNFO2 from english
+    { GAMETSTSL_FINALNFO2, "GAMETSTSL_FINALNFO2"      , "Directories: %i Files: %i\nBig files: %i Split files: %i" },
     { GAMETSTSL_TESTED, "GAMETSTSL_TESTED"        , "Files Tested" },
 
     //GLOBAL UTILS
@@ -247,11 +249,11 @@ t_lngstr lang_strings[] =
     { GLUTIL_WROTE, "GLUTIL_WROTE"            , "Wrote" },
     { GLUTIL_TIME, "GLUTIL_TIME"             , "Time" },
     { GLUTIL_TIMELEFT, "GLUTIL_TIMELEFT"         , "Time Left" },
-    { GLUTIL_HOLDTRIANGLEAB, "GLUTIL_HOLDTRIANGLEAB"   , "Hold /\\ to Abort" },
-    { GLUTIL_HOLDTRIANGLESK, "GLUTIL_HOLDTRIANGLESK"   , "Hold /\\ to Skip" },
+    { GLUTIL_HOLDTRIANGLEAB, "GLUTIL_HOLDTRIANGLEAB"   , "Hold TRIANGLE to Abort" },
+    { GLUTIL_HOLDTRIANGLESK, "GLUTIL_HOLDTRIANGLESK"   , "Hold TRIANGLE to Skip" },
     { GLUTIL_ABORTEDUSER, "GLUTIL_ABORTEDUSER"      , "Aborted by user" },
     { GLUTIL_ABORTED, "GLUTIL_ABORTED"          , "Aborted!!!" },
-    { GLUTIL_XEXIT, "GLUTIL_XEXIT"            , "Press X to Exit" },
+    { GLUTIL_XEXIT, "GLUTIL_XEXIT"            , "Press CROSS to Exit" },
     { GLUTIL_WANTCPYFROM, "GLUTIL_WANTCPYFROM"      , "Want to copy from" },
     { GLUTIL_WTO, "GLUTIL_WTO"              , "to" },
     
@@ -274,6 +276,11 @@ t_lngstr lang_strings[] =
      // generic
     { OUT_OFMEMORY, "OUT_OFMEMORY", "Out of Memory"},
     { OPERATION_DONE, "OPERATION_DONE"     , "Done!" },
+    { PLUG_STORAGE1, "PLUG_STORAGE1" , 
+        "Remember you to plug an USB storage massive device to create the fake disc event\n\n"
+        "Recuerda enchufar un dispositivo de almacenamiento masivo para crear el evento del falso disco" },
+    { PLUG_STORAGE2, "PLUG_STORAGE2" , "Fake Disc Inserted\n\nFalso Disco Insertado" },
+    
   
     
     { LANGSTRINGS_COUNT, "", ""}

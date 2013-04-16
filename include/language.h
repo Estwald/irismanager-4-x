@@ -94,6 +94,7 @@ enum lang_codes
     DRAWTOOLS_COPYFROM,
     DRAWTOOLS_WITHBDVD,
     DRAWTOOLS_NOBDVD,
+    DRAWTOOLS_NOBDVD2,
 
     //MAIN - OTHERS
     DRAWCACHE_CACHE,
@@ -156,6 +157,7 @@ enum lang_codes
 
     //GAME TEST
     GAMETSTSL_FINALNFO,
+    GAMETSTSL_FINALNFO2,
     GAMETSTSL_TESTED,
 
     //GLOBAL UTILS
@@ -234,6 +236,8 @@ enum lang_codes
     //generic
     OUT_OFMEMORY,
     OPERATION_DONE,
+    PLUG_STORAGE1,
+    PLUG_STORAGE2,
  
     //END
     LANGSTRINGS_COUNT,

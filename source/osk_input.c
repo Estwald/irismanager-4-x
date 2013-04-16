@@ -60,13 +60,41 @@ static void my_eventHandle(u64 status, u64 param, void * userdata) {
 	
 }
 
+void UTF32_to_UTF8(u32 *stw, u8 *stb)
+{
+  u16 h[2]; 
+    
+    while(stw[0]) {
+        if((stw[0] & 0xFF80) == 0) {
+            *(stb++) = stw[0] & 0xFF;   // utf8 0xxxxxxx
+        } else if((stw[0] & 0xF800) == 0) { // utf8 110yyyyy 10xxxxxx
+            *(stb++) = ((stw[0]>>6) & 0xFF) | 0xC0; *(stb++) = (stw[0] & 0x3F) | 0x80;
+        } else if((stw[0] & 0xFFFF0000) != 0) { // utf16 110110ww wwzzzzyy 110111yy yyxxxxxx (wwww = uuuuu - 1) 
+            // utf8 1111000uu 10uuzzzz 10yyyyyy 10xxxxxx  
+            h[0] = stw[0]>>10;
+            h[1] = stw[0] & 0x3ff;
+
+            *(stb++)= (((h[0] + 64)>>8) & 0x3) | 0xF0; *(stb++)= (((h[0]>>2) + 16) & 0x3F) | 0x80; 
+            *(stb++)= ((h[0]>>4) & 0x30) | 0x80 | ((h[1]<<2) & 0xF); *(stb++)= (h[1] & 0x3F) | 0x80;
+
+            
+        } else { // utf8 1110zzzz 10yyyyyy 10xxxxxx
+            *(stb++)= ((stw[0]>>12) & 0xF) | 0xE0; *(stb++)= ((stw[0]>>6) & 0x3F) | 0x80; *(stb++)= (stw[0] & 0x3F) | 0x80;
+        } 
+        
+        stw++;
+    }
+    
+    *stb= 0;
+}
+
 void UTF16_to_UTF8(u16 *stw, u8 *stb)
 {
     while(stw[0]) {
         if((stw[0] & 0xFF80) == 0) {
             *(stb++) = stw[0] & 0xFF;   // utf16 00000000 0xxxxxxx utf8 0xxxxxxx
         } else if((stw[0] & 0xF800) == 0) { // utf16 00000yyy yyxxxxxx utf8 110yyyyy 10xxxxxx
-            *(stb++) = ((stw[0]>>5) & 0xFF) | 0xC0; *(stb++) = (stw[0] & 0x3F) | 0x80;
+            *(stb++) = ((stw[0]>>6) & 0xFF) | 0xC0; *(stb++) = (stw[0] & 0x3F) | 0x80;
         } else if((stw[0] & 0xFC00) == 0xD800 && (stw[1] & 0xFC00) == 0xDC00 ) { // utf16 110110ww wwzzzzyy 110111yy yyxxxxxx (wwww = uuuuu - 1) 
                                                                              // utf8 1111000uu 10uuzzzz 10yyyyyy 10xxxxxx  
             *(stb++)= (((stw[0] + 64)>>8) & 0x3) | 0xF0; *(stb++)= (((stw[0]>>2) + 16) & 0x3F) | 0x80; 
@@ -121,7 +149,7 @@ void UTF8_to_UTF16(u8 *stb, u16 *stw)
 
    *stw++ = 0;
 }
-
+/*
 void UTF8_to_Ansi(char *utf8, char *ansi, int len)
 {
 u8 *ch= (u8 *) utf8;
@@ -165,7 +193,7 @@ u8 c;
 	}
 }
 
-
+*/
 static int osk_level = 0;
 
 static void OSK_exit(void)
@@ -185,6 +213,73 @@ static void OSK_exit(void)
 
 }
 
+#define LANG_GERMAN  0
+#define LANG_ENGLISH 1
+#define LANG_SPANISH 2   
+#define LANG_FRENCH  3
+#define LANG_ITALIAN 4
+#define LANG_DUTCH   5
+#define LANG_PORTUGUESE 6
+#define LANG_RUSSIAN 7
+#define LANG_JAPANESE 8
+#define LANG_KOREAN   9
+#define LANG_CHINESE  10
+#define LANG_CHINESES 11
+#define LANG_FINNISH  12
+#define LANG_SWEDISH  13
+#define LANG_DANISH   14
+#define LANG_NORWEGIAN 15
+#define LANG_POLISH    16
+#define LANG_PORTUGUESEB 17
+#define LANG_ENGLISHUK 18
+
+
+int language_from_registry(void)
+{
+    int file_size;
+    int n, ret = -2;
+
+    u16 str_offset;
+    u16 str_len;
+    u16 data_len;
+
+    static int lang_set = -1;
+
+    if(lang_set >= 0) return lang_set;
+
+    u8 * mem = (u8 *) LoadFile("/dev_flash2/etc/xRegistry.sys", &file_size);
+
+    if(!mem) return -1;
+
+    n= 0xfff0;
+    if(mem[n]!=0x4D || mem[n + 1]!=0x26) goto end;
+    n+=2;
+
+    while(n < file_size - 4) {
+    
+        if(mem[n + 0]==0xAA && mem[n + 1]==0xBB && mem[n + 2]==0xCC && mem[n + 3]==0xDD) break;
+        str_offset= ((mem[n+2]<<8) | mem[n+3]) + 0x10;
+
+        data_len= (mem[n+6]<<8) | mem[n+7];
+        
+        str_len = (mem[str_offset + 2]<<8) | mem[str_offset + 3];
+
+        if(str_len == 24 && !strcmp((char *) &mem[str_offset + 5], "/setting/system/language")) {
+           
+            memcpy(&ret, &mem[n+9], 4); lang_set = ret; goto end;
+        }
+
+        n+= 10 + data_len;
+    }
+
+
+
+end:
+    free(mem);
+    return ret;
+}
+
+
 int Get_OSK_String(char *caption, char *str, int len)
 {
     
@@ -198,6 +293,8 @@ int Get_OSK_String(char *caption, char *str, int len)
      
     osk_level = 0;
     atexit(OSK_exit);
+
+    int lang= language_from_registry();
     
 	if(sysMemContainerCreate(&container_mem, 8*1024*1024)<0) return -1;
 
@@ -230,12 +327,69 @@ int Get_OSK_String(char *caption, char *str, int len)
     if(oskSetKeyLayoutOption (OSK_10KEY_PANEL | OSK_FULLKEY_PANEL)<0) {ret= -2; goto end;}
 
     DialogOskParam.firstViewPanel = OSK_PANEL_TYPE_ALPHABET_FULL_WIDTH;
-    DialogOskParam.allowedPanels = (OSK_PANEL_TYPE_ALPHABET | OSK_PANEL_TYPE_NUMERAL |
-            OSK_PANEL_TYPE_ENGLISH |
-            OSK_PANEL_TYPE_DEFAULT |
-            OSK_PANEL_TYPE_SPANISH |
-            OSK_PANEL_TYPE_FRENCH |
-            OSK_PANEL_TYPE_JAPANESE);
+    DialogOskParam.allowedPanels = (OSK_PANEL_TYPE_ALPHABET | OSK_PANEL_TYPE_NUMERAL);
+
+            switch(lang) {
+                case LANG_GERMAN:
+                    DialogOskParam.allowedPanels |=  OSK_PANEL_TYPE_GERMAN | OSK_PANEL_TYPE_ENGLISH  | 
+                    OSK_PANEL_TYPE_JAPANESE;
+                    break;
+                case LANG_ENGLISH:
+                case LANG_ENGLISHUK:
+                    DialogOskParam.allowedPanels |= OSK_PANEL_TYPE_ENGLISH | OSK_PANEL_TYPE_JAPANESE;
+                    break;
+                case LANG_SPANISH:
+                    DialogOskParam.allowedPanels |= OSK_PANEL_TYPE_SPANISH | OSK_PANEL_TYPE_ENGLISH | OSK_PANEL_TYPE_JAPANESE;
+                    break;
+                case LANG_FRENCH:
+                    DialogOskParam.allowedPanels |= OSK_PANEL_TYPE_FRENCH | OSK_PANEL_TYPE_ENGLISH | OSK_PANEL_TYPE_JAPANESE;
+                    break;
+                case LANG_ITALIAN:
+                    DialogOskParam.allowedPanels |= OSK_PANEL_TYPE_ITALIAN | OSK_PANEL_TYPE_ENGLISH | OSK_PANEL_TYPE_JAPANESE;
+                    break;
+                case LANG_DUTCH:
+                    DialogOskParam.allowedPanels |=  OSK_PANEL_TYPE_DUTCH | OSK_PANEL_TYPE_ENGLISH | OSK_PANEL_TYPE_JAPANESE;
+                    break;
+                case LANG_PORTUGUESE:
+                case LANG_PORTUGUESEB:
+                    DialogOskParam.allowedPanels |= OSK_PANEL_TYPE_PORTUGUESE | OSK_PANEL_TYPE_ENGLISH | OSK_PANEL_TYPE_JAPANESE;
+                    break;
+                case LANG_RUSSIAN:
+                    DialogOskParam.allowedPanels |= OSK_PANEL_TYPE_RUSSIAN | OSK_PANEL_TYPE_ENGLISH | OSK_PANEL_TYPE_JAPANESE;
+                    break;
+                case LANG_JAPANESE:
+                    DialogOskParam.allowedPanels |= OSK_PANEL_TYPE_JAPANESE | OSK_PANEL_TYPE_ENGLISH; 
+                    break;
+                case LANG_KOREAN:
+                    DialogOskParam.allowedPanels |= OSK_PANEL_TYPE_KOREAN | OSK_PANEL_TYPE_ENGLISH;
+                    break;
+                case LANG_CHINESE:
+                    DialogOskParam.allowedPanels |= OSK_PANEL_TYPE_TRADITIONAL_CHINESE | OSK_PANEL_TYPE_ENGLISH;
+                    break;
+                case LANG_CHINESES:
+                    DialogOskParam.allowedPanels |= OSK_PANEL_TYPE_SIMPLIFIED_CHINESE | OSK_PANEL_TYPE_ENGLISH;
+                    break;
+                case LANG_FINNISH:
+                    DialogOskParam.allowedPanels |= OSK_PANEL_TYPE_FINNISH | OSK_PANEL_TYPE_ENGLISH | OSK_PANEL_TYPE_SPANISH |
+                    OSK_PANEL_TYPE_RUSSIAN | OSK_PANEL_TYPE_FRENCH | OSK_PANEL_TYPE_GERMAN;
+                    break;
+                case LANG_SWEDISH:
+                    DialogOskParam.allowedPanels |= OSK_PANEL_TYPE_SWEDISH | OSK_PANEL_TYPE_ENGLISH | OSK_PANEL_TYPE_JAPANESE;
+                    break;
+                case LANG_DANISH:
+                    DialogOskParam.allowedPanels |= OSK_PANEL_TYPE_DANISH | OSK_PANEL_TYPE_ENGLISH | OSK_PANEL_TYPE_JAPANESE;
+                    break;
+                case LANG_NORWEGIAN:
+                    DialogOskParam.allowedPanels |= OSK_PANEL_TYPE_NORWEGIAN | OSK_PANEL_TYPE_ENGLISH | OSK_PANEL_TYPE_JAPANESE;
+                    break;
+                case LANG_POLISH:
+                    DialogOskParam.allowedPanels |= OSK_PANEL_TYPE_LATIN | OSK_PANEL_TYPE_ENGLISH | OSK_PANEL_TYPE_JAPANESE;
+                    break;
+                default:
+                    DialogOskParam.allowedPanels |= OSK_PANEL_TYPE_ENGLISH;
+                    break;
+            }
+
 
     if(oskAddSupportLanguage (DialogOskParam.allowedPanels)<0) {ret= -3; goto end;}
 
