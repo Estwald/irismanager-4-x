@@ -1,3 +1,23 @@
+/* 
+    (c) 2011-2013 Hermes/Estwald <www.elotrolado.net>
+    IrisManager (HMANAGER port) (c) 2011 D_Skywalk <http://david.dantoine.org>
+
+    HMANAGER4 is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    HMANAGER4 is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with HMANAGER4.  If not, see <http://www.gnu.org/licenses/>.
+
+*/
+
+
 #include "ps3_discless.h"
 #include "utils.h"
 

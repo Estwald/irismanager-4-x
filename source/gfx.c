@@ -185,7 +185,7 @@ float DrawButton1_UTF8(float x, float y, float w, char * t, int select)
     u32 brgba2 = 0x404040ff;
 
     set_ttf_window(0, 0, 848, 512, WIN_SKIP_LF);
-    len = display_ttf_string(0, 0, t, 0, 16, 32);
+    len = display_ttf_string(0, 0, t, 0, 0, 16, 32);
 
     if(w < (len + 24)) w = (len + 24);
 
@@ -199,7 +199,7 @@ float DrawButton1_UTF8(float x, float y, float w, char * t, int select)
 
     //DrawString(x + (w - len * 12) / 2, y + 4, t);
 
-    display_ttf_string(x + (w - len) / 2, y + 4, t, rgba, 16, 32);
+    display_ttf_string(x + (w - len) / 2, y + 4, t, rgba, 0, 16, 32);
 
     return x + w;
 
@@ -212,7 +212,7 @@ float DrawButton2_UTF8(float x, float y, float w, char * t, int select)
     u32 brgba2 = 0x003080ff;
 
     set_ttf_window(0, 0, 848, 512, WIN_SKIP_LF);
-    len = display_ttf_string(0, 0, t, 0, 14, 32);
+    len = display_ttf_string(0, 0, t, 0, 0, 14, 32);
 
     if(w < (len + 20)) w = (len + 20);
 
@@ -226,7 +226,7 @@ float DrawButton2_UTF8(float x, float y, float w, char * t, int select)
     DrawLineBox(x, y, 0.0f, w, 40, 0xc0c0c0ff);
 
     //DrawString(x + (w - len * 10) / 2, y + 4, t);
-    display_ttf_string(x + (w - len) / 2, y + 4, t, rgba, 14, 32);
+    display_ttf_string(x + (w - len) / 2, y + 4, t, rgba, 0, 14, 32);
 
     return x + w;
 

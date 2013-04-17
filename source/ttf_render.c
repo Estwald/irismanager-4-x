@@ -163,7 +163,7 @@ int Render_String_UTF8(u16 * bitmap, int w, int h, u8 *string, int sw, int sh)
             && !FT_Load_Glyph(face[3], index, FT_LOAD_RENDER )) slot = face[3]->glyph;
         else ttf_char = 0;
 
-        if(ttf_char!=0) {
+        if(ttf_char!=0 && slot->bitmap.buffer) {
             ww = ww2 = 0;
 
             int y_correction = sh - 1 - slot->bitmap_top;
@@ -265,6 +265,23 @@ void reset_ttf_frame(void)
 
 }
 
+static void DrawBox_ttf(float x, float y, float z, float w, float h, u32 rgba)
+{
+    tiny3d_SetPolygon(TINY3D_QUADS);
+    
+   
+    tiny3d_VertexPos(x    , y    , z);
+    tiny3d_VertexColor(rgba);
+
+    tiny3d_VertexPos(x + w, y    , z);
+
+    tiny3d_VertexPos(x + w, y + h, z);
+
+    tiny3d_VertexPos(x    , y + h, z);
+
+    tiny3d_End();
+}
+
 static void DrawTextBox_ttf(float x, float y, float z, float w, float h, u32 rgba, float tx, float ty)
 {
     tiny3d_SetPolygon(TINY3D_QUADS);
@@ -291,7 +308,7 @@ static void DrawTextBox_ttf(float x, float y, float z, float w, float h, u32 rgb
 #define UY 24
 
 
-int display_ttf_string(int posx, int posy, char *string, u32 color, int sw, int sh)
+int display_ttf_string(int posx, int posy, char *string, u32 color, u32 bkcolor, int sw, int sh)
 {
     int l,n, m, ww, ww2;
     u8 colorc;
@@ -457,6 +474,8 @@ int display_ttf_string(int posx, int posy, char *string, u32 color, int sw, int 
         if((posx + cx) > Win_W_ttf || (posy + sh) > Win_H_ttf ) ccolor = 0;
 
         if(ccolor)
+            DrawBox_ttf((float) (Win_X_ttf + posx), (float) (Win_Y_ttf + posy) + ((float) ttf_font_datas[l].y_start * sh) * 0.03125f,
+            Z_ttf, (float) sw, (float) sh, bkcolor);
             DrawTextBox_ttf((float) (Win_X_ttf + posx), (float) (Win_Y_ttf + posy) + ((float) ttf_font_datas[l].y_start * sh) * 0.03125f,
             Z_ttf, (float) sw, (float) sh, color,
             0.99f, 0.99f);

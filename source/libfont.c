@@ -487,7 +487,7 @@ float DrawString(float x, float y, char *str)
         int len;
 
         set_ttf_window(0, 0, 848, 512, font_datas.autonewline ? WIN_AUTO_LF : 0);
-        len = display_ttf_string(0, 0, str, 0, font_datas.sx, font_datas.sy);
+        len = display_ttf_string(0, 0, str, 0, 0, font_datas.sx, font_datas.sy);
 
         if(font_datas.autocenter) {
     
@@ -518,7 +518,7 @@ float DrawString(float x, float y, char *str)
         }
 
         Z_ttf = font_datas.Z;
-        x = (float) display_ttf_string(x, y, str, font_datas.color, font_datas.sx, font_datas.sy);
+        x = (float) display_ttf_string(x, y, str, font_datas.color, 0, font_datas.sx, font_datas.sy);
         Z_ttf = 0.0f;
 
         font_datas.X = x; font_datas.Y = Y_ttf;
@@ -571,7 +571,7 @@ float DrawFormatString(float x, float y, char *format, ...)
         int len;
 
         set_ttf_window(0, 0, 848, 512, font_datas.autonewline ? WIN_AUTO_LF : 0);
-        len = display_ttf_string(0, 0, str, 0, font_datas.sx, font_datas.sy);
+        len = display_ttf_string(0, 0, str, 0, 0, font_datas.sx, font_datas.sy);
 
         if(font_datas.autocenter) {
     
@@ -602,7 +602,7 @@ float DrawFormatString(float x, float y, char *format, ...)
         }
 
         Z_ttf = font_datas.Z;
-        x = (float) display_ttf_string(x, y, str, font_datas.color, font_datas.sx, font_datas.sy);
+        x = (float) display_ttf_string(x, y, str, font_datas.color, 0, font_datas.sx, font_datas.sy);
         Z_ttf = 0.0f;
 
         font_datas.X = x; font_datas.Y = Y_ttf;

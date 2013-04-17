@@ -757,7 +757,7 @@ void fill_entries_from_device(char *path, t_directories *list, int *max, u32 fla
 static char dbg_str1[128];
 static char dbg_str2[128];
 
-static u32 dbg_data[128 * CONSOLE_HEIGHT];
+static u32 dbg_data[128 * (CONSOLE_HEIGHT + 1)];
 static char dbg_string[1024];
 
 int con_x = 0, con_y =0;

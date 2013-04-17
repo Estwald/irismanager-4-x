@@ -4152,7 +4152,7 @@ void draw_gbloptions(float x, float y)
         DrawBox((848 - 616)/2, (512 - 416)/2, 0, 616, 416, 0x802080ff);
         set_ttf_window((848 - 600)/2, (512 - 416)/2, 600, 416, WIN_AUTO_LF);
 
-        display_ttf_string(0, 0, help1, 0xffffffff, 18, 24);
+        display_ttf_string(0, 0, help1, 0xffffffff, 0, 18, 24);
 
         SetFontAutoCenter(1);
         if(lv2peek(0x80000000000004E8ULL))

@@ -1,5 +1,5 @@
 /* 
-    (c) 2011 Hermes/Estwald <www.elotrolado.net>
+    (c) 2011-2013 Hermes/Estwald <www.elotrolado.net>
     IrisManager (HMANAGER port) (c) 2011 D_Skywalk <http://david.dantoine.org>
 
     HMANAGER4 is free software: you can redistribute it and/or modify
@@ -1691,7 +1691,7 @@ read_file:
 
 
     set_ttf_window(8, 0, 752, 32, WIN_AUTO_LF);
-    display_ttf_string(0, 0, (char *) path, 0x2000ffff, 8, 16);
+    display_ttf_string(0, 0, (char *) path, 0x2000ffff, 0, 8, 16);
 
 
     if(function_menu==1 || function_menu==2) {
@@ -1749,25 +1749,25 @@ read_file:
         DrawBox((848 - 216)/2, (512 - 240)/2, 0, 216, 240, 0x802080ff);
         set_ttf_window((848 - 200)/2, (512 - 240)/2, 200, 240, 0);
 
-        display_ttf_string(0, py, "Go to Address", (enable_menu==1  && (frame & 16)) ? 0 : 0xffffffff, 16, 24); py+= 24;
+        display_ttf_string(0, py, "Go to Address", (enable_menu==1  && (frame & 16)) ? 0 : 0xffffffff, 0, 16, 24); py+= 24;
 
-        display_ttf_string(0, py, "Find Hex", (enable_menu==2  && (frame & 16)) ? 0 : 0xffffffff, 16, 24); py+= 24;
+        display_ttf_string(0, py, "Find Hex", (enable_menu==2  && (frame & 16)) ? 0 : 0xffffffff, 0, 16, 24); py+= 24;
 
-        display_ttf_string(0, py, "Find String", (enable_menu==3  && (frame & 16)) ? 0 : 0xffffffff, 16, 24); py+= 24;
+        display_ttf_string(0, py, "Find String", (enable_menu==3  && (frame & 16)) ? 0 : 0xffffffff, 0, 16, 24); py+= 24;
 
-        display_ttf_string(0, py, "Find String (no case)", (enable_menu==4 && (frame & 16)) ? 0 : 0xffffffff, 16, 24); py+= 24;
+        display_ttf_string(0, py, "Find String (no case)", (enable_menu==4 && (frame & 16)) ? 0 : 0xffffffff, 0, 16, 24); py+= 24;
 
-        display_ttf_string(0, py, "Find Hex from Datas", (enable_menu==5 && (frame & 16)) ? 0 : 0xffffffff, 16, 24); py+= 24;
+        display_ttf_string(0, py, "Find Hex from Datas", (enable_menu==5 && (frame & 16)) ? 0 : 0xffffffff, 0, 16, 24); py+= 24;
 
-        display_ttf_string(0, py, "Mark Begin", (enable_menu==6 && (frame & 16)) ? 0 : 0xffffffff, 16, 24); py+= 24;
+        display_ttf_string(0, py, "Mark Begin", (enable_menu==6 && (frame & 16)) ? 0 : 0xffffffff, 0, 16, 24); py+= 24;
 
-        display_ttf_string(0, py, "Mark End", (enable_menu==7 && (frame & 16)) ? 0 : 0xffffffff, 16, 24); py+= 24;
+        display_ttf_string(0, py, "Mark End", (enable_menu==7 && (frame & 16)) ? 0 : 0xffffffff, 0, 16, 24); py+= 24;
 
-        display_ttf_string(0, py, "Copy Mark Area", (enable_menu==8 && (frame & 16)) ? 0 : 0xffffffff, 16, 24); py+= 24;
+        display_ttf_string(0, py, "Copy Mark Area", (enable_menu==8 && (frame & 16)) ? 0 : 0xffffffff, 0, 16, 24); py+= 24;
 
-        display_ttf_string(0, py, "Paste Copied Datas", (enable_menu==9 && (frame & 16)) ? 0 : 0xffffffff, 16, 24); py+= 24;
+        display_ttf_string(0, py, "Paste Copied Datas", (enable_menu==9 && (frame & 16)) ? 0 : 0xffffffff, 0, 16, 24); py+= 24;
 
-        display_ttf_string(0, py, "Exit", (enable_menu==10 && (frame & 16)) ? 0 : 0xffffffff, 16, 24); py+= 24;
+        display_ttf_string(0, py, "Exit", (enable_menu==10 && (frame & 16)) ? 0 : 0xffffffff, 0, 16, 24); py+= 24;
 
     
     }
@@ -1780,10 +1780,10 @@ read_file:
         DrawBox((848 - 616)/2, (512 - 416)/2, 0, 616, 416, 0x802080ff);
         set_ttf_window((848 - 600)/2, (512 - 416)/2, 600, 416, WIN_AUTO_LF);
         
-        if(enable_menu && function_menu==0) display_ttf_string(0, 0, help2, 0xffffffff, 16, 24);
-        else if(function_menu == 1) display_ttf_string(0, 0, help4, 0xffffffff, 16, 24);
-        else if(function_menu == 2) display_ttf_string(0, 0, help5, 0xffffffff, 16, 24);
-        else display_ttf_string(0, 0, help3, 0xffffffff, 16, 24);
+        if(enable_menu && function_menu==0) display_ttf_string(0, 0, help2, 0xffffffff, 0, 16, 24);
+        else if(function_menu == 1) display_ttf_string(0, 0, help4, 0xffffffff, 0, 16, 24);
+        else if(function_menu == 2) display_ttf_string(0, 0, help5, 0xffffffff, 0, 16, 24);
+        else display_ttf_string(0, 0, help3, 0xffffffff, 0, 16, 24);
 
 
     }
@@ -2663,25 +2663,25 @@ void archive_manager()
     DrawBox(0, 0, 0, 816, 32,0x20a0a8ff);
     DrawBox(816, 0, 0, 48, 32, (!archive_manager && (frame & 32)) ? 0xc0c000ff : 0x000000ff);
     set_ttf_window(8, 0, 752, 32, WIN_AUTO_LF);
-    display_ttf_string(0, 0, (char *) path1, 0x2000ffff, 8, 16);
+    display_ttf_string(0, 0, (char *) path1, 0x2000ffff, 0, 8, 16);
 
     set_ttf_window(752, 0, 88, 32, WIN_AUTO_LF);
     if(free_device1 < 0x40000000LL)
         sprintf(temp_buffer, "FREE:\n%i MB", (int) (free_device1 / 0x100000LL));
     else
         sprintf(temp_buffer, "FREE:\n%1.2f GB", ((double) free_device1) / (1024.0 * 1024. * 1024.0));
-    display_ttf_string(0, 0, (char *) temp_buffer, 0x000000ff, 8, 16);
+    display_ttf_string(0, 0, (char *) temp_buffer, 0x000000ff, 0, 8, 16);
 
 
     set_ttf_window(816, 0, 36, 32, WIN_AUTO_LF);
-    display_ttf_string(4, 0, (char *) "A", 0xff0000ff, 32, 32);
+    display_ttf_string(4, 0, (char *) "A", 0xff0000ff, 0, 32, 32);
 
     DrawBox2(0, 32, 0, 848, 256 - 32 /*, 0x2080c0ff*/);
 
     DrawBox(0, 256, 0, 816, 32, 0x20a0a8ff);
     DrawBox(816, 256, 0, 48, 32, (archive_manager && (frame & 32)) ? 0xc0c000ff : 0x000000ff);
     set_ttf_window(8, 256, 752, 32, WIN_AUTO_LF);
-    display_ttf_string(0, 0, (char *) path2, 0x2000ffff, 8, 16);
+    display_ttf_string(0, 0, (char *) path2, 0x2000ffff, 0, 8, 16);
 
     set_ttf_window(752, 256, 88, 32, WIN_AUTO_LF);
 
@@ -2689,10 +2689,10 @@ void archive_manager()
         sprintf(temp_buffer, "FREE:\n%i MB", (int) (free_device2 / 0x100000LL));
     else
         sprintf(temp_buffer, "FREE:\n%1.2f GB", ((double) free_device2) / (1024.0 * 1024. * 1024.0));
-    display_ttf_string(0, 0, (char *) temp_buffer, 0x000000ff, 8, 16);
+    display_ttf_string(0, 0, (char *) temp_buffer, 0x000000ff, 0, 8, 16);
 
     set_ttf_window(816, 256, 36, 32, WIN_AUTO_LF);
-    display_ttf_string(4, 0, (char *) "B", 0xff0000ff, 32, 32);
+    display_ttf_string(4, 0, (char *) "B", 0xff0000ff, 0, 32, 32);
 
     DrawBox2(0, 32 + 256 , 0, 848, 256 - 32/*, 0x2080c0ff*/);
     
@@ -2744,18 +2744,18 @@ void archive_manager()
                         sprintf(temp_buffer, "%i MB", (int) (stat1.st_size / 0x100000LL));
                     } else sprintf(temp_buffer, "%1.2f GB", ((double) stat1.st_size) / (1024.0 * 1024. * 1024.0));
 
-                dx= display_ttf_string(0, py, (char *) temp_buffer, 0, 8, 24);
+                dx= display_ttf_string(0, py, (char *) temp_buffer, 0, 0, 8, 24);
             
             }
 
             set_ttf_window(24, 32, 848 - (dx + 24), 256 - 32, 0);
 
-            display_ttf_string(0, py, (char *) entries1[pos1 + n].d_name, color, 16, 24);
+            display_ttf_string(0, py, (char *) entries1[pos1 + n].d_name, color, 0, 16, 24);
 
             if(sel1 == (pos1 + n) && stat1.st_mode != 0xffffffff) {
 
                 set_ttf_window(848 - dx, 32, dx, 256 - 32, 0);
-                display_ttf_string(0, py, (char *) temp_buffer, 0xffffffff, 8, 24);
+                display_ttf_string(0, py, (char *) temp_buffer, 0xffffffff, 0, 8, 24);
             }
 
             py+= 24;
@@ -2812,18 +2812,18 @@ void archive_manager()
                         sprintf(temp_buffer, "%i MB", (int) (stat2.st_size / 0x100000LL));
                     } else sprintf(temp_buffer, "%1.2f GB", ((double) stat2.st_size) / (1024.0 * 1024. * 1024.0));
 
-                dx= display_ttf_string(0, py, (char *) temp_buffer, 0, 8, 24);
+                dx= display_ttf_string(0, py, (char *) temp_buffer, 0, 0, 8, 24);
             
             }
 
             set_ttf_window(24, 256 + 32, 848 - (dx + 24), 256 - 32, 0);
 
-            display_ttf_string(0, py, (char *) entries2[pos2 + n].d_name, color, 16, 24);
+            display_ttf_string(0, py, (char *) entries2[pos2 + n].d_name, color, 0, 16, 24);
 
             if(sel2 == (pos2 + n) && stat2.st_mode != 0xffffffff) {
 
                 set_ttf_window(848 - dx, 256 + 32, dx, 256 - 32, 0);
-                display_ttf_string(0, py, (char *) temp_buffer, 0xffffffff, 8, 24);
+                display_ttf_string(0, py, (char *) temp_buffer, 0xffffffff, 0, 8, 24);
             }
 
             py+= 24;
@@ -2839,29 +2839,29 @@ void archive_manager()
         DrawBox((848 - 216)/2, (512 - 288)/2, 0, 216, 288, 0x802080ff);
         set_ttf_window((848 - 200)/2, (512 - 288)/2, 200, 288, 0);
 
-        display_ttf_string(0, py, "New Folder", (set_menu2==1  && (frame & 16)) ? 0 : 0xffffffff, 16, 24); py+= 24;
+        display_ttf_string(0, py, "New Folder", (set_menu2==1  && (frame & 16)) ? 0 : 0xffffffff, 0, 16, 24); py+= 24;
 
-        display_ttf_string(0, py, "Rename", (set_menu2==2  && (frame & 16)) ? 0 : 0xffffffff, 16, 24); py+= 24;
+        display_ttf_string(0, py, "Rename", (set_menu2==2  && (frame & 16)) ? 0 : 0xffffffff, 0, 16, 24); py+= 24;
 
-        display_ttf_string(0, py, "Copy", (set_menu2==3  && (frame & 16)) ? 0 : 0xffffffff, 16, 24); py+= 24;
+        display_ttf_string(0, py, "Copy", (set_menu2==3  && (frame & 16)) ? 0 : 0xffffffff, 0, 16, 24); py+= 24;
 
-        display_ttf_string(0, py, "Move", (set_menu2==4  && (frame & 16)) ? 0 : 0xffffffff, 16, 24); py+= 24;
+        display_ttf_string(0, py, "Move", (set_menu2==4  && (frame & 16)) ? 0 : 0xffffffff, 0, 16, 24); py+= 24;
 
-        display_ttf_string(0, py, "Delete", (set_menu2==5  && (frame & 16)) ? 0 : 0xffffffff, 16, 24); py+= 24;
+        display_ttf_string(0, py, "Delete", (set_menu2==5  && (frame & 16)) ? 0 : 0xffffffff, 0, 16, 24); py+= 24;
 
-        display_ttf_string(0, py, !dev_rewrite ? "Mount /dev_rewrite" : "Unmount /dev_rewrite", (set_menu2==6  && (frame & 16)) ? 0 : 0xffffffff, 16, 24); py+= 24;
+        display_ttf_string(0, py, !dev_rewrite ? "Mount /dev_rewrite" : "Unmount /dev_rewrite", (set_menu2==6  && (frame & 16)) ? 0 : 0xffffffff, 0, 16, 24); py+= 24;
 
-        display_ttf_string(0, py, "LV2 Dump", (set_menu2==7  && (frame & 16)) ? 0 : 0xffffffff, 16, 24); py+= 24;
+        display_ttf_string(0, py, "LV2 Dump", (set_menu2==7  && (frame & 16)) ? 0 : 0xffffffff, 0, 16, 24); py+= 24;
 
-        display_ttf_string(0, py, "LV1 Dump", (set_menu2==8  && (frame & 16)) ? 0 : 0xffffffff, 16, 24); py+= 24;
+        display_ttf_string(0, py, "LV1 Dump", (set_menu2==8  && (frame & 16)) ? 0 : 0xffffffff, 0, 16, 24); py+= 24;
 
-        display_ttf_string(0, py, "Ram Editor", (set_menu2==9  && (frame & 16)) ? 0 : 0xffffffff, 16, 24); py+= 24;
+        display_ttf_string(0, py, "Ram Editor", (set_menu2==9  && (frame & 16)) ? 0 : 0xffffffff, 0, 16, 24); py+= 24;
 
-        display_ttf_string(0, py, "LV2 Editor", (set_menu2==10  && (frame & 16)) ? 0 : 0xffffffff, 16, 24); py+= 24;
+        display_ttf_string(0, py, "LV2 Editor", (set_menu2==10  && (frame & 16)) ? 0 : 0xffffffff, 0, 16, 24); py+= 24;
 
-        display_ttf_string(0, py, "Paste to New File", (set_menu2==11  && (frame & 16)) ? 0 : 0xffffffff, 16, 24); py+= 24;
+        display_ttf_string(0, py, "Paste to New File", (set_menu2==11  && (frame & 16)) ? 0 : 0xffffffff, 0, 16, 24); py+= 24;
 
-        display_ttf_string(0, py, "Exit", (set_menu2==12  && (frame & 16)) ? 0 : 0xffffffff, 16, 24); py+= 24;
+        display_ttf_string(0, py, "Exit", (set_menu2==12  && (frame & 16)) ? 0 : 0xffffffff, 0, 16, 24); py+= 24;
 
     
     }
@@ -2872,8 +2872,8 @@ void archive_manager()
         DrawBox((848 - 616)/2, (512 - 416)/2, 0, 616, 416, 0x802080ff);
         set_ttf_window((848 - 600)/2, (512 - 416)/2, 600, 416, WIN_AUTO_LF);
 
-        if(set_menu2) display_ttf_string(0, 0, help2, 0xffffffff, 16, 24);
-        else display_ttf_string(0, 0, help1, 0xffffffff, 16, 24);
+        if(set_menu2) display_ttf_string(0, 0, help2, 0xffffffff, 0, 16, 24);
+        else display_ttf_string(0, 0, help1, 0xffffffff, 0, 16, 24);
 
 
     }
