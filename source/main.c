@@ -711,7 +711,8 @@ struct {
     u32 usekey;
     u8 language;
     u8 noBDVD;
-    char pad[154];
+    char pad[150];
+    u32 event_flag;
     u32 opt_flags;
 } manager_cfg;
 
@@ -1583,6 +1584,8 @@ s32 main(s32 argc, const char* argv[])
         //lv2poke(syscall_base +(u64) (40 * 8), lv2peek(syscall_base));
         load_ps3_discless_payload();
 
+        if(firmware != 0x431C && firmware != 0x440C && manager_cfg.event_flag) syscall_40(6, manager_cfg.event_flag);
+
     }
 
     
@@ -1996,7 +1999,7 @@ s32 main(s32 argc, const char* argv[])
                 SND_SetVoice(1, VOICE_MONO_16BIT, 22050, 1000, sound, cricket_raw_bin_size - 1, 0x20, 0x40, NULL);
             }
 
-            for(u = 0; u <200; u++)  {
+            for(u = 0; u <190; u++)  {
                 cls();
               
                 tiny3d_SetTextureWrap(0, Png_res_offset[0], Png_res[0].width, 
@@ -2018,6 +2021,14 @@ s32 main(s32 argc, const char* argv[])
             }
 
             if(sound) free(sound);
+
+            u32 eid= (u32) syscall_40(4, 0);
+
+            if(eid!=0) {
+                eid -= 0x100;
+                manager_cfg.event_flag = eid;
+                SaveManagerCfg();
+            }
 
             cls();
             update_twat();
@@ -4156,7 +4167,7 @@ void draw_gbloptions(float x, float y)
 
         SetFontAutoCenter(1);
         if(lv2peek(0x80000000000004E8ULL))
-            DrawFormatString(0, (512 - 416)/2 - 20, "Event ID: %x", (u32) syscall_40(4, 0));
+            DrawFormatString(0, (512 - 416)/2 - 20, "Event ID: %x / VSH ID %x", (u32) syscall_40(4, 0), manager_cfg.event_flag);
         SetFontAutoCenter(0);
 
     }
@@ -4388,7 +4399,7 @@ void draw_toolsoptions(float x, float y)
 
                 return;
             case 1:
-                manager_cfg.language++; if(manager_cfg.language > 7)  manager_cfg.language = 0;
+                manager_cfg.language++; if(manager_cfg.language > 8)  manager_cfg.language = 0;
                 sprintf(temp_buffer, "%s/config/language.ini", self_path);
                 open_language(manager_cfg.language, temp_buffer);
                 //manager_cfg.usekey = manager_cfg.usekey == 0;

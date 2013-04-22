@@ -190,6 +190,8 @@ sys40: // Manager
     beq     func_4
     cmplwi  %r3, 5 // ignore pid for operations
     beq     func_5
+    cmplwi  %r3, 6 // set vsh_event
+    beq     func_6
     b       return0
 
 // func 1: enable/disable     
@@ -219,6 +221,11 @@ func_4: // return event id
 func_5: // ignore pid for operations
     stw     %r4, ignore_pid@l(%r31)
     b       return0
+
+func_6: // set vsh_event
+    stw     %r4, vsh_event@l(%r31)
+    b       return0
+
     nop
 
 /*********************************************************************************************************/

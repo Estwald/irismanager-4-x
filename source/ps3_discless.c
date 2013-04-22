@@ -295,12 +295,10 @@ void load_ps3_discless_payload()
     addr[13] = lv2peek(syscall_base + (u64) (837 * 8));
     addr[14] += PAYLOAD_BASE;
     addr[15] = lv2peek(syscall_base + (u64) (609 * 8));
-   
 
-int n;
+    int n;
 
     for(n=0;n<200;n++) {
-
 
     lv2poke(0x80000000000004E8ULL, PAYLOAD_BASE);
 
@@ -313,7 +311,6 @@ int n;
     lv2poke(syscall_base + (u64) (619 * 8), PAYLOAD_BASE + 0x50ULL);
     lv2poke(syscall_base + (u64) (837 * 8), PAYLOAD_BASE + 0x60ULL);
     lv2poke(syscall_base + (u64) (609 * 8), PAYLOAD_BASE + 0x70ULL);
-
 
     usleep(10000);
     }
