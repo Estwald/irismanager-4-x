@@ -3510,8 +3510,78 @@ int getConfigMemValueInt (char* mem, int size, char* pchSection, char* pchKey, i
 
 */
 
+void reverse_strings(u8 *str)
+{
+    int n, m, l;
+    int len1, len2;
+    u32 string_buffer[1024];
+
+    while(1) {
+        if(*str==0) break;
+        while(*str < 32) str++;
+        if(*str==0) break;
+
+        len1 = 0; len2 =0;
+        // process one phrase
+        while(str[len1]>=32) {
+
+            if((str[len1] & 0xE0) == 0xC0 && (str[len1 + 1] & 0xc0) == 0x80) {
+                string_buffer[len2] = ((u32) str[len1 + 1] << 8) | (u32) str[len1 + 0]; len1+=2; len2++;
+            } else if((str[len1] & 0xF0) == 0xE0  && (str[len1 + 1] & 0xc0) == 0x80 && (str[len1 + 2] & 0xc0) == 0x80) {
+                string_buffer[len2] = ((u32) str[len1 + 2] << 16) | ((u32) str[len1 + 1] << 8) | (u32) str[len1 + 0]; len1+=3; len2++;
+            } else if((str[len1] & 0xF0) == 0xF0  && (str[len1 + 1] & 0xc0) == 0x80  && (str[len1 + 2] & 0xc0) == 0x80  && (str[len1 + 3] & 0xc0) == 0x80) {
+                string_buffer[len2] = ((u32) str[len1 + 3] << 24) | ((u32) str[len1 + 2] << 16) | ((u32) str[len1 + 1] << 8) | (u32) str[len1 + 0]; len1+=4; len2++;
+            } else 
+                {if(str[len1 + 0] & 0x80)  string_buffer[len2] = '?'; else string_buffer[len2] = (u32) str[len1 + 0];
+                len1++; len2++;
+                }
+            
+        }
+
+        
+        l= 0;
+       
+        len2--;
+        for(n=0; n<len2 + 1; n++) {
+        
+            // reverse UTF8 symbols
+            if(string_buffer[len2 - n] == 32   || (string_buffer[len2 - n] & 0xffffff80)) {
+                str[l]= string_buffer[len2 - n] & 0xff; string_buffer[len2 - n]>>= 8;l++;
+                if(string_buffer[len2 - n] & 0xff) {
+                    str[l]= string_buffer[len2 - n] & 0xff; string_buffer[len2 - n]>>= 8;l++;
+                    if(string_buffer[len2 - n] & 0xff) {
+                        str[l]= string_buffer[len2 - n] & 0xff; string_buffer[len2 - n]>>= 8;l++;
+                        if(string_buffer[len2 - n] & 0xff) {
+                            str[l]= string_buffer[len2 - n] & 0xff;l++;
+                        }
+                    }
+                }
+            } else {
+
+                // don´t reverse words with symbols from 32 to 127 UTF8
+                int s;
+                m= 0;
+                while((m+n) < (len2 + 1) && (string_buffer[len2 - n - m] & 0xff) > 32
+                    && (string_buffer[len2 - n - m] & 0xffffff80) == 0) m++;
+                
+                for(s = 0; s < m; s++) {
+                    str[l + m - s - 1]= string_buffer[len2 - n - s] & 0xff;
+                }
+                l += m;
+                n += m - 1;
+            }
+        }
+
+        str+= len1;
+
+
+    }
+
+}
+
 void convertStringEndl(char* string, int iSize);
 
+extern int reverse_language;
 
 int getConfigMemValueString (char* mem, int size, char* pchSection, char* pchKey, char* pchValue, int iSize, char* pchDefaultValue)
 {
@@ -3521,6 +3591,11 @@ int getConfigMemValueString (char* mem, int size, char* pchSection, char* pchKey
    int find_section = 0;
 
      // open the config file
+
+     while(n<size) {
+        if(mem[n]=='[') break;
+        n++;
+     }
 
       while(n<size) { // grab one line
         
@@ -3585,6 +3660,14 @@ int getConfigMemValueString (char* mem, int size, char* pchSection, char* pchKey
             strncpy(pchValue, &chLine[m], iSize); // copy to destination
 
             pchValue[iSize -1] = 0;
+            
+            if(reverse_language) {
+                if(pchValue[0]=='-') { // don't reverse this string
+                    strncpy(pchValue, &chLine[m + 1], iSize);
+                    pchValue[iSize -1] = 0;
+                } else
+                    reverse_strings((u8*) pchValue);
+            }
 
             return 0;
 
@@ -3592,29 +3675,35 @@ int getConfigMemValueString (char* mem, int size, char* pchSection, char* pchKey
       }
      
    
-    strncpy(pchValue, pchDefaultValue, iSize); // no value found, return the default
+   strncpy(pchValue, pchDefaultValue, iSize); // no value found, return the default
    pchValue[iSize -1] = 0;
    return 1;
 
 }
 
-#define MAX_CONVERSIONS 2
+#define MAX_CONVERSIONS 1
 
 char conversionTable[MAX_CONVERSIONS][2] = 
 { 
     { '@', '\n' },
-    { '_', ' ' },
+   // { '_', ' ' },
 };
 
 void convertStringEndl(char* string, int iSize)
 {
     int n;
     int m = 0;
+    int flag = 0;
 
     do
     {
         if(string[m] == 9) string[m] = ' ';
         if(string[m] < 32) {string[m] = 0; return;} // break the string
+        // special symbol '_' used as space when it is concatenated
+        if(string[m] == '_') {
+            if(flag || string[m + 1] == '_') {flag = 1; string[m]=' ';}
+        }    
+        else flag = 0;
 
         for(n = 0; n < MAX_CONVERSIONS; n++)
             if(string[m] == conversionTable[n][0])
