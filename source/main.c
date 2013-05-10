@@ -69,6 +69,7 @@
 #include "ftp.h"
 #include "psx.h"
 #include "archive_manager.h"
+#include "controlfan.h"
 
 // include fonts
 
@@ -99,6 +100,7 @@ u64 restore_syscall8[2]= {0,0};
 
 int noBDVD = 0;
 int stops_BDVD = 1;
+int bdvd_is_usb = 0;
 
 int is_ps3game_running = 0;
 
@@ -1287,7 +1289,6 @@ s32 main(s32 argc, const char* argv[])
     }
 	
 	
-  
     
     //sprintf(temp_buffer + 0x1000, "firmware: %xex payload %i", firmware, payload_mode);
 
@@ -1587,6 +1588,11 @@ s32 main(s32 argc, const char* argv[])
         if(firmware != 0x431C && firmware != 0x440C && manager_cfg.event_flag) syscall_40(6, manager_cfg.event_flag);
 
     }
+
+    load_ps3_controlfan_payload();
+
+    load_controlfan_config();
+    set_device_wakeup_mode(0);
 
     
     LoadPSXOptions(NULL);
@@ -2422,7 +2428,7 @@ void draw_screen1(float x, float y)
 
     SetFontColor(0xffffffff, 0x00000000);
 
-    // paint temp
+    // display temp
     if((frame_count & 0x100)) {
         static u32 temp = 0;
         static u32 temp2 = 0;
@@ -2796,6 +2802,9 @@ void draw_screen1(float x, float y)
 
                 if(!game_cfg.ext_ebootbin) sys8_path_table(0LL);
                 else {
+                    
+                   
+                    set_device_wakeup_mode(bdvd_is_usb ? 0xFFFFFFFF : directories[currentgamedir].flags);
 
                     sprintf(temp_buffer, "%s/self/%s.BIN", self_path, 
                         directories[get_currentdir(i)].title_id);
@@ -2992,6 +3001,8 @@ void draw_screen1(float x, float y)
                             }
                             
                         } else psx_cd_with_cheats();
+                        
+                        set_device_wakeup_mode(bdvd_is_usb ? 0xFFFFFFFF : directories[currentgamedir].flags);
 
                         psx_launch();
                     } else if((directories[currentgamedir].flags>>31) & 1) { // is homebrew
@@ -3050,6 +3061,7 @@ void draw_screen1(float x, float y)
                             add_sys8_path_table(temp_buffer + 1024, temp_buffer);
 
                         build_sys8_path_table();
+                        set_device_wakeup_mode(bdvd_is_usb ? 0xFFFFFFFF : directories[currentgamedir].flags);
                         game_cfg.direct_boot=0;
                         exit(0);
                         
@@ -3108,8 +3120,9 @@ void draw_screen1(float x, float y)
 
                 build_sys8_path_table();
 
-   
                 exit_program = 1; 
+
+                set_device_wakeup_mode(bdvd_is_usb ? 0xFFFFFFFF : directories[currentgamedir].flags);
                 
                 skip_sys8: 
                     return;
@@ -4359,11 +4372,15 @@ void draw_toolsoptions(float x, float y)
 
     y2+= 48;
 
-    DrawButton1_UTF8((848 - 520) / 2, y2, 520, language[GLOBAL_RETURN], (flash && select_option == 6));
+    DrawButton1_UTF8((848 - 520) / 2, y2, 520, "Control Fan & USB Wakeup"/*language[DRAWTOOLS_ARCHIVEMAN]*/, (flash && select_option == 6));
+
+    y2+= 48;
+
+    DrawButton1_UTF8((848 - 520) / 2, y2, 520, language[GLOBAL_RETURN], (flash && select_option == 7));
     
     y2+= 48;
     
-    for(n = 0; n < 2; n++) {
+    for(n = 0; n < 1; n++) {
         
         DrawButton1_UTF8((848 - 520) / 2, y2, 520, "", -1);
     
@@ -4476,6 +4493,12 @@ void draw_toolsoptions(float x, float y)
                 return;
             case 6:
                 select_option = 0;
+                menu_screen = 0;
+                draw_controlfan_options();
+                return;
+
+            case 7:
+                select_option = 0;
                 menu_screen = 0; 
                 return;
 
@@ -4494,7 +4517,7 @@ void draw_toolsoptions(float x, float y)
 
         frame_count = 32;
 
-        ROT_DEC(select_option, 0, 6);
+        ROT_DEC(select_option, 0, 7);
         
     }
 
@@ -4502,7 +4525,7 @@ void draw_toolsoptions(float x, float y)
 
         frame_count = 32;
         
-        ROT_INC(select_option, 6, 0);
+        ROT_INC(select_option, 7, 0);
         
     }
     
@@ -4703,6 +4726,8 @@ int patch_bdvdemu(u32 flags)
     for(n = 1; n < 11; n++) {
         if(flags == (1 << n)) {usb = n - 1; break;}
     }
+
+    if(usb == -1) bdvd_is_usb = 0; else bdvd_is_usb = 1;
 /*
     if(usb < 0) {
         DrawDialogOK(language[PATCHBEMU_ERRNOUSB]);
