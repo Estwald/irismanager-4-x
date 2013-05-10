@@ -39,7 +39,7 @@
 int cqueue = 0;
 int dqueue = 0;
 
-extern int pad_last_time; // to prevent shutdown when FTP is used
+extern u64 pad_last_time; // to prevent shutdown when FTP is used
 
 void client_thread(void *conn_s_p)
 {
