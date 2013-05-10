@@ -54,6 +54,7 @@
 #include "syscall8.h"
 
 #include "ttf_render.h"
+#include "controlfan.h"
 
 extern u16 * ttf_texture;
 extern int update_title_utf8;
@@ -1574,7 +1575,7 @@ int psx_iso_prepare(char *path, char *name)
             ps3pad_read();
 
             u64 value = lv2peek(0x8000000000001820ULL);
-            if((value == 0x455053315F454D55ULL || value == 0x45505331454D5531ULL)
+            if((value == 0x45505331454D5531ULL)
                 && (old_pad & BUTTON_CIRCLE)) {
 
                 if(!noBDVD)
@@ -1889,20 +1890,14 @@ void unload_psx_payload()
 {
     volatile u64 value = lv2peek(0x8000000000001820ULL);
 
-    if(value == 0x455053315F454D55ULL) { // old method
+    if(value == 0x45505331454D5531ULL) { // new method
         sys8_pokeinstr(0x8000000000001830ULL, (u64) 1); // disable emulation
-    } else if(value == 0x45505331454D5531ULL) { // new method
-        sys8_pokeinstr(0x8000000000001830ULL, (u64) 1); // disable emulation
-        
-        // restore syscalls bases
-        value = lv2peek(0x8000000000001898ULL); // 141 (usleep syscall base)
         
         if(!syscall_base) {
             DrawDialogOK("syscall_base is empty!");
             return;
         }
-      
-        sys8_pokeinstr(syscall_base + (u64) (141 * 8), value);
+
         value = lv2peek(0x80000000000018A0ULL); // 604 (send cmd syscall base)
         sys8_pokeinstr(syscall_base + (u64) (604 * 8), value);
         value = lv2peek(0x80000000000018A8ULL); // 600 (open syscall base)
@@ -1922,8 +1917,8 @@ void load_psx_payload()
 
     // 0x1720 -> 0x180e bytes free in 4.31
     u64 addr = 0x8000000000001820ULL;
-    u64 addr2, addr3, addr4, toc, addrt;
-    u64 base1, base2, base3;
+    u64 addr2, addr3, /*addr4,*/ toc, addrt;
+    u64 base1, base2/*, base3*/;
 
 #if 0
     int m;
@@ -1932,39 +1927,23 @@ void load_psx_payload()
     if(!mdata) return;
 #endif
     
-    // for old compatibility
-    if(lv2peek(addr) == 0x455053315F454D55ULL) {
-        addr2 = lv2peek(0x8000000000001850ULL);  // 600 function
-        toc   = lv2peek(0x8000000000001840ULL);  // get syscall toc
-        addr3 = lv2peek(0x8000000000001870ULL);  // 604 function
-        addr4 = lv2peek(0x8000000000001890ULL);  // get usleep function
-        base3 = lv2peek(0x8000000000001898ULL);  // get usleep syscall base
+   
+    
 
-        sys8_pokeinstr(syscall_base + (u64) (141 * 8), base3); // restore usleep base syscall
-
-        base1 = base2 = 0;
-
-    } else {
-
-        if(lv2peek(addr) != 0x45505331454D5531ULL) {
-            for(n = 0; n < psx_storage_bin_size + 8; n+= 8) {
-                if(lv2peek(addr + (u64) n)) {
-                    DrawDialogOK("Error: The LV2 space for psx_storage is not empty\n\nExiting to the XMB");
-                    exit(0);
-                }
+    if(lv2peek(addr) != 0x45505331454D5531ULL) {
+        for(n = 0; n < psx_storage_bin_size + 8; n+= 8) {
+            if(lv2peek(addr + (u64) n)) {
+                DrawDialogOK("Error: The LV2 space for psx_storage is not empty\n\nExiting to the XMB");
+                exit(0);
             }
         }
-
-        base1 = lv2peek(syscall_base + (u64) (600 * 8));
-        toc   = lv2peek(base1 + 0x8ULL);
-        addr2 = lv2peek(base1);
-        base2 = lv2peek(syscall_base + (u64) (604 * 8));
-        addr3 = lv2peek(base2);
-        base3 = lv2peek(syscall_base + (u64) (141 * 8));
-      
-        addr4 = lv2peek(base3);
-    
     }
+
+    base1 = lv2peek(syscall_base + (u64) (600 * 8));
+    toc   = lv2peek(base1 + 0x8ULL);
+    addr2 = lv2peek(base1);
+    base2 = lv2peek(syscall_base + (u64) (604 * 8));
+    addr3 = lv2peek(base2);
    
     // to be sure code is written ...
     
@@ -1984,8 +1963,6 @@ void load_psx_payload()
     sys8_pokeinstr(0x8000000000001860ULL, toc);
     sys8_pokeinstr(0x8000000000001870ULL, addr3); // 604
     sys8_pokeinstr(0x8000000000001880ULL, toc);
-    sys8_pokeinstr(0x8000000000001890ULL, addr4); // 141 (usleep function)
-    sys8_pokeinstr(0x8000000000001898ULL, base3); // 141 (usleep syscall base)
 
     if(base1) {
         sys8_pokeinstr(0x80000000000018A0ULL, base2); // 604 (send cmd syscall base)
@@ -2000,17 +1977,11 @@ void load_psx_payload()
     sys8_pokeinstr(syscall_base + (u64) (604 * 8), addrt);
 
     usleep(10000);
-    
-    addrt = addr + 0x58ULL;
-    sys8_pokeinstr(syscall_base + (u64) (141 * 8), addrt); // patch usleep(function)
 
    if(!noBDVD)
        sys8_pokeinstr(0x8000000000001830ULL, (u64) 0); // enable emulation
    else
        sys8_pokeinstr(0x8000000000001830ULL, (u64)((1ULL<<32))); // enable emulation
-
-   // old over new
-   if(!base1) sys8_pokeinstr(0x8000000000001820ULL, 0x455053315F454D55ULL);
 
 }
 
@@ -2047,9 +2018,11 @@ void psx_launch(void)
     add_sys8_bdvd(self_path, NULL);
     build_sys8_path_table();
 
-    sys_set_leds(2, 0);
-    sys_set_leds(0, 0);
-    sys_set_leds(1, 1);
+    if(!test_controlfan_compatibility()) {
+        sys_set_leds(2, 0);
+        sys_set_leds(0, 0);
+        sys_set_leds(1, 1);
+    } else set_fan_mode(-1);
 
     // check empty mc
 
