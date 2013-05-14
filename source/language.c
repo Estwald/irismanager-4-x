@@ -34,6 +34,8 @@
 #include "language_ini_it_bin.h"
 #include "language_ini_nw_bin.h"
 #include "language_ini_ps_bin.h"
+#include "language_ini_chs_bin.h"
+#include "language_ini_cht_bin.h"
 
 #define LANGFILE_VERSION 2
 
@@ -172,7 +174,9 @@ t_lngstr lang_strings[] =
     { DRAWTOOLS_LANGUAGE_6, "DRAWTOOLS_LANGUAGE_6"     , "Deutsch (not defined)" },
     { DRAWTOOLS_LANGUAGE_7, "DRAWTOOLS_LANGUAGE_7"     , "Português (not defined)" },
     { DRAWTOOLS_LANGUAGE_8, "DRAWTOOLS_LANGUAGE_8"     , "(test) فارسی" },
-    { DRAWTOOLS_LANGUAGE_9, "DRAWTOOLS_LANGUAGE_9"     , "Custom (from file)"},
+    { DRAWTOOLS_LANGUAGE_9, "DRAWTOOLS_LANGUAGE_9"     , "Chinese Simplified"},
+    { DRAWTOOLS_LANGUAGE_10, "DRAWTOOLS_LANGUAGE_10"     , "Chinese Traditional"},
+    { DRAWTOOLS_LANGUAGE_11, "DRAWTOOLS_LANGUAGE_11"     , "Custom (from file)"},
     
     { DRAWTOOLS_COPYFROM, "DRAWTOOLS_COPYFROM"     , "Copy from /dev_usb/iris to Iris folder"},
     { DRAWTOOLS_WITHBDVD, "DRAWTOOLS_WITHBDVD"     , "With BDVD Controller"},
@@ -319,7 +323,7 @@ int open_language (int lang, char * filename)
     char * file_external = NULL;
     int file_size = 0;
 
-    if(lang>=8) { // test external filename
+    if(lang>=10) { // test external filename
         if(!stat(filename, &s))
             file_external = LoadFile(filename, &file_size);
         
@@ -331,7 +335,7 @@ int open_language (int lang, char * filename)
 
         if(lang_strings[n].code == LANGSTRINGS_COUNT) break;
 
-        if(lang>=8)
+        if(lang>=10)
         {
 
                getConfigMemValueString((char *) file_external, file_size, "Language",
@@ -370,6 +374,14 @@ int open_language (int lang, char * filename)
                 case 7: // ps
                     file_bin = (char *) language_ini_ps_bin;
                     file_size = language_ini_ps_bin_size;
+                    break;
+                case 8: // chs
+                    file_bin = (char *) language_ini_chs_bin;
+                    file_size = language_ini_chs_bin_size;
+                    break;
+                case 9: // cht
+                    file_bin = (char *) language_ini_cht_bin;
+                    file_size = language_ini_cht_bin_size;
                     break;
             }
 
