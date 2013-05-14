@@ -285,8 +285,8 @@ void load_ps3_discless_payload()
     addr[3] = lv2peek(syscall_base + (u64) (40 * 8));
     addr[4] += PAYLOAD_BASE;
     addr[5] = lv2peek(syscall_base + (u64) (130 * 8));
-    //addr[6] += PAYLOAD_BASE;
-    //addr[7] = lv2peek(syscall_base + (u64) (600 * 8));
+    addr[6] += PAYLOAD_BASE;
+    addr[7] = lv2peek(syscall_base + (u64) (879 * 8));
     addr[8] += PAYLOAD_BASE;
     addr[9] = lv2peek(syscall_base + (u64) (864 * 8));
     addr[10] += PAYLOAD_BASE;
@@ -304,13 +304,13 @@ void load_ps3_discless_payload()
 
     sys8_memcpyinstr(PAYLOAD_BASE, (u64) addr, (u64) ((ps3_storage_bin_size + 7) & ~7));
 
-    lv2poke(syscall_base + (u64) (40 * 8), PAYLOAD_BASE + 0x10ULL);
-    lv2poke(syscall_base + (u64) (130 * 8), PAYLOAD_BASE + 0x20ULL);
-    //lv2poke(syscall_base + (u64) (600 * 8), PAYLOAD_BASE + 0x30ULL);
-    lv2poke(syscall_base + (u64) (864 * 8), PAYLOAD_BASE + 0x40ULL);
-    lv2poke(syscall_base + (u64) (619 * 8), PAYLOAD_BASE + 0x50ULL);
-    lv2poke(syscall_base + (u64) (837 * 8), PAYLOAD_BASE + 0x60ULL);
-    lv2poke(syscall_base + (u64) (609 * 8), PAYLOAD_BASE + 0x70ULL);
+    lv2poke(syscall_base + (u64) (40 * 8), PAYLOAD_BASE + 0x10ULL);  // syscall management
+    lv2poke(syscall_base + (u64) (130 * 8), PAYLOAD_BASE + 0x20ULL); // sys_event_queue_receive
+    lv2poke(syscall_base + (u64) (879 * 8), PAYLOAD_BASE + 0x30ULL); // sys_ss_media_id
+    lv2poke(syscall_base + (u64) (864 * 8), PAYLOAD_BASE + 0x40ULL); // storage_manager
+    lv2poke(syscall_base + (u64) (619 * 8), PAYLOAD_BASE + 0x50ULL); // sys_storage_async_send_device_command
+    lv2poke(syscall_base + (u64) (837 * 8), PAYLOAD_BASE + 0x60ULL); // sys_fs_mount
+    lv2poke(syscall_base + (u64) (609 * 8), PAYLOAD_BASE + 0x70ULL); // sys_storage_get_device_info 
 
     usleep(10000);
     }
