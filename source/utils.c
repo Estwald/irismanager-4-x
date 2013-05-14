@@ -1,3 +1,29 @@
+/* 
+    (c) 2011 Hermes/Estwald <www.elotrolado.net>
+    IrisManager (HMANAGER port) (c) 2011 D_Skywalk <http://david.dantoine.org>
+
+    HMANAGER4 is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    HMANAGER4 is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    apayloadlong with HMANAGER4.  If not, see <http://www.gnu.org/licenses/>.
+
+*/
+
+/* NOTE: Added patch_error_09() with some modifications
+
+Credits:
+- Rancid-o
+- Zz_SACRO_zZ
+
+*/ 
 
 #include "utils.h"
 #include "language.h"
@@ -409,6 +435,143 @@ int parse_ps3_disc(char *path, char * id)
 
 }
 
+extern int firmware;
+
+
+int patch_exe_error_09(char *path_exe)
+{
+    
+    u16 fw_421 = 42100;
+    u16 fw_441 = 44100;
+    u32 offset_fw;
+    s32 ret;
+    u64 readed = 0;
+    u64 written = 0;
+    u64 pos = 0;
+    u16 ver = 0;
+    int file = -1;
+    int flag = 0;
+
+    if(firmware < 0x421C || firmware >= 0x441C) return 0;
+
+    // open self/sprx and changes the fw version
+    ret = sysLv2FsOpen( path_exe, SYS_O_RDWR, &file, 0, NULL, 0 );
+    if(ret == 0) {
+        // set to offset position
+        ret = sysLv2FsLSeek64( file, 0xC, 0, &pos );
+        if(ret == 0 && pos == 0xCULL) {
+            // read offset in file
+            ret = sysLv2FsRead( file, &offset_fw, 0x4, &readed );
+
+            if(ret == 0 && readed == 4ULL) {
+                offset_fw+= 0x1E;
+                ret = sysLv2FsLSeek64( file, (u64) offset_fw, 0, &pos );
+
+                if(ret == 0 && pos == (u64) offset_fw) {
+                    ret = sysLv2FsRead( file, &ver, 0x2, &readed );
+                    if(ret == 0 && readed == 0x2ULL) {
+                        ret = sysLv2FsLSeek64( file, (u64) offset_fw, 0, &pos );
+                        u16 cur_firm = ((firmware>>12) & 0xF) * 10000 + ((firmware>>8) & 0xF) * 1000 + ((firmware>>4) & 0xF) * 100;
+                        
+                        if(ret == 0 && ver > fw_421 && ver <= fw_441 && ver > cur_firm) {
+                            sysLv2FsWrite( file, &cur_firm, 0x2, &written );
+                            flag = 1;
+                        }
+                    }
+
+                }
+
+
+            }
+        }
+
+        sysLv2FsClose( file );
+    }
+
+   return flag;
+}
+
+
+// exported from PS3 Ita Manager method with some modifications (support caps types, error control
+// automatic file offset and "intelligent" patch method
+
+void patch_error_09( const char *path )
+{
+    int d = -1;
+    s32 ret = 1;
+
+    if(firmware < 0x421C || firmware >= 0x441C) return;
+
+    /* Open the directory specified by "path". */
+	ret = sysLv2FsOpenDir( path, &d );
+    
+    /* Check it was opened. */
+    if( d == -1 )
+		return;
+		
+    while( 1 )
+    {
+        sysFSDirent entry;
+        const char * d_name;
+        u64 read = 0;
+
+        /* "Readdir" gets subsequent entries from "d". */
+        ret = sysLv2FsReadDir( d, &entry, &read );
+        if ( read == 0 || ret != 0 ) 
+        {
+            /* There are no more entries in this directory, so break
+               out of the while loop. */
+            break;
+        }
+        d_name = entry.d_name;
+
+	
+	//Trovo dove inizia l'estensione
+		int ext = entry.d_namlen - 4;
+		
+        //DIRECTORY
+		if(entry.d_type & DT_DIR) {
+            if(strcmp( entry.d_name, "." ) != 0 && strcmp( entry.d_name, ".." ) != 0 
+                && strcmp( entry.d_name, "GAMES" ) != 0 && strcmp( entry.d_name, "GAMEZ" ) != 0) { //aggiungere iris, multiman, nostro manager (PS3ITA Manager), showtime, altro??
+                char path_dir[ 0x420 ];
+     
+                snprintf( path_dir, 0x420, "%s/%s", path, d_name);
+                    
+            /* Recursively call "list_dir" with the new path. */
+                patch_error_09( path_dir );
+            }
+        } else if(ext > 1 ) {
+		
+          // SELF/SPRX/EBOOT.BIN
+           
+			if( (entry.d_name[ ext ] == 's' && entry.d_name[ ext + 1 ] == 'p' && entry.d_name[ ext + 2 ] == 'r' && entry.d_name[ ext + 3 ] == 'x') 
+                || (entry.d_name[ ext ] == 'S' && entry.d_name[ ext + 1 ] == 'P' && entry.d_name[ ext + 2 ] == 'R' && entry.d_name[ ext + 3 ] == 'X')
+                || (entry.d_name[ ext ] == 's' && entry.d_name[ ext + 1 ] == 'e' && entry.d_name[ ext + 2 ] == 'l' && entry.d_name[ ext + 3 ] == 'f')
+                || (entry.d_name[ ext ] == 'S' && entry.d_name[ ext + 1 ] == 'E' && entry.d_name[ ext + 2 ] == 'L' && entry.d_name[ ext + 3 ] == 'F')
+                ||  strcmp( entry.d_name, "EBOOT.BIN" ) == 0) {
+				
+				char path_exe[0x420];
+				
+			//Azzero array
+				memset( path_exe, 0, 0x420);
+				
+			//Copio percorso e nome file in path_sprx
+				snprintf( path_exe, 0x420, "%s/%s", path, d_name );
+				
+			    patch_exe_error_09(path_exe);
+				
+				
+			}
+        }
+		
+	
+		
+    }
+    
+    /* After going through all the entries, close the directory. */
+    sysLv2FsCloseDir( d );
+}
+
 int unlink_secure(void *path)
 {
 //    struct stat s;
@@ -692,6 +855,7 @@ void fill_entries_from_device(char *path, t_directories *list, int *max, u32 fla
         if(entry->d_name[0]=='.') continue;
 
         if(!(entry->d_type & DT_DIR)) continue;
+        if(!strcmp(entry->d_name, "covers")) continue; // skip global covers folder
         
         list[*max ].flags=flag;
 
@@ -1876,11 +2040,12 @@ static s64 count_cache_bytes(char *path)
 
 }
 
-static int num_directories=0, num_files_big=0, num_files_split=0;
+static int num_directories=0, num_files_big=0, num_files_split=0, fixed_self_sprx = 0;
 
 static int my_game_test(char *path)
 {
 	DIR  *dir;
+    int seconds = 0, seconds2 = 0;
    dir=opendir (path);
    if(!dir) return -1;
    sysFsChmod(path, FS_S_IFDIR | 0777);
@@ -1921,6 +2086,15 @@ static int my_game_test(char *path)
             sprintf(f,"%s/%s", path, entry->d_name);
 
             if(stat(f, &s)<0) {abort_copy=3;DPrintf("File error!!!\n -> %s\n\n", f);if(f) free(f);break;}
+            
+            int ext = entry->d_namlen - 4;
+            if(ext > 1 && ((entry->d_name[ ext ] == 's' && entry->d_name[ ext + 1 ] == 'p' && entry->d_name[ ext + 2 ] == 'r' && entry->d_name[ ext + 3 ] == 'x') 
+                || (entry->d_name[ ext ] == 'S' && entry->d_name[ ext + 1 ] == 'P' && entry->d_name[ ext + 2 ] == 'R' && entry->d_name[ ext + 3 ] == 'X')
+                || (entry->d_name[ ext ] == 's' && entry->d_name[ ext + 1 ] == 'e' && entry->d_name[ ext + 2 ] == 'l' && entry->d_name[ ext + 3 ] == 'f')
+                || (entry->d_name[ ext ] == 'S' && entry->d_name[ ext + 1 ] == 'E' && entry->d_name[ ext + 2 ] == 'L' && entry->d_name[ ext + 3 ] == 'F')
+                ||  strcmp( entry->d_name, "EBOOT.BIN" ) == 0)) {
+                if(patch_exe_error_09(f)) fixed_self_sprx++;
+            }
 
             size= s.st_size;
 
@@ -2000,27 +2174,32 @@ static int my_game_test(char *path)
             if(f) free(f);
 
             //prepare info for user
-            int seconds= (int) (time(NULL)-time_start);
+            seconds= (int) (time(NULL)-time_start);
 
             file_counter++;
 
             global_device_bytes+=size;
 
-            sprintf(string1,"%s: %i %s: %2.2i:%2.2i:%2.2i Vol: %1.2f GB\n", language[GAMETESTS_TESTFILE], file_counter,
-                    language[GLUTIL_TIME], seconds/3600, (seconds/60) % 60, seconds % 60, 
-                    ((double) global_device_bytes)/(1024.0*1024.0*1024.0));
-			
-            cls2();
+            if(seconds!=seconds2) {
 
-            DbgHeader( string1);
-            DbgMess(language[GLUTIL_HOLDTRIANGLEAB]);
+                sprintf(string1,"%s: %i %s: %2.2i:%2.2i:%2.2i Vol: %1.2f GB\n", language[GAMETESTS_TESTFILE], file_counter,
+                        language[GLUTIL_TIME], seconds/3600, (seconds/60) % 60, seconds % 60, 
+                        ((double) global_device_bytes)/(1024.0*1024.0*1024.0));
+                
+                cls2();
 
-            DbgDraw();
+                DbgHeader( string1);
+                DbgMess(language[GLUTIL_HOLDTRIANGLEAB]);
 
-            tiny3d_Flip();
+                DbgDraw();
 
-            pad_last_time = 0;
-            ps3pad_read();
+                tiny3d_Flip();
+
+                pad_last_time = 0;
+                ps3pad_read();
+                
+                seconds2 = seconds;
+            }
 
             if(abort_copy) break;
 
@@ -2034,6 +2213,20 @@ static int my_game_test(char *path)
         }
 
     }
+
+    sprintf(string1,"%s: %i %s: %2.2i:%2.2i:%2.2i Vol: %1.2f GB\n", language[GAMETESTS_TESTFILE], file_counter,
+                    language[GLUTIL_TIME], seconds/3600, (seconds/60) % 60, seconds % 60, 
+                    ((double) global_device_bytes)/(1024.0*1024.0*1024.0));
+			
+    cls2();
+
+    DbgHeader( string1);
+    DbgMess(language[GLUTIL_HOLDTRIANGLEAB]);
+
+    DbgDraw();
+
+    tiny3d_Flip();
+
 
     closedir (dir);
 
@@ -3029,7 +3222,7 @@ void copy_to_cache(int game_sel, char * hmanager_path)
         
         global_device_bytes = 0;
         cache_need_free = 0;
-        num_directories = file_counter = num_files_big = num_files_split = 0;
+        num_directories = file_counter = num_files_big = num_files_split = fixed_self_sprx = 0;
 
         copy_split_to_cache = 1;
         my_game_test((char *) name2);
@@ -3308,12 +3501,22 @@ void test_game(int game_sel)
     
     global_device_bytes = 0;
 
-    num_directories = file_counter = num_files_big = num_files_split = 0;
+    num_directories = file_counter = num_files_big = num_files_split = fixed_self_sprx = 0;
     
     
     my_game_test(directories[game_sel].path_name);
+
+    char game_update[0x420];
+
+    sprintf(game_update, "/dev_hdd0/game/%c%c%c%c%s", directories[game_sel].title_id[0], directories[game_sel].title_id[1],
+            directories[game_sel].title_id[2], directories[game_sel].title_id[3], &directories[game_sel].title_id[5]);
+    sysFSStat s;
+
+    if(!sysLv2FsStat(game_update, &s)) patch_error_09(game_update);
     
     DPrintf(language[GAMETSTSL_FINALNFO2], num_directories, file_counter, num_files_big, num_files_split);
+    DPrintf("\n\n");
+    DPrintf("SPRX/SELF fixed (error 0x80010009) %i", fixed_self_sprx);
     DPrintf("\n\n");
 
     int seconds = (int) (time(NULL) - time_start);

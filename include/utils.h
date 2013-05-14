@@ -152,6 +152,9 @@ int unlink_secure(void *path);
 int mkdir_secure(void *path);
 int rmdir_secure(void *path);
 
+int patch_exe_error_09(char *path_exe);
+void patch_error_09( const char *path );
+
 
 #endif
 
