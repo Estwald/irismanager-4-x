@@ -1,5 +1,5 @@
 /* 
-    (c) 2011 Hermes <www.elotrolado.net>
+    (c) 2011 Hermes/Estwald <www.elotrolado.net>
     IrisManager (HMANAGER port) (c) 2011 D_Skywalk <http://david.dantoine.org>
 
     HMANAGER4 is free software: you can redistribute it and/or modify
@@ -53,6 +53,7 @@
 #include "payload431/payload_431.h"
 #include "payload430dex/payload_430dex.h"
 #include "payload440/payload_440.h"
+#include "payload441/payload_441.h"
 
 #include "spu_soundmodule.bin.h" // load SPU Module
 #include "spu_soundlib.h"
@@ -385,6 +386,14 @@ int get_icon(char * path, const int num_dir)
     if(stat(path, &s)<0) {
        sprintf(path, "%s/covers/%c%c%c%c%s.JPG", self_path, directories[num_dir].title_id[0], directories[num_dir].title_id[1],
             directories[num_dir].title_id[2], directories[num_dir].title_id[3], &directories[num_dir].title_id[5]);
+       // get covers from GAMES or GAME
+       if(stat(path, &s)<0) {
+           sprintf(path, "/dev_hdd0/GAMES/covers/%c%c%c%c%s.JPG", directories[num_dir].title_id[0], directories[num_dir].title_id[1],
+                directories[num_dir].title_id[2], directories[num_dir].title_id[3], &directories[num_dir].title_id[5]);
+           if(stat(path, &s)<0) sprintf(path, "/dev_hdd0/GAMEZ/covers/%c%c%c%c%s.JPG", directories[num_dir].title_id[0], directories[num_dir].title_id[1],
+                directories[num_dir].title_id[2], directories[num_dir].title_id[3], &directories[num_dir].title_id[5]);
+
+       }
     }
 
     if(stat(path, &s)<0)
@@ -587,6 +596,14 @@ void cls2()
 /* Payload functions                                                                                                                                  */
 /******************************************************************************************************************************************************/
 
+static int sys_ss_media_id(void * id)
+{
+    lv2syscall2(879, 0x10001ULL, (u64) id);
+
+    return_to_user_prog(int);
+    
+}
+
 static u64 syscall_40(u64 cmd, u64 arg)
 {
     lv2syscall2(40, cmd, arg);
@@ -765,6 +782,8 @@ void fun_exit()
     static int one = 1;
     if(!one) return;
     one = 0;
+
+    set_usleep_sm_main(250000);
 
     if(!is_ps3game_running && lv2peek(0x80000000000004E8ULL)) syscall_40(1, 0); // disables PS3 Disc-less
 
@@ -1286,7 +1305,10 @@ s32 main(s32 argc, const char* argv[])
 	} else if(is_firm_440()) {
         firmware = 0x440C;
         payload_mode = is_payload_loaded_440();
-    }
+    } else if(is_firm_441()) {
+        firmware = 0x441C;
+        payload_mode = is_payload_loaded_441();
+	}
 	
 	
     
@@ -1448,12 +1470,25 @@ s32 main(s32 argc, const char* argv[])
         		    break;
             }
             break;
-				case 0x440C:
+		case 0x440C:
             set_bdvdemu_440(payload_mode);
             switch(payload_mode)
             {
                 case ZERO_PAYLOAD: //no payload installed
                     load_payload_440(payload_mode);
+                    __asm__("sync");
+                    sleep(1); /* maybe need it, maybe not */
+                    break;
+        		case SKY10_PAYLOAD:
+        		    break;
+            }
+			break;
+        case 0x441C:
+            set_bdvdemu_441(payload_mode);
+            switch(payload_mode)
+            {
+                case ZERO_PAYLOAD: //no payload installed
+                    load_payload_441(payload_mode);
                     __asm__("sync");
                     sleep(1); /* maybe need it, maybe not */
                     break;
@@ -1585,7 +1620,13 @@ s32 main(s32 argc, const char* argv[])
         //lv2poke(syscall_base +(u64) (40 * 8), lv2peek(syscall_base));
         load_ps3_discless_payload();
 
-        if(firmware != 0x431C && firmware != 0x440C && manager_cfg.event_flag) syscall_40(6, manager_cfg.event_flag);
+        if(firmware == 0x341C || firmware == 0x355C)
+            syscall_40(6, 0x8d000B04);
+        else if(firmware == 0x421C)
+            syscall_40(6, 0x8d001A04);
+        else
+            if(firmware != 0x430C && firmware != 0x431C && firmware != 0x440C && manager_cfg.event_flag)
+                syscall_40(6, manager_cfg.event_flag);
 
     }
 
@@ -1593,7 +1634,6 @@ s32 main(s32 argc, const char* argv[])
 
     load_controlfan_config();
     set_device_wakeup_mode(0);
-
     
     LoadPSXOptions(NULL);
 
@@ -1828,7 +1868,7 @@ s32 main(s32 argc, const char* argv[])
 
                         s32 fdr;
 
-                        if(!sysLv2FsOpen("/dev_bdvd/PS3_GAME/USRDIR/EBOOT.BIN", 0, &fdr, S_IRWXU | S_IRWXG | S_IRWXO, NULL, 0)) {
+                        if(!noBDVD && !sysLv2FsOpen("/dev_bdvd/PS3_GAME/USRDIR/EBOOT.BIN", 0, &fdr, S_IRWXU | S_IRWXG | S_IRWXO, NULL, 0)) {
                             u64 bytes;
                             u32 dat;
                             bdvd_ejected = 0;
@@ -1852,7 +1892,15 @@ s32 main(s32 argc, const char* argv[])
                                 fdevices&= ~ (1<<11);
                                 goto skip_bdvd;
                             
-                            } else counter = 0;
+                            } else {counter = 0;
+                                if(!sys_ss_media_id(temp_buffer + 2048)) {
+                                    struct stat s;
+                                    sprintf(temp_buffer, "%s/config/%s.did", self_path, directories[ndirectories - 1].title_id);
+                                    if(stat(temp_buffer, &s) != 0 || s.st_size != 0x10) 
+                                        SaveFile(temp_buffer, (char *) temp_buffer + 2048, 0x10);
+                                }
+                            }
+
                         }
 
                         //stops_BDVD = 0;
@@ -1893,7 +1941,8 @@ s32 main(s32 argc, const char* argv[])
                     }
                    
                     if(mode_homebrew)
-                        sprintf(filename, "/dev_hdd0/game");  
+                        sprintf(filename, "/dev_hdd0/game");
+                    
  
                     sysFsGetFreeSize("/dev_hdd0/", &blockSize, &freeSize);
                     freeSpace[find_device] = ( ((u64)blockSize * freeSize));
@@ -2223,6 +2272,43 @@ void mount_custom(char *path)
         add_sys8_path_table("/dev_ps2disc", mem);
         free(mem);
     }
+}
+
+static u8 BdId[0x10];
+
+void set_BdId(int index)
+{
+    struct stat s;
+    int readed;
+    int ret = 0;
+    void *mem;
+
+    if(!lv2peek(0x80000000000004E8ULL)) return;
+    
+    sprintf(temp_buffer, "%s/config/%s.did", self_path, directories[index].title_id);
+    sprintf(temp_buffer + 1024, "%s/BDMEDIA_ID", directories[index].path_name);
+    
+    memset(BdId, 0, 0x10);
+    
+    ret = -1;
+
+    if(stat(temp_buffer + 1024, &s) == 0 && s.st_size == 0x10) {
+        mem = LoadFile((void *) temp_buffer + 1024, &readed);
+        if(!mem || readed!=0x10) {if(mem) free(mem); ret = -1;}
+        else {ret = 0; memcpy(BdId, mem, 0x10); free(mem);}
+    }
+
+    if(ret!=0 && stat(temp_buffer, &s) == 0 && s.st_size == 0x10) {
+        mem = LoadFile((void *) temp_buffer, &readed);
+        if(!mem || readed!=0x10) {if(mem) free(mem); ret = -1;}
+        else {ret = 0; memcpy(BdId, mem, 0x10); 
+             SaveFile(temp_buffer + 1024, (char *) BdId, 0x10);
+             free(mem);
+        }
+    }
+ 
+    syscall_40(7, (u64) (BdId)); // set BD Media Id
+
 }
 
 void draw_screen1(float x, float y)
@@ -2694,6 +2780,9 @@ void draw_screen1(float x, float y)
                     memcpy(temp_buffer + 1092, &directories[currentgamedir].flags, 4);
 
                     SaveFile(temp_buffer, temp_buffer + 1024, 72);
+
+                    if(!(directories[currentgamedir].flags & (1<<11)) && lv2peek(0x80000000000004E8ULL))
+                        set_BdId(currentgamedir);
                 }
 
                 if(directories[currentgamedir].splitted == 1) {
@@ -3194,8 +3283,11 @@ void draw_screen1(float x, float y)
                     if(get_psx_memcards()==0)
                         menu_screen = 444;
                 }
-                else
+                else {
                    menu_screen = 1;
+                   if(!(directories[currentgamedir].flags & (1<<11)) && lv2peek(0x80000000000004E8ULL))
+                        set_BdId(currentgamedir);
+                }
                 return;
             }
         }
@@ -3465,7 +3557,32 @@ void draw_options(float x, float y, int index)
 
     DrawBox(x, y, 0, 200 * 4 - 8, 150 * 3 - 8, 0x00000028);
 
-    
+
+    y2 = y + 8;
+     
+    if((directories[currentgamedir].flags & ((1<<11) | (1<<23))) == (1<<11)){
+        n = sys_ss_media_id(BdId);
+        if(n == 0 || n== 0x80010006) {
+            SetFontSize(10, 16);
+            SetFontColor(0x00afffff, 0x00000080);
+            DrawFormatString(x + 32, y2, "BD ID: %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X",
+                BdId[0], BdId[1], BdId[2], BdId[3], BdId[4], BdId[5], BdId[6], BdId[7], 
+                BdId[8], BdId[9], BdId[10], BdId[11], BdId[12], BdId[13], BdId[14], BdId[15]);
+        }
+    } else if((BdId[0] | BdId[1] | BdId[2] | BdId[3] | BdId[4] | BdId[5] | BdId[6] | BdId[7] |
+        BdId[8] | BdId[9] | BdId[10] | BdId[11] | BdId[12] | BdId[13] | BdId[14] | BdId[15])){
+        SetFontSize(10, 16);
+        SetFontColor(0xffaf00ff, 0x00000080);
+        DrawFormatString(x + 32, y2, "BD ID: %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X",
+            BdId[0], BdId[1], BdId[2], BdId[3], BdId[4], BdId[5], BdId[6], BdId[7], 
+            BdId[8], BdId[9], BdId[10], BdId[11], BdId[12], BdId[13], BdId[14], BdId[15]);
+
+    }
+
+    SetFontSize(12, 16);
+
+    SetFontColor(0xffffffff, 0x00000000);
+
     x2 = x;
     y2 = y + 32;
     
@@ -4179,10 +4296,22 @@ void draw_gbloptions(float x, float y)
         display_ttf_string(0, 0, help1, 0xffffffff, 0, 18, 24);
 
         SetFontAutoCenter(1);
-        if(lv2peek(0x80000000000004E8ULL))
+        
+        if(lv2peek(0x80000000000004E8ULL)) ;
             DrawFormatString(0, (512 - 416)/2 - 20, "Event ID: %x / VSH ID %x", (u32) syscall_40(4, 0), manager_cfg.event_flag);
         SetFontAutoCenter(0);
 
+        if(lv2peek(0x80000000000004E8ULL)) {
+            u32 eid= (u32) syscall_40(4, 0);
+
+            if(eid!=0) {
+                eid -= 0x100;
+                if(eid != manager_cfg.event_flag) {
+                    manager_cfg.event_flag = eid;
+                    SaveManagerCfg();
+                }
+            }
+        }
     }
 
     tiny3d_Flip();
@@ -4416,7 +4545,7 @@ void draw_toolsoptions(float x, float y)
 
                 return;
             case 1:
-                manager_cfg.language++; if(manager_cfg.language > 8)  manager_cfg.language = 0;
+                manager_cfg.language++; if(manager_cfg.language > 10)  manager_cfg.language = 0;
                 sprintf(temp_buffer, "%s/config/language.ini", self_path);
                 open_language(manager_cfg.language, temp_buffer);
                 //manager_cfg.usekey = manager_cfg.usekey == 0;
