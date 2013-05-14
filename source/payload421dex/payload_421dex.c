@@ -309,22 +309,22 @@ static int lv2_patch_storage_421dex(void)
     pokeq32(0x8000000000302098ULL, 0x40000000);
 
     
-    regs_i.reg3 = 0x175788; regs_i.reg4 = 0x7f83e37860000000ULL;
+    regs_i.reg3 = 0x16f758; regs_i.reg4 = 0x7f83e37860000000ULL;
     regs_i.reg11 = 0xB6; 
     sys8_lv1_syscall(&regs_i, &regs_o); save_lv1_storage_patches[0]= regs_o.reg4;
     regs_i.reg11 = 0xB7; sys8_lv1_syscall(&regs_i, &regs_o);
 
-    regs_i.reg3 = 0x1757AC; regs_i.reg4 = 0x7f85e37838600001ULL;
+    regs_i.reg3 = 0x16f77c; regs_i.reg4 = 0x7f85e37838600001ULL;
     regs_i.reg11 = 0xB6; 
     sys8_lv1_syscall(&regs_i, &regs_o); save_lv1_storage_patches[1]= regs_o.reg4;
     regs_i.reg11 = 0xB7; sys8_lv1_syscall(&regs_i, &regs_o);
 
-    regs_i.reg3 = 0x175824; regs_i.reg4 = 0x7f84e3783be00001ULL;
+    regs_i.reg3 = 0x16f7f4; regs_i.reg4 = 0x7f84e3783be00001ULL;
     regs_i.reg11 = 0xB6; 
     sys8_lv1_syscall(&regs_i, &regs_o); save_lv1_storage_patches[2]= regs_o.reg4;
     regs_i.reg11 = 0xB7; sys8_lv1_syscall(&regs_i, &regs_o);
 
-    regs_i.reg3 = 0x17582C; regs_i.reg4 = 0x9be1007038600000ULL;
+    regs_i.reg3 = 0x16f7fc; regs_i.reg4 = 0x9be1007038600000ULL;
     regs_i.reg11 = 0xB6; 
     sys8_lv1_syscall(&regs_i, &regs_o); save_lv1_storage_patches[3]= regs_o.reg4;
     regs_i.reg11 = 0xB7; sys8_lv1_syscall(&regs_i, &regs_o);
@@ -347,16 +347,16 @@ static int lv2_unpatch_storage_421dex(void)
 
     regs_i.reg11 = 0xB7;
 
-    regs_i.reg3 = 0x175788; regs_i.reg4 = save_lv1_storage_patches[0];
+    regs_i.reg3 = 0x16f758; regs_i.reg4 = save_lv1_storage_patches[0];
     sys8_lv1_syscall(&regs_i, &regs_o);
 
-    regs_i.reg3 = 0x1757AC; regs_i.reg4 = save_lv1_storage_patches[1];
+    regs_i.reg3 = 0x16f77c; regs_i.reg4 = save_lv1_storage_patches[1];
     sys8_lv1_syscall(&regs_i, &regs_o);
 
-    regs_i.reg3 = 0x175824; regs_i.reg4 = save_lv1_storage_patches[2];
+    regs_i.reg3 = 0x16f7f4; regs_i.reg4 = save_lv1_storage_patches[2];
     sys8_lv1_syscall(&regs_i, &regs_o);
 
-    regs_i.reg3 = 0x17582C; regs_i.reg4 = save_lv1_storage_patches[3];
+    regs_i.reg3 = 0x16f7fc; regs_i.reg4 = save_lv1_storage_patches[3];
     sys8_lv1_syscall(&regs_i, &regs_o);
 
     return 0;
