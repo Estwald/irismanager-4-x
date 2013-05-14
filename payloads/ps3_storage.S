@@ -60,8 +60,8 @@ syscall_40:
 syscall_130:
     .quad 0x0000000000000000
 
-    .quad panic //sys600  // + 0x30
-syscall_600:
+    .quad sys879  // + 0x30
+syscall_879:
     .quad 0x0000000000000000
 
     .quad sys864  // + 0x40
@@ -79,6 +79,7 @@ syscall_837:
     .quad sys609  // + 0x70
 syscall_609:
     .quad 0x0000000000000000
+
 
 /*********************************************************************************************************/
 /* UTILS                                                                                                 */
@@ -192,6 +193,8 @@ sys40: // Manager
     beq     func_5
     cmplwi  %r3, 6 // set vsh_event
     beq     func_6
+    cmplwi  %r3, 7 // set BDMedia Id
+    beq     func_7
     b       return0
 
 // func 1: enable/disable     
@@ -226,6 +229,12 @@ func_6: // set vsh_event
     stw     %r4, vsh_event@l(%r31)
     b       return0
 
+func_7: // set BDMedia Id
+
+    addi    %r3, %r31, media_id@l
+    li      %r5, 0x10
+    bl      lv2memcpy
+    b       return0
     nop
 
 /*********************************************************************************************************/
@@ -762,6 +771,45 @@ sys609_bdvd:           // simulate device info for BDVD
     b       return0
 
 /*********************************************************************************************************/
+/* SYSCALL 879: sys_ss_media_id()                                                                        */
+/*********************************************************************************************************/
+
+sys879: // sysEventQueueReceive
+    stdu    %sp, -STACK(%sp)
+    mflr    %r0
+    bl      push_registers
+    bl      reubicador
+    lis     %r5, 0x1
+    ori     %r5, %r5, 1
+    cmpld   %r3, %r5
+    bne     sys879_call
+
+    lwz     %r5, enable_mode@l(%r31)
+    cmplwi  %r5, 0
+    beq     sys879_call
+
+    mr      %r3, %r4
+    addi    %r4, %r31, media_id@l
+    mr      %r26, %r4
+    li      %r5, 0x10
+    bl      lv2memcpy
+    ld      %r3, 0(%r26)
+    ld      %r4, 8(%r26)
+    or.     %r3, %r3, %r4 
+    bne     return0
+
+    lis     %r3, -0x7FFF // if datas == zero return ENOENT
+    ori     %r3, %r3, 0x6
+    b       return
+
+sys879_call:
+    ld      %r11, syscall_879@l(%r31)
+    ld      %r0, 0(%r11)
+    mtctr   %r0
+    bctrl
+    b       return
+
+/*********************************************************************************************************/
 /* DATAS for SYSCALL 619 messages                                                                        */
 /*********************************************************************************************************/
 
@@ -852,6 +900,9 @@ disc_info:
 	.byte 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
 	.byte 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x5C, 0x96, 0xE0
 	.byte 0x00, 0x00, 0x08, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x01
+
+media_id:
+    .byte 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
 
     .align 3
     .quad 0x45535457414C4431
