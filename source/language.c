@@ -37,7 +37,6 @@
 #include "language_ini_chs_bin.h"
 #include "language_ini_cht_bin.h"
 
-
 #define LANGFILE_VERSION 2
 
 typedef struct lngstr
