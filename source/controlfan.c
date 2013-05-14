@@ -16,6 +16,15 @@
 
 */
 
+/* NOTE: Added CFW Debug and CFW 4.41 patch from PS3 Ita Manager versionb
+
+Credits:
+
+- Rancid-o
+- Zz_SACRO_zZ
+
+*/ 
+
 #include <stdio.h>
 #include <malloc.h>
 #include <string.h>
@@ -31,6 +40,7 @@
 #include "utils.h"
 #include "gfx.h"
 #include "language.h"
+#include "controlfan.h"
 
 #include "ps3_controlfan_bin.h"
 
@@ -116,8 +126,8 @@ static int is_ctrl_fan_loaded = 0;
 
 int test_controlfan_compatibility() 
 {
-    if(firmware == 0x341C || firmware == 0x355C || firmware == 0x421C || 
-         firmware == 0x430C ||  firmware == 0x431C || firmware == 0x440C) return 1;
+    if(firmware == 0x341C || firmware == 0x355C || firmware == 0x355D|| firmware == 0x421C || firmware == 0x421D ||
+         firmware == 0x430C || firmware == 0x430D ||  firmware == 0x431C || firmware == 0x440C || firmware == 0x441C ) return 1;
 
     return 0;
 }
@@ -145,7 +155,7 @@ int load_ps3_controlfan_payload()
     }
 
     
-    if(lv2peek(PAYLOAD_BASE)) goto skip_the_load;
+    if(lv2peek(PAYLOAD_BASE)) {set_usleep_sm_main(1000); goto skip_the_load;}
     
     memcpy((char *) addr, (char *) ps3_controlfan_bin, ps3_controlfan_bin_size);
 
@@ -178,7 +188,7 @@ int load_ps3_controlfan_payload()
 
     sleep(1);
 
-    if(firmware == 0x341C) { // firmware 3.41 2EB128
+     if(firmware == 0x341C) { // firmware 3.41 2EB128
 
         // enables sys_game_get_temperature
         lv2poke32(0x800000000000AEA0ULL, 0x38600000); // sys 383 *
@@ -208,6 +218,21 @@ int load_ps3_controlfan_payload()
         lv2poke32(0x8000000000009280ULL, 0x38600001); // sys 386 *
         
         ret = 1;
+    } else if(firmware == 0x355D) { // firmware 3.55 dex
+
+        // enables sys_game_get_temperature
+        lv2poke32(0x800000000000B598ULL, 0x38600000); // sys 383 *
+
+        // enables sys_sm_get_fan_policy
+        lv2poke32(0x8000000000008D3CULL, 0x38600001); // sys 409 *
+
+        // enables sys_sm_set_fan_policy
+        lv2poke32(0x8000000000009238ULL, 0x38600001); // sys 389 *
+
+        // enables sys_set_leds
+        lv2poke32(0x8000000000009300ULL, 0x38600001); // sys 386 *
+        
+        ret = 1;
     } else if(firmware == 0x421C) { // firmware 4.21
 
         // enables sys_game_get_temperature
@@ -223,6 +248,21 @@ int load_ps3_controlfan_payload()
         lv2poke32(0x800000000000A3ECULL, 0x38600001); // sys 386 *
         
         ret = 1;
+    } else if(firmware == 0x421D) { // firmware 4.21 dex
+
+        // enables sys_game_get_temperature
+        lv2poke32(0x800000000000C718ULL, 0x38600000); // sys 383 *
+
+        // enables sys_sm_get_fan_policy
+        lv2poke32(0x8000000000009EA8ULL, 0x38600001); // sys 409 *
+
+        // enables sys_sm_set_fan_policy
+        lv2poke32(0x800000000000A3A4ULL, 0x38600001); // sys 389 *
+
+        // enables sys_set_leds
+        lv2poke32(0x800000000000A46CULL, 0x38600001); // sys 386 *
+        
+        ret = 1;
     } else if(firmware == 0x430C) { // firmware 4.30
 
         // enables sys_game_get_temperature
@@ -236,6 +276,22 @@ int load_ps3_controlfan_payload()
 
         // enables sys_set_leds
         lv2poke32(0x800000000000A3ECULL, 0x38600001); // sys 386 *
+
+        ret = 1;
+
+    } else if(firmware == 0x430D) { // firmware 4.30 dex
+
+        // enables sys_game_get_temperature
+        lv2poke32(0x800000000000C714ULL, 0x38600000); // sys 383 *
+
+        // enables sys_sm_get_fan_policy
+        lv2poke32(0x8000000000009EA8ULL, 0x38600001); // sys 409 *
+
+        // enables sys_sm_set_fan_policy
+        lv2poke32(0x800000000000A3A4ULL, 0x38600001); // sys 389 *
+
+        // enables sys_set_leds
+        lv2poke32(0x800000000000A46CULL, 0x38600001); // sys 386 *
 
         ret = 1;
 
@@ -270,9 +326,24 @@ int load_ps3_controlfan_payload()
         lv2poke32(0x800000000000A3ECULL, 0x38600001); // sys 386
         
         ret = 1;
+    } else if(firmware == 0x441C) { // firmware 4.41
+
+        // enables sys_game_get_temperature
+        lv2poke32(0x800000000000C698ULL, 0x38600000); // sys 383
+
+        // enables sys_sm_get_fan_policy
+        lv2poke32(0x8000000000009E28ULL, 0x38600001); // sys 409
+
+        // enables sys_sm_set_fan_policy
+        lv2poke32(0x800000000000A324ULL, 0x38600001); // sys 389
+
+        // enables sys_set_leds
+        lv2poke32(0x800000000000A3ECULL, 0x38600001); // sys 386
+        
+        ret = 1;
     }
 
-    
+   
 skip_the_load:
     is_ctrl_fan_loaded = 1;
     free(addr);
@@ -428,6 +499,25 @@ void set_device_wakeup_mode(u32 flags)
         }
     }
 }
+
+void set_usleep_sm_main(u32 us)
+{
+    u64 command;
+
+    if(!test_controlfan_compatibility()) return;
+
+    command = lv2peek(LV2_SM_CMD_ADDR)>>56ULL;
+    if(command == 0x55ULL) { // SM present!
+        
+        lv2poke(LV2_SM_CMD_ADDR, 0xCCFE000000000000ULL | ((u64) us)); // set usleep time
+        while(1) {
+            usleep(1000);
+            command =lv2peek(LV2_SM_CMD_ADDR)>>48ULL;
+            if(command== 0x55CCULL) break;
+        }
+    }
+}
+
 
 void load_controlfan_config() 
 {
@@ -605,7 +695,7 @@ void draw_controlfan_options()
 
     SetFontColor(0xffffffff, 0x00000000);
     SetFontSize(16, 20);
-    DrawFormatString(x2, y2 + 8, "Uses L1/R1 or X");
+    DrawFormatString(x2, y2 + 8, "Use L1/R1 or X");
     DrawFormatString(x2, y2 + 32, "to change values");
     DrawFormatString(x2, y2 + 56, "LEFT/RIGHT to change");
     DrawFormatString(x2, y2 + 80, "of column");
