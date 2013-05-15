@@ -101,16 +101,16 @@ static inline void _poke32(u64 addr, uint32_t val)
 int is_firm_440(void)
 {
 // 4.40 cex
-u64 dex2;
-dex2 =peekq(0x80000000003487D0ULL);
-if(dex2 == 0x80000000003004C8ULL)
-{
-return 1;
-} 
-else
-{
-return 0;
-}
+   u64 dex2;
+   dex2 =peekq(0x80000000003487D0ULL);
+   if(dex2 == 0x80000000003004C8ULL && peekq( 0x800000000000C448ULL ) != 0x614A10007F84E378ULL )
+   {
+      return 1;
+   }
+   else
+   {
+      return 0;
+   }
 }
 
 extern u64 syscall_base;
