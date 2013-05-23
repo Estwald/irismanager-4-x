@@ -27,6 +27,7 @@
 #include <arpa/inet.h>
 
 #include <sys/thread.h>
+#include <sys/systime.h>
 
 #include "defines.h"
 #include "server.h"
@@ -47,6 +48,7 @@ void listener_thread(void *unused)
 	|| listen(list_s, OFTP_LISTEN_BACKLOG) == -1)
 	{
 		appstate = 1;
+
 	}
 	
 	int conn_s;
@@ -56,9 +58,9 @@ void listener_thread(void *unused)
 	{
 		if((conn_s = accept(list_s, NULL, NULL)) > 0)
 		{
-			sysThreadCreate(&id, client_thread, (void *)&conn_s, 1337, 0x2000, 0, "client");
+			sysThreadCreate(&id, client_thread, (void *)&conn_s, 1337, 0x2000, THREAD_JOINABLE, "client");
 			sysThreadYield();
-		}
+		} else sysUsleep(250000);
 	}
 	
 	closesocket(list_s);
