@@ -36,6 +36,7 @@
 #include "language_ini_ps_bin.h"
 #include "language_ini_chs_bin.h"
 #include "language_ini_cht_bin.h"
+#include "language_ini_gm_bin.h"
 
 #define LANGFILE_VERSION 2
 
@@ -171,7 +172,7 @@ t_lngstr lang_strings[] =
     { DRAWTOOLS_LANGUAGE_3, "DRAWTOOLS_LANGUAGE_3"     , "Française" },
     { DRAWTOOLS_LANGUAGE_4, "DRAWTOOLS_LANGUAGE_4"     , "Italiano" },
     { DRAWTOOLS_LANGUAGE_5, "DRAWTOOLS_LANGUAGE_5"     , "Norsk" },
-    { DRAWTOOLS_LANGUAGE_6, "DRAWTOOLS_LANGUAGE_6"     , "Deutsch (not defined)" },
+    { DRAWTOOLS_LANGUAGE_6, "DRAWTOOLS_LANGUAGE_6"     , "Deutsch" },
     { DRAWTOOLS_LANGUAGE_7, "DRAWTOOLS_LANGUAGE_7"     , "Português (not defined)" },
     { DRAWTOOLS_LANGUAGE_8, "DRAWTOOLS_LANGUAGE_8"     , "(test) فارسی" },
     { DRAWTOOLS_LANGUAGE_9, "DRAWTOOLS_LANGUAGE_9"     , "Chinese Simplified"},
@@ -370,6 +371,10 @@ int open_language (int lang, char * filename)
                 case 4: // nw
                     file_bin = (char *) language_ini_nw_bin;
                     file_size = language_ini_nw_bin_size;
+                    break;
+                case 5: // gm
+                    file_bin = (char *) language_ini_gm_bin;
+                    file_size = language_ini_gm_bin_size;
                     break;
                 case 7: // ps
                     file_bin = (char *) language_ini_ps_bin;
