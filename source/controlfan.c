@@ -695,7 +695,7 @@ void draw_controlfan_options()
 
     SetFontColor(0xffffffff, 0x00000000);
     SetFontSize(16, 20);
-    DrawFormatString(x2, y2 + 8, "Use L1/R1 or X");
+    DrawFormatString(x2, y2 + 8, "Use L1/R1 or X/O");
     DrawFormatString(x2, y2 + 32, "to change values");
     DrawFormatString(x2, y2 + 56, "LEFT/RIGHT to change");
     DrawFormatString(x2, y2 + 80, "of column");
@@ -956,7 +956,7 @@ void draw_controlfan_options()
         auto_r1 = 1;
     }
 
-    if(new_pad & BUTTON_CROSS) {
+    if(new_pad & (BUTTON_CROSS | BUTTON_CIRCLE)) {
         switch(select_option) {
             case 0:
                 fan_mode++;if(fan_mode > 2) fan_mode = 0;
@@ -1163,7 +1163,7 @@ void draw_controlfan_options()
     }
 
     
-    if(new_pad & BUTTON_CIRCLE) {
+    if(new_pad & BUTTON_TRIANGLE) {
         memcpy((void *) temp_control, (void *) temp_control_backup, sizeof(temp_control));
         memcpy((void *) speed_table, (void *) speed_table_backup, sizeof(speed_table));
         wakeup_time = wakeup_time_backup;

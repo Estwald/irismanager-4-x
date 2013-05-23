@@ -965,10 +965,6 @@ static int move_archive_manager(char *path1, char *path2, sysFSDirent *ent, int 
                                  } else v = 0;
 
 
-
-extern PngDatas Png_res[16];
-extern u32 Png_res_offset[16];
-
 static void display_icon(int x, int y, int z, int icon)
 {
     tiny3d_SetTextureWrap(0, Png_res_offset[7 + icon], Png_res[7 + icon].width, 

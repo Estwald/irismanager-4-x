@@ -88,6 +88,7 @@
 #include "file_png_bin.h"
 #include "pkg_png_bin.h"
 #include "self_png_bin.h"
+#include "space_jpg_bin.h"
 
 #include "music1_mod_bin.h"
 #include "music2_mod_bin.h"
@@ -96,6 +97,8 @@
 #include "cricket_raw_bin.h"
 
 #include "ps3_discless.h"
+
+#include "event_threads.h"
 
 u64 restore_syscall8[2]= {0,0};
 
@@ -173,12 +176,12 @@ int move_bdemubackup_to_origin(u32 flags);
 
 
 u8 * png_texture = NULL;
-PngDatas Png_datas[16];
-u32 Png_offset[16];
-int Png_iscover[16];
+PngDatas Png_datas[24];
+u32 Png_offset[24];
+int Png_iscover[24];
 
-PngDatas Png_res[16];
-u32 Png_res_offset[16];
+PngDatas Png_res[24];
+u32 Png_res_offset[24];
 
 extern char * language[];
 char self_path[MAXPATHLEN]= "/"__MKDEF_MANAGER_FULLDIR__;
@@ -223,8 +226,8 @@ void Load_PNG_resources()
 {
     int i;
 
-    for(i = 0; i < 16; i++) Png_res[i].png_in = NULL;
-    for(i = 0; i < 16; i++) Png_iscover[i] = 0;
+    for(i = 0; i < 24; i++) Png_res[i].png_in = NULL;
+    for(i = 0; i < 24; i++) Png_iscover[i] = 0;
 
     // datas for PNG from memory
 
@@ -261,11 +264,17 @@ void Load_PNG_resources()
     Png_res[10].png_in   = (void *) self_png_bin;
     Png_res[10].png_size = self_png_bin_size;
 
+  
     // load PNG from memory
 
     for(i = 0; i < 16; i++)
         if(Png_res[i].png_in != NULL)
             LoadPNG(&Png_res[i], NULL);
+
+    Png_res[16].png_in   = (void *) space_jpg_bin;
+    Png_res[16].png_size = space_jpg_bin_size;
+
+    LoadJPG((JpgDatas *) &Png_res[16], NULL);
 
 }
 
@@ -406,7 +415,9 @@ int get_icon(char * path, const int num_dir)
 
 }
 
-void get_games() 
+static volatile int break_get_games = 0;
+
+void get_games_2(void *empty) 
 {
     int n;
 
@@ -416,6 +427,8 @@ void get_games()
 
     if(mode_favourites) {
         for(n = 0; n < 12; n++) {
+
+            if(break_get_games) return;
         
             if(favourites.list[n].index < 0 || favourites.list[n].title_id[0] == 0 || favourites.list[n].index >= ndirectories) Png_offset[n] = 0;
             else {
@@ -434,6 +447,7 @@ void get_games()
     }
 
     for(n = 0; n < 12; n++) {
+        if(break_get_games) return;
         if((currentdir + n) < ndirectories) {
             
             Png_iscover[n] = get_icon(path_name, (currentdir + n));
@@ -446,6 +460,19 @@ void get_games()
         } else Png_offset[n] = 0;
     }
 
+}
+
+void get_games()
+{
+    int n;
+
+    break_get_games = 1; // for short wait
+    wait_event_thread(); // wait previous event thread function
+    break_get_games = 0;
+    // reset icon datas
+    for(n = 0; n < 12; n++) {Png_iscover[n] =0; Png_offset[n] = 0;}
+    // program new event thread function
+    event_thread_send(0x555ULL, (u64) get_games_2, 0); 
 }
 
 
@@ -519,7 +546,7 @@ void LoadTexture()
 
     Load_PNG_resources();
 
-    for(i = 0; i < 16; i++) {
+    for(i = 0; i < 24; i++) {
        
         if(Png_res[i].png_in == NULL) continue;
 
@@ -783,6 +810,7 @@ void fun_exit()
     if(!one) return;
     one = 0;
 
+    event_threads_finish();
     set_usleep_sm_main(250000);
 
     if(!is_ps3game_running && lv2peek(0x80000000000004E8ULL)) syscall_40(1, 0); // disables PS3 Disc-less
@@ -1212,6 +1240,17 @@ int is_libfs_patched(void){
                     
 /******************************************************************************************************************************************************/
 
+int test_ftp_working()
+{
+    if(get_ftp_activity()) {
+        if(DrawDialogYesNo("FTP is working now\nWhat you interrupt the FTP activity?\n\nEl FTP esta trabajando ahora mismo\nQuieres interrumpir su actividad?") == 1) {
+            ftp_deinit();
+            ftp_inited = 0;
+            return 0;
+            
+        } else return 1;
+    } return 0;
+}
 
 s32 main(s32 argc, const char* argv[])
 {
@@ -1222,6 +1261,8 @@ s32 main(s32 argc, const char* argv[])
     sysSpuSegment * segments;
 
     if(lv2peek(0x80000000000004E8ULL)) syscall_40(1, 0); // disables PS3 Disc-less 
+
+    event_threads_init();
 
     atexit(fun_exit);
 
@@ -1622,9 +1663,9 @@ s32 main(s32 argc, const char* argv[])
 
         if(firmware == 0x341C || firmware == 0x355C)
             syscall_40(6, 0x8d000B04);
-        else if(firmware == 0x421C)
+        else /*if(firmware == 0x421C)
             syscall_40(6, 0x8d001A04);
-        else
+        else*/
             if(firmware != 0x430C && firmware != 0x431C && firmware != 0x440C && manager_cfg.event_flag)
                 syscall_40(6, manager_cfg.event_flag);
 
@@ -1761,19 +1802,19 @@ s32 main(s32 argc, const char* argv[])
             if((!forcedevices || (fdevices & 2048)) && find_device == 11 && bdvd_notify == 0) {goto skip_bdvd;}
           
 
-            DIR  *dir;
-
+            sysFSStat dstat;
+            int ret;
             
             if(find_device == 11 && psx_inserted < 0) {
-                dir = NULL;
+                ret = -1;
             } else
-                dir = opendir (filename);
+                ret= sysLv2FsStat(filename, &dstat);
 
-			if (dir) {
-                closedir (dir);
+			if (ret == 0) {
 
                 // check bdemu
-                if(find_device >= 0 && find_device < 11) move_bdemubackup_to_origin(1 << find_device);
+                if((fdevices & (1<<find_device)) == 0 && find_device >= 0 && find_device < 11) 
+                    move_bdemubackup_to_origin(1 << find_device);
 
                 fdevices|= 1<<find_device;
 
@@ -1782,9 +1823,9 @@ s32 main(s32 argc, const char* argv[])
              
                     if(!noBDVD && (get_psx_region_cd() & 0x10) == 0x10) {psx_inserted |= 0x100;}
                     else {
-                        dir = opendir ("/dev_bdvd/PS3_GAME");
-                        if(dir) closedir (dir);
-                        else {psx_inserted = 0; fdevices^= 1<<find_device;}
+
+                        ret= sysLv2FsStat("/dev_bdvd/PS3_GAME", &dstat);
+                        if(ret != 0) {psx_inserted = 0; fdevices^= 1<<find_device;}
                     }
                 }
 
@@ -1822,7 +1863,7 @@ s32 main(s32 argc, const char* argv[])
                     currentdir=0;
 
                     // detect psx code
-                    if(stat("/dev_bdvd/PSX.EXE", &s)==0 || stat("/dev_bdvd/SYSTEM.CNF", &s)==0 || (psx_inserted & 0x100) == 0x100) {
+                    if(!noBDVD && (stat("/dev_bdvd/PSX.EXE", &s)==0 || stat("/dev_bdvd/SYSTEM.CNF", &s)==0 || (psx_inserted & 0x100) == 0x100)) {
                         psx_inserted &= ~0x100;
                         psx_inserted |= 0x80;
                         strncpy(bluray_game, "PSX-GAME", 64);
@@ -1847,7 +1888,7 @@ s32 main(s32 argc, const char* argv[])
 					    bluray_game[63]=0;
 					}
 					found_game_insert=1;		
-					if(((fdevices>>11) & 1)  && !mode_homebrew) {
+					if(((fdevices>>11) & 1)  && !mode_homebrew && !noBDVD) {
 
 						if(ndirectories>=MAX_DIRECTORIES) ndirectories= MAX_DIRECTORIES-1;
                         					
@@ -1957,6 +1998,7 @@ s32 main(s32 argc, const char* argv[])
                         sprintf(filename, "/dev_usb00%c/" __MKDEF_GAMES_DIR, 47+find_device);
                     else
                         sprintf(filename, "/dev_usb00%c/game", 47+find_device);
+                    
                 }
 
 		        if(((fdevices>>find_device) & 1) && (!mode_homebrew || (mode_homebrew && find_device!=0)) ) {
@@ -2090,6 +2132,7 @@ s32 main(s32 argc, const char* argv[])
             disc_less_on = 2;
 
             if(new_pad & BUTTON_CROSS) new_pad ^= BUTTON_CROSS;
+            if(new_pad & BUTTON_CIRCLE) new_pad ^= BUTTON_CIRCLE;
 
             
         }
@@ -2272,6 +2315,7 @@ void mount_custom(char *path)
         add_sys8_path_table("/dev_ps2disc", mem);
         free(mem);
     }
+
 }
 
 static u8 BdId[0x10];
@@ -2309,6 +2353,42 @@ void set_BdId(int index)
  
     syscall_40(7, (u64) (BdId)); // set BD Media Id
 
+}
+
+void get_pict(int *index)
+{
+    char dir[0x420];
+    char dir2[0x420];
+    char temp_buffer[0x420];
+
+    sysFSStat dstat;
+
+    int i = *index;
+
+    
+    if(!mode_favourites || (mode_favourites != 0 && favourites.list[i].index >= 0)) {
+        sprintf(dir, "%s%s", directories[get_currentdir(i)].path_name, 
+            &folder_mode[!((directories[get_currentdir(i)].flags>>31) & 1)][0]);
+
+        sprintf(dir2, "%s%s", directories[(mode_favourites != 0) 
+                ? favourites.list[i].index : (currentdir + i)].path_name, 
+                &folder_mode[!((directories[(mode_favourites != 0) 
+                    ? favourites.list[i].index : (currentdir + i)].flags>>31) & 1)][0]);
+
+        sprintf(temp_buffer, "%sPIC1.PNG", dir);
+       
+        if(sysLv2FsStat(temp_buffer, &dstat) != 0 || LoadTexturePNG(temp_buffer, 12) < 0) {
+            sprintf(temp_buffer, "%sPIC0.PNG", dir2);
+
+            if(sysLv2FsStat(temp_buffer, &dstat) != 0 || LoadTexturePNG(temp_buffer, 12) < 0) {
+                sprintf(temp_buffer, "%sICON0.PNG", dir2);
+                if(sysLv2FsStat(temp_buffer, &dstat) != 0 || LoadTexturePNG(temp_buffer, 12) < 0) {
+                    sprintf(temp_buffer, "%sPIC2.PNG", dir2);
+                    if(sysLv2FsStat(temp_buffer, &dstat) != 0 || LoadTexturePNG(temp_buffer, 12) < 0) Png_offset[12] = 0;
+                }
+            }
+        }
+    }
 }
 
 void draw_screen1(float x, float y)
@@ -2704,9 +2784,10 @@ void draw_screen1(float x, float y)
             mode_favourites = 1;
 
         } else {
-            
-            if(DrawDialogYesNo(language[DRAWSCREEN_EXITXMB])==1) {exit_program = 1; return;}
-            if(DrawDialogYesNo("Restart the PS3 System?\n\nReiniciar la PS3?")==1) {set_install_pkg = 1; game_cfg.direct_boot=0; exit(0);}
+            if(!test_ftp_working()) {
+                if(DrawDialogYesNo(language[DRAWSCREEN_EXITXMB])==1) {exit_program = 1; return;}
+                if(DrawDialogYesNo("Restart the PS3 System?\n\nReiniciar la PS3?")==1) {set_install_pkg = 1; game_cfg.direct_boot=0; exit(0);}
+            }
             
         }
     }
@@ -2722,7 +2803,7 @@ void draw_screen1(float x, float y)
             
     }
 
-    if(new_pad & BUTTON_CROSS) {
+    if(new_pad & (BUTTON_CROSS | BUTTON_CIRCLE)) {
         i = selected;
 
         if(mode_favourites >= 131072) { // swap favourites
@@ -2753,6 +2834,8 @@ void draw_screen1(float x, float y)
 
             return;     
         }
+
+        if(test_ftp_working()) return;
 
         if(Png_offset[i]) {
             if(mode_favourites != 0 && favourites.list[i].index < 0) {
@@ -2816,6 +2899,15 @@ void draw_screen1(float x, float y)
                         DrawDialogOK(temp_buffer);return;
                     }
                 }
+
+                /// cache
+                if(use_cache && ((game_cfg.bdemu==1 && (directories[currentgamedir].flags & 1)) || 
+                     (!(directories[currentgamedir].flags & 1) && game_cfg.bdemu_ext==1))) {
+         
+                    DrawDialogOKTimer("BD Emu cannot work with big file cache datas\n\nBD Emu no puede trabajar con big file en cache de datos", 2000.0f);
+                    return;     
+                }
+                   
                 
                 if(game_cfg.exthdd0emu) {
 
@@ -2941,6 +3033,7 @@ void draw_screen1(float x, float y)
                         n = move_origin_to_bdemubackup(directories[currentgamedir].path_name);
                         sprintf(temp_buffer, "%s/PS3_DISC.SFB", directories[currentgamedir].path_name);
                         add_sys8_path_table("/dev_bdvd/PS3_DISC.SFB", temp_buffer);
+                       
                     }
                     if(n < 0)
                     {
@@ -3036,11 +3129,18 @@ void draw_screen1(float x, float y)
                 
                 if(use_cache) {
                        
-                        sprintf(temp_buffer + 1024, "%s/cache/%s/%s", self_path,  //check replace (1024)
+                    sprintf(temp_buffer + 1024, "%s/cache/%s/%s", self_path,  //check replace (1024)
                         directories[currentgamedir].title_id, "/paths.dir");
                         
                         char *path = LoadFile(temp_buffer + 1024, &n);
                         char *mem = path;
+
+                        if(path && path[0x400]==0 && path[0x420]!=0) { // repair bug in some Iris Manager versions
+
+                            memcpy(&path[0x400], &path[0x420], 0x380);
+                            SaveFile(temp_buffer + 1024, path, n);
+                            
+                        }
 
                         n = n & ~2047; // if file truncated break bad datas...
 
@@ -3049,15 +3149,19 @@ void draw_screen1(float x, float y)
                             while(n > 0)
                             {
                                 char *t = path;
-
+                                
                                 sprintf(temp_buffer + 1024, "%s/cache/%s/%s", self_path, 
-                                    directories[currentgamedir].title_id, path + 1024);
+                                directories[currentgamedir].title_id, path + 0x400);
+                                
                                  
                                 path = strstr(path, "PS3_GAME/");
                                
                                 sprintf(temp_buffer, "/dev_bdvd/%s", path);
 
                                 add_sys8_path_table(temp_buffer, temp_buffer + 1024);
+
+                                //DrawDialogOK(temp_buffer);
+                                //DrawDialogOK(temp_buffer + 1024);
 
                                 path = t + 2048;
                                 n   -= 2048;
@@ -3070,7 +3174,7 @@ void draw_screen1(float x, float y)
                     if((directories[currentgamedir].flags & (1<<23)) == (1<<23)) { // add PSX iso
 
                         if(!lv2_patch_storage && (directories[currentgamedir].flags & (1<<11))) {
-                            DrawDialogOK("PSX Unsupported");
+                            DrawDialogOKTimer("PSX Unsupported", 2000.0f);
                             return;
                         }
 
@@ -3085,7 +3189,7 @@ void draw_screen1(float x, float y)
                             LoadPSXOptions(directories[currentgamedir].path_name);
                                
                             if(psx_iso_prepare(directories[currentgamedir].path_name, directories[currentgamedir].title)==0)  {
-                                DrawDialogOK("PSX Game not detected!");
+                                DrawDialogOKTimer("PSX Game not detected!", 2000.0f);
                                 return;
                             }
                             
@@ -3207,6 +3311,7 @@ void draw_screen1(float x, float y)
 
                 }
 
+               
                 build_sys8_path_table();
 
                 exit_program = 1; 
@@ -3239,11 +3344,15 @@ void draw_screen1(float x, float y)
             get_games();
             return;
         }
-
         if(Png_offset[i]) {
             
             stops_BDVD = 1;
             Png_offset[12] = 0;
+
+            wait_event_thread();
+            // program new event thread function
+            event_thread_send(0x555ULL, (u64) get_pict, (u64) &i); 
+            /*
 
             if(!mode_favourites || (mode_favourites != 0 && favourites.list[i].index >= 0)) {
                 sprintf(temp_buffer, "%s%sPIC1.PNG", directories[get_currentdir(i)].path_name, &folder_mode[!((directories[get_currentdir(i)].flags>>31) & 1)][0]);
@@ -3268,7 +3377,7 @@ void draw_screen1(float x, float y)
                     }
                 }
             }
-            
+            */
             currentgamedir = get_currentdir(i);
             if(currentgamedir >= 0 && currentgamedir < ndirectories) {
                 // access to PSX configuration menu
@@ -3552,8 +3661,12 @@ void draw_options(float x, float y, int index)
         tiny3d_SetTextureWrap(0, Png_offset[12], Png_datas[12].width, 
         Png_datas[12].height, Png_datas[12].wpitch, 
             TINY3D_TEX_FORMAT_A8R8G8B8,  TEXTWRAP_CLAMP, TEXTWRAP_CLAMP,1);
-        DrawTextBox(x, y, 0, 200 * 4 - 8, 150 * 3 - 8, 0xffffffff);
-    }
+        
+    } else tiny3d_SetTextureWrap(0, Png_res_offset[16], Png_res[16].width, 
+                    Png_res[16].height, Png_res[16].wpitch, 
+                        TINY3D_TEX_FORMAT_A8R8G8B8,  TEXTWRAP_CLAMP, TEXTWRAP_CLAMP,1);
+    
+    DrawTextBox(x, y, 0, 200 * 4 - 8, 150 * 3 - 8, 0xffffffff);
 
     DrawBox(x, y, 0, 200 * 4 - 8, 150 * 3 - 8, 0x00000028);
 
@@ -3677,7 +3790,7 @@ void draw_options(float x, float y, int index)
 
     ps3pad_read();
    
-    if(new_pad & BUTTON_CROSS) {
+    if(new_pad & (BUTTON_CROSS | BUTTON_CIRCLE)) {
 
         switch(select_option) {
             case 0:
@@ -3700,6 +3813,7 @@ void draw_options(float x, float y, int index)
 
             case 1:
                 if(mode_homebrew == HOMEBREW_MODE) break;
+                if(test_ftp_working()) break;
                  i = selected;
 
                  if(Png_offset[i]) {
@@ -3720,6 +3834,7 @@ void draw_options(float x, float y, int index)
 
             case 2:
                  i = selected;
+                 if(test_ftp_working()) break;
 
                  if(Png_offset[i]) {
                     
@@ -3738,7 +3853,7 @@ void draw_options(float x, float y, int index)
                  return;
             case 3:
                  i = selected;
-
+                 
                  if(Png_offset[i]) {
 
                     pause_music(1);                
@@ -3837,7 +3952,7 @@ void draw_options(float x, float y, int index)
        // menu_screen = 0; return;
     }
 
-    if(new_pad & BUTTON_CIRCLE) {
+    if(new_pad & BUTTON_TRIANGLE) {
         Png_offset[12] = 0; menu_screen = 0; select_option = 0; return;
     }
    
@@ -3941,8 +4056,12 @@ void draw_configs(float x, float y, int index)
         tiny3d_SetTextureWrap(0, Png_offset[12], Png_datas[12].width, 
         Png_datas[12].height, Png_datas[12].wpitch, 
             TINY3D_TEX_FORMAT_A8R8G8B8,  TEXTWRAP_CLAMP, TEXTWRAP_CLAMP,1);
-        DrawTextBox(x, y, 0, 200 * 4 - 8, 150 * 3 - 8, 0xffffffff);
-    }
+        
+    } else tiny3d_SetTextureWrap(0, Png_res_offset[16], Png_res[16].width, 
+                    Png_res[16].height, Png_res[16].wpitch, 
+                        TINY3D_TEX_FORMAT_A8R8G8B8,  TEXTWRAP_CLAMP, TEXTWRAP_CLAMP,1);
+    
+    DrawTextBox(x, y, 0, 200 * 4 - 8, 150 * 3 - 8, 0xffffffff);
 
     DrawBox(x, y, 0, 200 * 4 - 8, 150 * 3 - 8, 0x00000028);
 
@@ -4057,12 +4176,12 @@ void draw_configs(float x, float y, int index)
     ps3pad_read();
 
 
-    if(new_pad & BUTTON_CIRCLE) {
+    if(new_pad & BUTTON_TRIANGLE) {
         menu_screen = 1; select_option = 0; return;
     }
 
    
-    if(new_pad & BUTTON_CROSS) {
+    if(new_pad & (BUTTON_CROSS | BUTTON_CIRCLE)) {
      
         switch(select_option) {
             //removed sys8 calls not supported yet on 3.55
@@ -4322,14 +4441,14 @@ void draw_gbloptions(float x, float y)
         help^=1;
     }
 
-    if(new_pad & BUTTON_CIRCLE) {
+    if(new_pad & BUTTON_TRIANGLE) {
         help = 0;
         menu_screen = 0; return;
     }
 
     if(help) return;
 
-    if(new_pad & BUTTON_CROSS) {
+    if(new_pad & (BUTTON_CROSS | BUTTON_CIRCLE)) {
     
         switch(select_option) {
             case 0:
@@ -4372,10 +4491,11 @@ void draw_gbloptions(float x, float y)
                 break;
 
             case 4:
+                if(test_ftp_working()) break;
                 if ((manager_cfg.opt_flags & OPTFLAGS_FTP) == 0)
                 {
-
-                    if(ftp_init() == 0)
+                    int r = ftp_init();
+                    if(r == 0)
                     {
                         ftp_inited = 1;
                         if(DrawDialogYesNo(language[DRAWGLOPT_FTPINITED]) != 1)
@@ -4383,7 +4503,11 @@ void draw_gbloptions(float x, float y)
                     }
                     else
                     {
-                        DrawDialogOK(language[DRAWGLOPT_FTPARINITED]);
+                        if(r == -1) DrawDialogOK("Error in netInitialize()");
+                        else if(r == -2) DrawDialogOK("Error in netCtlInit()");
+                        else if(r == -3) DrawDialogOK("Error in netCtlGetInfo()");
+                        else DrawDialogOK(language[DRAWGLOPT_FTPARINITED]);
+
                         break;
                     }
                 }
@@ -4530,7 +4654,7 @@ void draw_toolsoptions(float x, float y)
 
     ps3pad_read();
 
-    if(new_pad & BUTTON_CROSS) {
+    if(new_pad & (BUTTON_CROSS | BUTTON_CIRCLE)) {
     
         switch(select_option) {
             case 0:
@@ -4558,10 +4682,12 @@ void draw_toolsoptions(float x, float y)
                 break;
 
             case 3:
+                if(test_ftp_working()) break;
                 copy_usb_to_iris(self_path);
                 break;
 
             case 4:
+                if(test_ftp_working()) break;
                 manager_cfg.noBDVD = 0; //(manager_cfg.noBDVD ==0) & 1;
 
                 sprintf(temp_buffer, "%s\n\n%s?", language[GAMEFOLDER_WANTUSE], language[DRAWTOOLS_NOBDVD2]);
@@ -4637,7 +4763,7 @@ void draw_toolsoptions(float x, float y)
     
     }
 
-    if(new_pad & BUTTON_CIRCLE) {
+    if(new_pad & BUTTON_TRIANGLE) {
         menu_screen = 0; return;
     }
    
@@ -4769,7 +4895,7 @@ void draw_cachesel(float x, float y)
 
     ps3pad_read();
 
-    if(new_pad & BUTTON_CROSS) {
+    if(new_pad & (BUTTON_CROSS | BUTTON_CIRCLE)) {
     
         if(select_option >= ncache_list) return;
 
@@ -4793,7 +4919,7 @@ void draw_cachesel(float x, float y)
         return;
     }
 
-    if(new_pad & BUTTON_CIRCLE) {
+    if(new_pad & BUTTON_TRIANGLE) {
         select_option = 0;
         menu_screen = 0; return;
     }
@@ -4938,6 +5064,9 @@ int move_bdemubackup_to_origin(u32 flags)
 
     int file_size;
     char *file;
+
+    sysFSStat dstat;
+    if(sysLv2FsStat(temp_buffer, &dstat) != 0) return -1;
 
     file = LoadFile(temp_buffer + 256, &file_size);
     

@@ -1184,7 +1184,7 @@ static int fast_copy_process();
 
 static int nfilecached = 0;
 static s64 filecached_bytes[MAX_FILECACHED];
-static char filecached[MAX_FILECACHED][2][0x420];
+static char filecached[MAX_FILECACHED][2][0x400];
 
 static char * path_cache = NULL;
 

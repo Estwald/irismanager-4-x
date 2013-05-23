@@ -61,6 +61,8 @@ extern int update_title_utf8;
 extern u8 string_title_utf8[128];
 extern int width_title_utf8;
 
+int test_ftp_working();
+
 #define FS_S_IFMT 0170000
 
 void DrawDialogOKTimer(char * str, float milliseconds);
@@ -102,15 +104,6 @@ extern int ndirectories;
 
 extern int currentdir;
 extern int currentgamedir;
-
-
-extern u8 * png_texture;
-extern PngDatas Png_datas[16];
-extern u32 Png_offset[16];
-extern int Png_iscover[16];
-
-extern PngDatas Png_res[16];
-extern u32 Png_res_offset[16];
 
 extern int mode_homebrew;
 
@@ -217,6 +210,12 @@ void draw_psx_options(float x, float y, int index)
 
 
     y += 24;
+
+    tiny3d_SetTextureWrap(0, Png_res_offset[16], Png_res[16].width, 
+                    Png_res[16].height, Png_res[16].wpitch, 
+                        TINY3D_TEX_FORMAT_A8R8G8B8,  TEXTWRAP_CLAMP, TEXTWRAP_CLAMP,1);
+    
+    DrawTextBox(x, y, 0, 200 * 4 - 8, 150 * 3 - 8, 0xffffffff);
     
     DrawBox(x, y, 0, 200 * 4 - 8, 150 * 3 - 8, 0x00000028);
     
@@ -346,7 +345,7 @@ void draw_psx_options(float x, float y, int index)
         
     }
 
-    if(new_pad & BUTTON_CROSS) {
+    if(new_pad & (BUTTON_CROSS | BUTTON_CIRCLE)) {
 
         switch(select_option) {
             case 0:
@@ -391,6 +390,7 @@ void draw_psx_options(float x, float y, int index)
 
             case 4:
                 if(mode_homebrew == 1) break;
+                if(test_ftp_working()) break;
                 if(psx_modified && DrawDialogYesNo(language[DRAWPSX_SAVEASK]) == 1) {
                     if(SavePSXOptions(PSX_LAST_PATH)==0) {
                         sprintf(temp_buffer, language[DRAWPSX_SAVED]);
@@ -434,6 +434,7 @@ void draw_psx_options(float x, float y, int index)
                 return;
 
             case 5:
+                if(test_ftp_working()) break;
                 /*if(psx_modified && DrawDialogYesNo(language[DRAWPSX_SAVEASK]) == 1) {
                     if(SavePSXOptions(PSX_LAST_PATH)==0) {
                         sprintf(temp_buffer, language[DRAWPSX_SAVED]);
@@ -609,7 +610,7 @@ void draw_psx_options(float x, float y, int index)
      
     }
 
-    if(new_pad & BUTTON_CIRCLE) {
+    if(new_pad & BUTTON_TRIANGLE) {
         if(psx_modified && DrawDialogYesNo(language[DRAWPSX_SAVEASK]) == 1) {
             if(SavePSXOptions(PSX_LAST_PATH)==0) {
                 sprintf(temp_buffer, language[DRAWPSX_SAVED]);
@@ -683,8 +684,13 @@ void draw_psx_options2(float x, float y, int index)
         
     SetFontSize(16, 20);
 
-
     y += 24;
+
+    tiny3d_SetTextureWrap(0, Png_res_offset[16], Png_res[16].width, 
+                    Png_res[16].height, Png_res[16].wpitch, 
+                        TINY3D_TEX_FORMAT_A8R8G8B8,  TEXTWRAP_CLAMP, TEXTWRAP_CLAMP,1);
+    
+    DrawTextBox(x, y, 0, 200 * 4 - 8, 150 * 3 - 8, 0xffffffff);
     
     DrawBox(x, y, 0, 200 * 4 - 8, 150 * 3 - 8, 0x00000028);
     
@@ -789,7 +795,7 @@ void draw_psx_options2(float x, float y, int index)
 
     ps3pad_read();
 
-    if(new_pad & BUTTON_CROSS) {
+    if(new_pad & (BUTTON_CROSS | BUTTON_CIRCLE)) {
 
         switch(select_option) {
             
@@ -919,7 +925,7 @@ void draw_psx_options2(float x, float y, int index)
      
     }
 
-    if(new_pad & BUTTON_CIRCLE) {
+    if(new_pad & BUTTON_TRIANGLE) {
         menu_screen = 444;
         select_option = 3;
         return;
@@ -1576,7 +1582,7 @@ int psx_iso_prepare(char *path, char *name)
 
             u64 value = lv2peek(0x8000000000001820ULL);
             if((value == 0x45505331454D5531ULL)
-                && (old_pad & BUTTON_CIRCLE)) {
+                && (old_pad & BUTTON_L2)) {
 
                 if(!noBDVD)
                     sys8_pokeinstr(0x8000000000001830ULL, (u64) 2); // disable CD
