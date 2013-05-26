@@ -151,8 +151,9 @@ t_lngstr lang_strings[] =
     //DRAW GLOBAL OPTIONS
     { DRAWGLOPT_OPTS, "DRAWGLOPT_OPTS"          , "Global Options" },
     { DRAWGLOPT_SCRADJUST, "DRAWGLOPT_SCRADJUST"     , "Video Adjust" },
-    { DRAWGLOPT_CHANGEDIR, "DRAWGLOPT_CHANGEDIR"     , "Change Game Directory" },
+    { DRAWGLOPT_CHANGEGUI, "DRAWGLOPT_CHANGEGUI"     , "Change Current GUI" },
     { DRAWGLOPT_CHANGEBCK, "DRAWGLOPT_CHANGEBCK"     , "Change Background Color" },
+    { DRAWGLOPT_CHANGEDIR, "DRAWGLOPT_CHANGEDIR"     , "Change Game Directory" },
     { DRAWGLOPT_SWMUSICOFF, "DRAWGLOPT_SWMUSICOFF"    , "Switch Music Off" },
     { DRAWGLOPT_SWMUSICON, "DRAWGLOPT_SWMUSICON"     , "Switch Music On" },
     { DRAWGLOPT_INITFTP, "DRAWGLOPT_INITFTP"       , "Initialize FTP server" },
