@@ -10,18 +10,11 @@ endif
 #---------------------------------------------------------------------------------
 #  TITLE, APPID, CONTENTID, ICON0 SFOXML before ppu_rules.
 #---------------------------------------------------------------------------------
-TC_ADD		:=	`date +%d%H%M`
-ICON0		:=	ICON0.PNG
-ICON1		:=	ICON1.PAM
-PIC1		:=	PIC1.PNG
-SFOXML		:=	sfo.xml
 
 # usage:  make BUILD_STEALTH=yes
 ifndef BUILD_STEALTH
-TITLE		:=	IrisManager - v2.50
 APPID		:=	IMANAGER4
 else
-TITLE		:=	LEMMINGS™ Trial Version
 APPID		:=	NPUA80034
 endif
 CONTENTID	:=	UP0001-$(APPID)_00-0000000000000000
@@ -46,21 +39,12 @@ SCETOOL_FLAGS	+=	--self-cap-flags 0000000000000000000000000000000000000000000000
 #---------------------------------------------------------------------------------
 TARGET		:=	$(notdir $(CURDIR))
 BUILD		:=	build
-SOURCES		:=	source source/ftp
-SOURCES		+=  source/payload341 source/payload355 source/payload355dex source/payload421 source/payload421dex
-SOURCES		+=  source/payload430 source/payload430dex source/payload431 source/payload440 source/payload441
-DATA		:=	datas
-SHADERS		:=	shaders
-INCLUDES	:=	include include/ftp
-INCLUDES	+=  include/payload341 include/payload355 include/payload355dex include/payload421 include/payload421dex
-INCLUDES	+=  include/payload430 include/payload430dex include/payload431 include/payload440 include/payload441
+SOURCES		:=	source
 
 #---------------------------------------------------------------------------------
 # any extra libraries we wish to link with the project
 #---------------------------------------------------------------------------------
-LIBS		:=	 -lfreetype -lz -ltiny3d -lnetctl -lnet -lsysfs -lpngdec -ljpgdec -lsimdmath -lgcm_sys -lio -lsysutil -lrt -llv2 -lsysmodule \
-			-laudioplayer -lmod -lspu_sound -laudio -lm $(PORTLIBS)/modules/spu_soundmodule.bin.a
-
+LIBS		:=	-llv2 -lm 
 
 #---------------------------------------------------------------------------------
 # options for code generation
@@ -159,36 +143,6 @@ clean:
 	@echo clean ...
 	@rm -fr $(BUILD) $(OUTPUT).elf $(OUTPUT).self EBOOT.BIN
 
-#---------------------------------------------------------------------------------
-run:
-	ps3load $(OUTPUT).self
-
-#---------------------------------------------------------------------------------
-pkg: $(BUILD) #$(OUTPUT).pkg
-	@$(MAKE) --no-print-directory -C $(CURDIR)/loader -f $(CURDIR)/loader/Makefile npdrm
-	$(VERB) echo building pkg ... $(notdir $@)
-	$(VERB) mkdir -p $(BUILDDIR)/pkg/USRDIR
-	$(VERB) cp $(ICON0) $(BUILDDIR)/pkg/ICON0.PNG
-	$(VERB) cp -f $(CURDIR)/loader/EBOOT.BIN $(BUILDDIR)/pkg/USRDIR/EBOOT.BIN
-	$(VERB) cp -f $(CURDIR)/$(TARGET).self $(BUILDDIR)/pkg/USRDIR/iris_manager.self
-	$(VERB) $(SFO) --title "$(TITLE)" --appid "$(APPID)" -f $(SFOXML) $(BUILDDIR)/pkg/PARAM.SFO
-	$(VERB) if [ -n "$(PKGFILES)" -a -d "$(PKGFILES)" ]; then cp -rf $(PKGFILES)/* $(BUILDDIR)/pkg/; fi
-	$(VERB) $(PKG) --contentid $(CONTENTID) $(BUILDDIR)/pkg/ $(TARGET).pkg >> /dev/null
-
-#---------------------------------------------------------------------------------
-
-pkg2: $(BUILD)
-	@$(MAKE) --no-print-directory -C $(CURDIR)/loader -f $(CURDIR)/loader/Makefile npdrm
-	$(VERB) echo building pkg ... $(notdir $@)
-	$(VERB) mkdir -p $(BUILDDIR)/pkg2/USRDIR
-	$(VERB) cp $(ICON0) $(BUILDDIR)/pkg2/ICON0.PNG
-	$(VERB) cp $(ICON1) $(BUILDDIR)/pkg2/ICON1.PAM
-	$(VERB) cp $(PIC1) $(BUILDDIR)/pkg2/PIC1.PNG
-	$(VERB) cp -f $(CURDIR)/loader/EBOOT.BIN $(BUILDDIR)/pkg2/USRDIR/EBOOT.BIN
-	$(VERB) cp -f $(CURDIR)/$(TARGET).self $(BUILDDIR)/pkg2/USRDIR/iris_manager.self
-	$(VERB) $(SFO) --title "$(TITLE)" --appid "$(APPID)" -f $(SFOXML) $(BUILDDIR)/pkg2/PARAM.SFO
-	$(VERB) if [ -n "$(PKGFILES)" -a -d "$(PKGFILES)" ]; then cp -rf $(PKGFILES)/* $(BUILDDIR)/pkg2/; fi
-	$(VERB) $(PKG) --contentid $(CONTENTID) $(BUILDDIR)/pkg2/ $(TARGET)_animated.pkg >> /dev/null
 #---------------------------------------------------------------------------------
 
 npdrm: $(BUILD)
