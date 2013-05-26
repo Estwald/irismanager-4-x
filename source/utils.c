@@ -452,7 +452,7 @@ int patch_exe_error_09(char *path_exe)
     int file = -1;
     int flag = 0;
 
-    if(firmware < 0x421C || firmware >= 0x441C) return 0;
+    //if(firmware < 0x421C || firmware >= 0x441C) return 0;
 
     // open self/sprx and changes the fw version
     ret = sysLv2FsOpen( path_exe, SYS_O_RDWR, &file, 0, NULL, 0 );
@@ -473,10 +473,10 @@ int patch_exe_error_09(char *path_exe)
                         ret = sysLv2FsLSeek64( file, (u64) offset_fw, 0, &pos );
                         u16 cur_firm = ((firmware>>12) & 0xF) * 10000 + ((firmware>>8) & 0xF) * 1000 + ((firmware>>4) & 0xF) * 100;
                         
-                        if(ret == 0 && ver > fw_421 && ver <= fw_441 && ver > cur_firm) {
+                        if(ret == 0 && firmware >= 0x421C && firmware < 0x441C && ver > fw_421 && ver <= fw_441 && ver > cur_firm) {
                             sysLv2FsWrite( file, &cur_firm, 0x2, &written );
                             flag = 1;
-                        }
+                        } else if(ret==0 && ver > cur_firm) flag = -1; // 
                     }
 
                 }
@@ -494,6 +494,8 @@ int patch_exe_error_09(char *path_exe)
 
 // exported from PS3 Ita Manager method with some modifications (support caps types, error control
 // automatic file offset and "intelligent" patch method
+
+static int self_alarm_version = 0;
 
 void patch_error_09( const char *path )
 {
@@ -558,7 +560,7 @@ void patch_error_09( const char *path )
 			//Copio percorso e nome file in path_sprx
 				snprintf( path_exe, 0x420, "%s/%s", path, d_name );
 				
-			    patch_exe_error_09(path_exe);
+			    if(patch_exe_error_09(path_exe) == -1) self_alarm_version = 1;
 				
 				
 			}
@@ -724,6 +726,31 @@ void sort_entries(t_directories *list, int *max)
 		for(m=n+1; m< fi ;m++)
 			{
 			if((strcasecmp(list[n].title, list[m].title)>0  && ((list[n].flags | list[m].flags) & 2048)==0) || 
+				((list[m].flags & 2048) && n==0))
+				{
+				t_directories swap;
+					swap=list[n];list[n]=list[m];list[m]=swap;
+				}
+			}
+}
+
+void sort_entries2(t_directories *list, int *max, u32 mode)
+{
+	int n,m;
+	int fi= (*max);
+
+    if(mode > 2) mode = 0;
+    if(mode == 0) {sort_entries(list, max); return;}
+	
+
+	for(n=0; n< (fi -1);n++)
+		for(m=n+1; m< fi ;m++)
+			{
+   
+			if((mode == 1 && (list[n].flags & (1<<23)) != (list[m].flags & (1<<23)) && (list[n].flags & (1<<23))!=0) ||
+               (mode == 2 && (list[n].flags & (1<<23)) != (list[m].flags & (1<<23)) && (list[n].flags & (1<<23))==0) ||
+                (mode && (list[n].flags & (1<<23)) == (list[m].flags & (1<<23)) && strcasecmp(list[n].title, list[m].title)>0  && ((list[n].flags | list[m].flags) & 2048)==0)
+                || 
 				((list[m].flags & 2048) && n==0))
 				{
 				t_directories swap;
@@ -2093,7 +2120,9 @@ static int my_game_test(char *path)
                 || (entry->d_name[ ext ] == 's' && entry->d_name[ ext + 1 ] == 'e' && entry->d_name[ ext + 2 ] == 'l' && entry->d_name[ ext + 3 ] == 'f')
                 || (entry->d_name[ ext ] == 'S' && entry->d_name[ ext + 1 ] == 'E' && entry->d_name[ ext + 2 ] == 'L' && entry->d_name[ ext + 3 ] == 'F')
                 ||  strcmp( entry->d_name, "EBOOT.BIN" ) == 0)) {
-                if(patch_exe_error_09(f)) fixed_self_sprx++;
+                int r = patch_exe_error_09(f);
+                if(r==1) fixed_self_sprx++;
+                if(r == -1) {self_alarm_version = 1;DPrintf("%s requires a higher CFW!!!\n", entry->d_name);}
             }
 
             size= s.st_size;
@@ -3488,7 +3517,9 @@ void delete_game(int game_sel)
 void test_game(int game_sel)
 {
    
-   time_start= time(NULL);
+    int r;
+
+    time_start= time(NULL);
 			
     abort_copy=0;
 
@@ -3502,9 +3533,13 @@ void test_game(int game_sel)
     global_device_bytes = 0;
 
     num_directories = file_counter = num_files_big = num_files_split = fixed_self_sprx = 0;
+
     
-    
+    self_alarm_version = 0;
+
     my_game_test(directories[game_sel].path_name);
+
+    r = self_alarm_version;
 
     char game_update[0x420];
 
@@ -3512,12 +3547,25 @@ void test_game(int game_sel)
             directories[game_sel].title_id[2], directories[game_sel].title_id[3], &directories[game_sel].title_id[5]);
     sysFSStat s;
 
-    if(!sysLv2FsStat(game_update, &s)) patch_error_09(game_update);
+    self_alarm_version = 0;
+
+    if(!sysLv2FsStat(game_update, &s)) {
+
+        patch_error_09(game_update);
+    }
     
     DPrintf(language[GAMETSTSL_FINALNFO2], num_directories, file_counter, num_files_big, num_files_split);
     DPrintf("\n\n");
     DPrintf("SPRX/SELF fixed (error 0x80010009) %i", fixed_self_sprx);
     DPrintf("\n\n");
+
+    if(r) {
+        DPrintf("This game requires a higher CFW or rebuild the SELFs/SPRX\n\nEste juego requiere un CFW superior o reconstruir los SELFs/SPRX\n\n");
+    }
+
+    if(self_alarm_version) {
+        DPrintf("The update of this game requires a higher CFW or rebuild the SELFs/SPRX\n\nLa actualizacion de este juego requiere un CFW superior o reconstruir los SELFs/SPRX\n\n");
+    }
 
     int seconds = (int) (time(NULL) - time_start);
     int vflip = 0;

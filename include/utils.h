@@ -97,6 +97,8 @@ void utf8_to_ansi(char *utf8, char *ansi, int len);
 void utf8_truncate(char *utf8, char *utf8_trunc, int len);
 
 void sort_entries(t_directories *list, int *max);
+void sort_entries2(t_directories *list, int *max, u32 mode);
+
 void delete_entries(t_directories *list, int *max, u32 flag);
 void fill_entries_from_device(char *path, t_directories *list, int *max, u32 flag, int sel);
 
