@@ -17,6 +17,8 @@
 #include <sys/memory.h>
 #include <ppu-lv2.h>
 
+#include "sysregistry.h"
+
 int osk_action = 0;
 
 #define OSKDIALOG_FINISHED          0x503
@@ -213,72 +215,6 @@ static void OSK_exit(void)
 
 }
 
-#define LANG_GERMAN  0
-#define LANG_ENGLISH 1
-#define LANG_SPANISH 2   
-#define LANG_FRENCH  3
-#define LANG_ITALIAN 4
-#define LANG_DUTCH   5
-#define LANG_PORTUGUESE 6
-#define LANG_RUSSIAN 7
-#define LANG_JAPANESE 8
-#define LANG_KOREAN   9
-#define LANG_CHINESE  10
-#define LANG_CHINESES 11
-#define LANG_FINNISH  12
-#define LANG_SWEDISH  13
-#define LANG_DANISH   14
-#define LANG_NORWEGIAN 15
-#define LANG_POLISH    16
-#define LANG_PORTUGUESEB 17
-#define LANG_ENGLISHUK 18
-
-
-int language_from_registry(void)
-{
-    int file_size;
-    int n, ret = -2;
-
-    u16 str_offset;
-    u16 str_len;
-    u16 data_len;
-
-    static int lang_set = -1;
-
-    if(lang_set >= 0) return lang_set;
-
-    u8 * mem = (u8 *) LoadFile("/dev_flash2/etc/xRegistry.sys", &file_size);
-
-    if(!mem) return -1;
-
-    n= 0xfff0;
-    if(mem[n]!=0x4D || mem[n + 1]!=0x26) goto end;
-    n+=2;
-
-    while(n < file_size - 4) {
-    
-        if(mem[n + 0]==0xAA && mem[n + 1]==0xBB && mem[n + 2]==0xCC && mem[n + 3]==0xDD) break;
-        str_offset= ((mem[n+2]<<8) | mem[n+3]) + 0x10;
-
-        data_len= (mem[n+6]<<8) | mem[n+7];
-        
-        str_len = (mem[str_offset + 2]<<8) | mem[str_offset + 3];
-
-        if(str_len == 24 && !strcmp((char *) &mem[str_offset + 5], "/setting/system/language")) {
-           
-            memcpy(&ret, &mem[n+9], 4); lang_set = ret; goto end;
-        }
-
-        n+= 10 + data_len;
-    }
-
-
-
-end:
-    free(mem);
-    return ret;
-}
-
 
 int Get_OSK_String(char *caption, char *str, int len)
 {
@@ -294,7 +230,7 @@ int Get_OSK_String(char *caption, char *str, int len)
     osk_level = 0;
     atexit(OSK_exit);
 
-    int lang= language_from_registry();
+    int lang= sys_language;
     
 	if(sysMemContainerCreate(&container_mem, 8*1024*1024)<0) return -1;
 
@@ -432,7 +368,7 @@ int Get_OSK_String(char *caption, char *str, int len)
 
         SetFontAutoCenter(0);
       
-        DrawFormatString(x, y - 2, "%s", caption);
+        DrawFormatString(x, y, "%s", caption);
 
         y += 24;
     
