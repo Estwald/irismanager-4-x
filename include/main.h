@@ -43,6 +43,11 @@ int LoadJPG(JpgDatas *jpg, char *filename);
                                  if(v > 20) {v = 0; new_pad |= b;} \
                                  } else v = 0;
 
+#define AUTO_BUTTON_REP3(v, b) if(v && (old_pad & b)) { \
+                                 v++; \
+                                 if(v > 9) {v = 0; new_pad |= b;} \
+                                 } else v = 0;
+
 
 void load_gamecfg (int current_dir);
 

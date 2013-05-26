@@ -71,6 +71,7 @@
 #include "psx.h"
 #include "archive_manager.h"
 #include "controlfan.h"
+#include "sysregistry.h"
 
 // include fonts
 
@@ -101,6 +102,9 @@
 #include "event_threads.h"
 
 u64 restore_syscall8[2]= {0,0};
+
+int gui_mode = 0; // GUI selector
+int sort_mode = 0;
 
 int noBDVD = 0;
 int stops_BDVD = 1;
@@ -168,6 +172,7 @@ int ndirectories = 0;
 
 int currentdir = 0;
 int currentgamedir = 0;
+int int_currentdir = 0;
 
 void unpatch_bdvdemu();
 int patch_bdvdemu(u32 flags);
@@ -183,11 +188,12 @@ int Png_iscover[24];
 PngDatas Png_res[24];
 u32 Png_res_offset[24];
 
+int Png_index[24];
+
 extern char * language[];
 char self_path[MAXPATHLEN]= "/"__MKDEF_MANAGER_FULLDIR__;
 
 char temp_buffer[8192];
-
 
 int LoadPNG(PngDatas *png, const char *filename)
 {
@@ -227,7 +233,7 @@ void Load_PNG_resources()
     int i;
 
     for(i = 0; i < 24; i++) Png_res[i].png_in = NULL;
-    for(i = 0; i < 24; i++) Png_iscover[i] = 0;
+    for(i = 0; i < 24; i++) {Png_iscover[i] = 0; Png_index[i] = i;}
 
     // datas for PNG from memory
 
@@ -278,49 +284,55 @@ void Load_PNG_resources()
 
 }
 
+static PngDatas my_png_datas;
+
 int LoadTexturePNG(char * filename, int index)
 {
     
-    u32 * texture_pointer2 = (u32 *) (png_texture + index * 4096 * 1024); // 4 MB reserved for PNG index
+    u32 * texture_pointer2 = (u32 *) (png_texture + (index >= 12 ? index : Png_index[index]) * 4096 * 1024); // 4 MB reserved for PNG index
 
     // here you can add more textures using 'texture_pointer'. It is returned aligned to 16 bytes
    
-    memset(&Png_datas[index], 0, sizeof(PngDatas));
-	if(LoadPNG(&Png_datas[index], filename) <0) memset(&Png_datas[index], 0, sizeof(PngDatas));
+    memset(&my_png_datas, 0, sizeof(PngDatas));
+	if(LoadPNG(&my_png_datas, filename) <0) memset(&my_png_datas, 0, sizeof(PngDatas));
  
     Png_offset[index] = 0;
+    memcpy(&Png_datas[index], &my_png_datas, sizeof(PngDatas));
        
-    if(Png_datas[index].bmp_out) {
+    if(my_png_datas.bmp_out) {
 
-        if(index < 12 && Png_datas[index].wpitch * Png_datas[index].height > 4096 * 1024) { //  too big!
+        if(index < 12 && my_png_datas.wpitch * my_png_datas.height > 4096 * 1024) { //  too big!
             memset(texture_pointer2, 0, 64 * 64 * 4);
-            Png_datas[index].wpitch = 64 * 4;
-            Png_datas[index].height = Png_datas[index].width = 64;
+            my_png_datas.wpitch = 64 * 4;
+            my_png_datas.height = my_png_datas.width = 64;
         } else
-            memcpy(texture_pointer2, Png_datas[index].bmp_out, Png_datas[index].wpitch * Png_datas[index].height);
+            memcpy(texture_pointer2, my_png_datas.bmp_out, my_png_datas.wpitch * my_png_datas.height);
         
-        free(Png_datas[index].bmp_out);
+        free(my_png_datas.bmp_out);
 
-        Png_datas[index].bmp_out= texture_pointer2;
+        my_png_datas.bmp_out= texture_pointer2;
 
-        Png_offset[index] = tiny3d_TextureOffset(Png_datas[index].bmp_out);      // get the offset (RSX use offset instead address)
+        memcpy(&Png_datas[index], &my_png_datas, sizeof(PngDatas));
+        Png_offset[index] = tiny3d_TextureOffset(my_png_datas.bmp_out);      // get the offset (RSX use offset instead address)
 
      return 0;
      } else {
 
          // fake PNG
-        Png_datas[index].bmp_out= texture_pointer2;
-
-        Png_offset[index] = tiny3d_TextureOffset(Png_datas[index].bmp_out);
+        my_png_datas.bmp_out= texture_pointer2;
 
         int n;
         u32 * text = texture_pointer2;
 
-        Png_datas[index].width = Png_datas[index].height = 64;
+        my_png_datas.width = my_png_datas.height = 64;
         
-        Png_datas[index].wpitch = Png_datas[index].width * 4;
+        my_png_datas.wpitch = my_png_datas.width * 4;
        
-        for (n = 0; n < Png_datas[index].width * Png_datas[index].height; n++) *text++ = 0xff000000;
+        for (n = 0; n < my_png_datas.width * my_png_datas.height; n++) *text++ = 0xff000000;
+
+        memcpy(&Png_datas[index], &my_png_datas, sizeof(PngDatas));
+
+        Png_offset[index] = tiny3d_TextureOffset(my_png_datas.bmp_out);
        
      }
 
@@ -330,46 +342,53 @@ int LoadTexturePNG(char * filename, int index)
 int LoadTextureJPG(char * filename, int index)
 {
     
-    u32 * texture_pointer2 = (u32 *) (png_texture + index * 4096 * 1024); // 4 MB reserved for PNG index
+    u32 * texture_pointer2 = (u32 *) (png_texture + (index >= 12 ? index : Png_index[index]) * 4096 * 1024); // 4 MB reserved for PNG index
 
     // here you can add more textures using 'texture_pointer'. It is returned aligned to 16 bytes
    
-    memset(&Png_datas[index], 0, sizeof(PngDatas));
-	if(LoadJPG((JpgDatas *)&Png_datas[index], filename) <0) memset(&Png_datas[index], 0, sizeof(PngDatas));
+    
+    memset(&my_png_datas, 0, sizeof(PngDatas));
+
+   
+	if(LoadJPG((JpgDatas *)&my_png_datas, filename) <0) memset(&my_png_datas, 0, sizeof(PngDatas));
  
     Png_offset[index] = 0;
+    memcpy(&Png_datas[index], &my_png_datas, sizeof(PngDatas));
        
-    if(Png_datas[index].bmp_out) {
+    if(my_png_datas.bmp_out) {
         
-        if(index < 12 && Png_datas[index].wpitch * Png_datas[index].height > 4096 * 1024) { //  too big!
+        if(index < 12 && my_png_datas.wpitch * my_png_datas.height > 4096 * 1024) { //  too big!
             memset(texture_pointer2, 0, 64 * 64 * 4);
-            Png_datas[index].wpitch = 64 * 4;
-            Png_datas[index].height = Png_datas[index].width = 64;
+            my_png_datas.wpitch = 64 * 4;
+            my_png_datas.height = my_png_datas.width = 64;
         } else
-            memcpy(texture_pointer2, Png_datas[index].bmp_out, Png_datas[index].wpitch * Png_datas[index].height);
+            memcpy(texture_pointer2, my_png_datas.bmp_out, my_png_datas.wpitch * my_png_datas.height);
         
-        free(Png_datas[index].bmp_out);
+        free(my_png_datas.bmp_out);
 
-        Png_datas[index].bmp_out= texture_pointer2;
+        my_png_datas.bmp_out= texture_pointer2;
 
-        Png_offset[index] = tiny3d_TextureOffset(Png_datas[index].bmp_out);      // get the offset (RSX use offset instead address)
+        memcpy(&Png_datas[index], &my_png_datas, sizeof(PngDatas));
+        Png_offset[index] = tiny3d_TextureOffset(my_png_datas.bmp_out);      // get the offset (RSX use offset instead address)
 
      return 0;
      } else {
 
          // fake PNG
-        Png_datas[index].bmp_out= texture_pointer2;
-
-        Png_offset[index] = tiny3d_TextureOffset(Png_datas[index].bmp_out);
+        my_png_datas.bmp_out= texture_pointer2;
 
         int n;
         u32 * text = texture_pointer2;
 
-        Png_datas[index].width = Png_datas[index].height = 64;
+        my_png_datas.width = my_png_datas.height = 64;
         
-        Png_datas[index].wpitch = Png_datas[index].width * 4;
+        my_png_datas.wpitch = my_png_datas.width * 4;
        
-        for (n = 0; n < Png_datas[index].width * Png_datas[index].height; n++) *text++ = 0xff000000;
+        for (n = 0; n < my_png_datas.width * my_png_datas.height; n++) *text++ = 0xff000000;
+        
+        memcpy(&Png_datas[index], &my_png_datas, sizeof(PngDatas));
+
+        Png_offset[index] = tiny3d_TextureOffset(my_png_datas.bmp_out);
        
      }
 
@@ -419,13 +438,14 @@ static volatile int break_get_games = 0;
 
 void get_games_2(void *empty) 
 {
-    int n;
+    int n, f;
 
     stops_BDVD = 1;
 
-    if(currentdir < 0 ||  currentdir >= ndirectories) currentdir = 0;
+    if(int_currentdir < 0 ||  int_currentdir >= ndirectories) int_currentdir = 0;
 
     if(mode_favourites) {
+        for(f = 0; f < 3; f++) // priority loop
         for(n = 0; n < 12; n++) {
 
             if(break_get_games) return;
@@ -433,12 +453,20 @@ void get_games_2(void *empty)
             if(favourites.list[n].index < 0 || favourites.list[n].title_id[0] == 0 || favourites.list[n].index >= ndirectories) Png_offset[n] = 0;
             else {
 
-                Png_iscover[n] = get_icon(path_name, favourites.list[n].index);
-                
-                if(!strncmp(path_name + strlen(path_name) -4, ".JPG", 4) || !strncmp(path_name + strlen(path_name) -4, ".jpg", 4))
-                    LoadTextureJPG(path_name, n);
-                else
-                    if(LoadTexturePNG(path_name, n) < 0) ;//Png_offset[n] = 0;
+                if(!Png_offset[n]) {
+
+                    if(f == 0 && !(directories[favourites.list[n].index].flags & 1)) continue; // HDD Only
+                    if(f == 1 && (directories[favourites.list[n].index].flags & 2049)) continue; // USB Only
+                    if(f == 2 && !(directories[favourites.list[n].index].flags & 2048)) continue; // BDVD Only
+
+
+                    Png_iscover[n] = get_icon(path_name, favourites.list[n].index);
+                    
+                    if(!strncmp(path_name + strlen(path_name) -4, ".JPG", 4) || !strncmp(path_name + strlen(path_name) -4, ".jpg", 4))
+                        LoadTextureJPG(path_name, n);
+                    else
+                        if(LoadTexturePNG(path_name, n) < 0) ;//Png_offset[n] = 0;
+                }
 
             }
         }
@@ -446,21 +474,71 @@ void get_games_2(void *empty)
     return;
     }
 
+    for(f = 0; f < 3; f++) // priority loop
     for(n = 0; n < 12; n++) {
         if(break_get_games) return;
-        if((currentdir + n) < ndirectories) {
+        if((int_currentdir + n) < ndirectories) {
             
-            Png_iscover[n] = get_icon(path_name, (currentdir + n));
+            if(!Png_offset[n]) {
 
-            if(!strncmp(path_name + strlen(path_name) -4, ".JPG", 4) || !strncmp(path_name + strlen(path_name) -4, ".jpg", 4))
-                    LoadTextureJPG(path_name, n);
-                else
-                    if(LoadTexturePNG(path_name, n) < 0) ;
+                if(f == 0 && !(directories[(int_currentdir + n)].flags & 1)) continue; // HDD Only
+                if(f == 1 && (directories[(int_currentdir + n)].flags & 2049)) continue; // USB Only
+                if(f == 2 && !(directories[(int_currentdir + n)].flags & 2048)) continue; // BDVD Only
+
+                Png_iscover[n] = get_icon(path_name, (int_currentdir + n));
+
+                if(!strncmp(path_name + strlen(path_name) -4, ".JPG", 4) || !strncmp(path_name + strlen(path_name) -4, ".jpg", 4))
+                        LoadTextureJPG(path_name, n);
+                    else
+                        if(LoadTexturePNG(path_name, n) < 0) ;
+
+            }
             
         } else Png_offset[n] = 0;
     }
 
 }
+
+
+void get_games_3(u64 var) 
+{
+
+    int n;
+    int indx;
+
+    if(var == 1ULL) {
+        indx = Png_index[0];
+     
+        for(n = 0; n < 11; n++){
+            Png_iscover[n] = Png_iscover[n + 1];
+            Png_offset[n] = Png_offset[n + 1]; 
+            Png_datas[n] = Png_datas[n + 1];
+            Png_index[n] = Png_index[n + 1];
+            if(Png_offset[n]) {
+               
+            } else {Png_iscover[n] =0; Png_offset[n] = 0;}
+        }
+
+        Png_iscover[11] =0; Png_offset[11] = 0; Png_index[11] = indx;
+
+    } else {
+        indx = Png_index[11];
+        for(n = 11; n > 0; n--){
+            Png_iscover[n] = Png_iscover[n - 1];
+            Png_offset[n] = Png_offset[n - 1]; 
+            Png_datas[n] = Png_datas[n - 1];
+            Png_index[n] = Png_index[n - 1];
+            if(Png_offset[n]) {
+               
+            } else {Png_iscover[n] =0; Png_offset[n] = 0;}
+        }
+
+        Png_iscover[0] =0; Png_offset[0] = 0;  Png_index[0] = indx;
+    }
+
+    get_games_2(NULL);
+ }
+
 
 void get_games()
 {
@@ -469,8 +547,11 @@ void get_games()
     break_get_games = 1; // for short wait
     wait_event_thread(); // wait previous event thread function
     break_get_games = 0;
+
+    int_currentdir = currentdir;
+
     // reset icon datas
-    for(n = 0; n < 12; n++) {Png_iscover[n] =0; Png_offset[n] = 0;}
+    for(n = 0; n < 12; n++) {Png_iscover[n] =0; Png_offset[n] = 0; Png_index[n] = n;}
     // program new event thread function
     event_thread_send(0x555ULL, (u64) get_games_2, 0); 
 }
@@ -589,9 +670,85 @@ u32 background_colors[8] = {
     0xff904f80,
 };
 
+u32 background_colors2[16] = {
+    0x0040A8ff,
+    0x001048ff,
+
+    0x040404ff,
+    0x030303ff,
+
+    0xA840A8ff,
+    0x481048ff,
+
+    0xf8b010ff,
+    0x481008ff,
+
+    0x2040B8ff,
+    0x102048ff,
+
+   // 0x206F00ff,
+   // 0x004000ff,
+
+    //0xFFA838ff,
+    //0x785418ff,
+    //0xBAD7A8FF,
+    0x94AC86FF,
+    0x5D6B54FF,
+
+    0x784078ff,
+    0x281028ff,
+
+    0x86AC94FF,
+    0x546B5DFF,
+
+};
+
+
+void cls0()
+{
+    cls2();
+
+    u32 color1; //0x002088ff;
+    u32 color2;
+
+    color1 = background_colors2[(background_sel & 7) << 1];
+    color2 = background_colors2[((background_sel & 7) << 1) + 1];
+
+    tiny3d_SetPolygon(TINY3D_QUADS);
+    
+    tiny3d_VertexPos(-80    , -80    , 1000);
+    tiny3d_VertexColor(color1);
+
+    tiny3d_VertexPos(938  , -80    , 1000);
+    tiny3d_VertexColor(color1);
+
+    tiny3d_VertexPos(938  , 400  , 1000);
+    tiny3d_VertexColor(color2);
+
+    tiny3d_VertexPos(-80    , 400  , 1000);
+    tiny3d_VertexColor(color2);
+
+
+    tiny3d_VertexPos(-80    , 400    , 1000);
+    tiny3d_VertexColor(color2);
+
+    tiny3d_VertexPos(938  , 400    , 1000);
+    tiny3d_VertexColor(color2);
+
+    tiny3d_VertexPos(938  , 592  , 1000);
+    tiny3d_VertexColor(0x080008ff);
+
+    tiny3d_VertexPos(-80    , 592  , 1000);
+    tiny3d_VertexColor(0x080008ff);
+
+    tiny3d_End();
+
+}
+
 void cls()
 {
     
+    if(gui_mode == 1)  {cls0();return;}
     tiny3d_Clear(background_colors[background_sel & 7], TINY3D_CLEAR_ALL);
 
         
@@ -732,7 +889,9 @@ static int exit_program = 0;
 
 #define ROUND_UP12(x) ((((x)+11)/12)*12)
 
-void draw_screen1(float x, float y);
+void draw_gui1(float x, float y);
+void draw_gui2(float x, float y);
+void gui_control();
 void draw_options(float x, float y, int index);
 void draw_configs(float x, float y, int index);
 void draw_gbloptions(float x, float y);
@@ -757,7 +916,8 @@ struct {
     u32 usekey;
     u8 language;
     u8 noBDVD;
-    char pad[150];
+    u8 gui_mode;
+    char pad[149];
     u32 event_flag;
     u32 opt_flags;
 } manager_cfg;
@@ -857,7 +1017,7 @@ void fun_exit()
 
     if(restore_syscall8[0]) sys8_pokeinstr(restore_syscall8[0], restore_syscall8[1]);
     
-    if(game_cfg.direct_boot)
+    if(game_cfg.direct_boot == 555)
         sysProcessExitSpawn2("/dev_bdvd/PS3_GAME/USRDIR/EBOOT.BIN", NULL, NULL, NULL, 0, 3071, SYS_PROCESS_SPAWN_STACK_SIZE_1M);
 
     if(set_install_pkg) sys_reboot();
@@ -887,18 +1047,6 @@ void LoadManagerCfg()
     {
         manager_cfg.opt_flags |= OPTFLAGS_PLAYMUSIC; // enabled by default
     }
-
-#if 0
-// disable here the ftp init 
-    if (manager_cfg.opt_flags & OPTFLAGS_FTP) // maybe we need add an icon to user...
-    {
-
-        if(ftp_init() == 0)
-        {
-            ftp_inited = 1; //DrawDialogOK("FTP Service init on boot: OK");
-        }
-    }
-#endif
 
     background_sel = manager_cfg.background_sel & 7;
 
@@ -934,13 +1082,20 @@ void auto_ftp(void)
     if(!one) return;
 
     one= 0;
-     if (manager_cfg.opt_flags & OPTFLAGS_FTP) // maybe we need add an icon to user...
+    if (manager_cfg.opt_flags & OPTFLAGS_FTP) // maybe we need add an icon to user...
     {
+        int r = ftp_init();
 
-        if(ftp_init() == 0)
+        if(r == 0)
         {
             ftp_inited = 1; //DrawDialogOK("FTP Service init on boot: OK");
             
+        } else {
+            if(r == -1) DrawDialogOKTimer("Error in netInitialize()", 2000.0f);
+            else if(r == -2) DrawDialogOKTimer("Error in netCtlInit()", 2000.0f);
+            else if(r == -3) DrawDialogOKTimer("Error in netCtlGetInfo()", 2000.0f);
+            else if(r == -4) DrawDialogOKTimer("Net Disconnected or Connection not Established", 2000.0f);
+            else DrawDialogOK("FTP Unknown Error");
         }
     }
 }
@@ -970,7 +1125,17 @@ void video_adjust()
             (float) ((sx / 1920.0) * psx),  // 3D scale
             (float) ((sy / 1080.0) * psy));
 
-        cls();
+        tiny3d_Clear(background_colors[background_sel & 7], TINY3D_CLEAR_ALL);
+
+        
+        // Enable alpha Test
+        tiny3d_AlphaTest(1, 0x10, TINY3D_ALPHA_FUNC_GEQUAL);
+
+        // Enable alpha blending.
+                tiny3d_BlendFunc(1, TINY3D_BLEND_FUNC_SRC_RGB_SRC_ALPHA | TINY3D_BLEND_FUNC_SRC_ALPHA_SRC_ALPHA,
+                    TINY3D_BLEND_FUNC_DST_RGB_ONE_MINUS_SRC_ALPHA | TINY3D_BLEND_FUNC_DST_ALPHA_ZERO,
+                    TINY3D_BLEND_RGB_FUNC_ADD | TINY3D_BLEND_ALPHA_FUNC_ADD);
+        reset_ttf_frame();
         
         DrawAdjustBackground(0xffffffff) ; // light blue 
 
@@ -1252,6 +1417,25 @@ int test_ftp_working()
     } return 0;
 }
 
+int is_payload_loaded(void)
+{
+    u64 addr = lv2peek(0x80000000000004f0ULL);
+
+    if((addr>>32) == 0x534B3145) {
+        addr&= 0xffffffff;
+        if(addr && peekq(0x80000000000004f8ULL)) {
+            restore_syscall8[0]= lv2peek(0x80000000000004f8ULL); // (8*8)
+            restore_syscall8[1]= lv2peek(restore_syscall8[0]);
+            lv2poke(restore_syscall8[0], 0x8000000000000000ULL + (u64) (addr + 0x20));
+            return 2;
+        }
+        
+        return 1;
+    }
+   
+    return 0;
+}
+
 s32 main(s32 argc, const char* argv[])
 {
     int n;
@@ -1269,11 +1453,13 @@ s32 main(s32 argc, const char* argv[])
     int must_patch =0;
 
 
-    if(lv2peek(0x80000000007EF220ULL)==0x45737477616C6420ULL) {
+    if(lv2peek(0x80000000007EF220ULL)==0x45737477616C6420ULL && is_payload_loaded()) {
 
-         must_patch = 1;
+        must_patch = 1;
 
         sys8_path_table(0LL); // break libfs.sprx re-direction
+
+        if(restore_syscall8[0]) sys8_pokeinstr(restore_syscall8[0], restore_syscall8[1]);
     }
 
     if(sysModuleLoad(SYSMODULE_FS) ==0)      inited|= INITED_FS;      else exit(0);
@@ -1649,6 +1835,8 @@ s32 main(s32 argc, const char* argv[])
     LoadManagerCfg();
 
     noBDVD = manager_cfg.noBDVD;
+    gui_mode = manager_cfg.gui_mode & 15;
+    if(gui_mode == 1) sort_mode = (manager_cfg.gui_mode>>4); else sort_mode = 0;
 
 /*
     // disable ps1 emulation
@@ -1773,6 +1961,9 @@ s32 main(s32 argc, const char* argv[])
     if(noBDVD == 2 && syscall_40(3, 0) == 0) {
         DrawDialogTimer(language[PLUG_STORAGE1], 2000.0f);
     }
+
+    // read xRegitry datas
+    read_from_registry();
 
     while(!exit_program) {
 
@@ -1957,7 +2148,7 @@ s32 main(s32 argc, const char* argv[])
                         found_game_remove=1;
                     }
 
-					sort_entries(directories, &ndirectories );              
+					sort_entries2(directories, &ndirectories, sort_mode);              
 				}
 				
 				forcedevices &= ~ (1<<find_device);
@@ -2010,7 +2201,7 @@ s32 main(s32 argc, const char* argv[])
                     found_game_remove=1;
                 }
 				
-                sort_entries(directories, &ndirectories );
+                sort_entries2(directories, &ndirectories, sort_mode);
 
 				fdevices_old&= ~ (1<<find_device);
 				fdevices_old|= fdevices & (1<<find_device);
@@ -2036,6 +2227,7 @@ s32 main(s32 argc, const char* argv[])
 
         pause_music(0);
 
+        if(0)
         if(stops_BDVD) {
             stops_BDVD++;
             if(stops_BDVD >= 60 * 2) {
@@ -2046,9 +2238,13 @@ s32 main(s32 argc, const char* argv[])
 
         /////////////////////////////////////
 
-        cls();
+        if(gui_mode == 1)
+            cls0();
+        else {
+            cls();
 
-        update_twat();
+            update_twat();
+        }
 
 
         x= (848 - 640) / 2; y=(512 - 360) / 2;
@@ -2139,7 +2335,9 @@ s32 main(s32 argc, const char* argv[])
             
         switch(menu_screen) {
             case 0:
-                draw_screen1(x, y);
+                if(gui_mode == 0) draw_gui1(x, y);
+                else draw_gui2(x, y);
+                gui_control();
                 break;
             case 1:
                 draw_options(x, y, currentgamedir);
@@ -2247,6 +2445,14 @@ inline int get_currentdir(int i)
         return favourites.list[i].index;
 
     return (currentdir + i);
+}
+
+inline int get_int_currentdir(int i)
+{
+    if(mode_favourites !=0)
+        return favourites.list[i].index;
+
+    return (int_currentdir + i);
 }
 
 void load_gamecfg (int current_dir)
@@ -2367,13 +2573,13 @@ void get_pict(int *index)
 
     
     if(!mode_favourites || (mode_favourites != 0 && favourites.list[i].index >= 0)) {
-        sprintf(dir, "%s%s", directories[get_currentdir(i)].path_name, 
-            &folder_mode[!((directories[get_currentdir(i)].flags>>31) & 1)][0]);
+        sprintf(dir, "%s%s", directories[get_int_currentdir(i)].path_name, 
+            &folder_mode[!((directories[get_int_currentdir(i)].flags>>31) & 1)][0]);
 
         sprintf(dir2, "%s%s", directories[(mode_favourites != 0) 
-                ? favourites.list[i].index : (currentdir + i)].path_name, 
+                ? favourites.list[i].index : (int_currentdir + i)].path_name, 
                 &folder_mode[!((directories[(mode_favourites != 0) 
-                    ? favourites.list[i].index : (currentdir + i)].flags>>31) & 1)][0]);
+                    ? favourites.list[i].index : (int_currentdir + i)].flags>>31) & 1)][0]);
 
         sprintf(temp_buffer, "%sPIC1.PNG", dir);
        
@@ -2391,9 +2597,8 @@ void get_pict(int *index)
     }
 }
 
-void draw_screen1(float x, float y)
+void draw_gui1(float x, float y)
 {
-
     int i, n, m;
 
     float x2;
@@ -2418,16 +2623,16 @@ void draw_screen1(float x, float y)
     SetFontAutoCenter(0);
 
     if(mode_favourites >= 131072) {
-        DrawFormatString(x, y - 2, " %s%s", language[DRAWSCREEN_FAVSWAP], &str_home[str_type][0]);
+        DrawFormatString(x, y, " %s%s", language[DRAWSCREEN_FAVSWAP], &str_home[str_type][0]);
     }
     else if(mode_favourites >= 65536) {
-        DrawFormatString(x, y - 2, " %s%s", language[DRAWSCREEN_FAVINSERT], &str_home[str_type][0]);
+        DrawFormatString(x, y, " %s%s", language[DRAWSCREEN_FAVINSERT], &str_home[str_type][0]);
     }
     else if(mode_favourites) {
-        DrawFormatString(x, y - 2, " %s%s", language[DRAWSCREEN_FAVORITES], &str_home[str_type][0]);
+        DrawFormatString(x, y, " %s%s", language[DRAWSCREEN_FAVORITES], &str_home[str_type][0]);
     }
     else {
-        DrawFormatString(x, y - 2, " %s %i/%i (%i %s)%s", language[DRAWSCREEN_PAGE], currentdir/12 + 1, ROUND_UP12(ndirectories)/12, ndirectories, language[DRAWSCREEN_GAMES], &str_home[str_type][0]);
+        DrawFormatString(x, y, " %s %i/%i (%i %s)%s", language[DRAWSCREEN_PAGE], currentdir/12 + 1, ROUND_UP12(ndirectories)/12, ndirectories, language[DRAWSCREEN_GAMES], &str_home[str_type][0]);
     }
 
     // list device space
@@ -2452,9 +2657,9 @@ void draw_screen1(float x, float y)
                 
                 if(m == i) SetFontColor(0xafd836ff, 0x00000000); else SetFontColor(0xffffff44, 0x00000000);
                 if(i==0)
-                    x2= DrawFormatString(x2, -2, "hdd0: %.2fGB ", freeSpace[i]);
+                    x2= DrawFormatString(x2, 0, "hdd0: %.2fGB ", freeSpace[i]);
                 else
-                    x2= DrawFormatString(x2, -2, "usb00%c: %.2fGB ", 47 + i, freeSpace[i]);
+                    x2= DrawFormatString(x2, 0, "usb00%c: %.2fGB ", 47 + i, freeSpace[i]);
             }
 
         }
@@ -2572,8 +2777,8 @@ void draw_screen1(float x, float y)
 
                 if(i>= 0 && i < 12) {
                     if(!Png_offset[i] && favourites.list[i].title_id[0] != 0) {
-                        tiny3d_SetTextureWrap(0, Png_res_offset[0], Png_res[0].width, 
-                            Png_res[0].height, Png_res[0].wpitch, 
+                        tiny3d_SetTextureWrap(0, Png_res_offset[2], Png_res[2].width, 
+                            Png_res[2].height, Png_res[2].wpitch, 
                                 TINY3D_TEX_FORMAT_A8R8G8B8,  TEXTWRAP_CLAMP, TEXTWRAP_CLAMP,1);
                         png_on = 1;
                             
@@ -2611,13 +2816,13 @@ void draw_screen1(float x, float y)
         x2= DrawFormatString(1024, 0, " Temp CPU: 99ºC RSX: 99ºC ");
 
         y2= y + 3 * 150 - 4 + 12;
-        SetFontColor(0xffffffff, 0x0020c020);
+        SetFontColor(0xffffffff, 0x00000000);
         x2= DrawFormatString(x + 4 * 200 - (x2 - 1024) - 12 , y2, " Temp CPU: ");
-        if(temp < 80) SetFontColor(0xfff000ff, 0x0020c020); else SetFontColor(0xff0000ff, 0x0020c020);
+        if(temp < 80) SetFontColor(0xfff000ff, 0x00000000); else SetFontColor(0xff0000ff, 0x00000000);
         x2= DrawFormatString(x2, y2, "%uºC",  temp);
-        SetFontColor(0xffffffff, 0x0020c020);
+        SetFontColor(0xffffffff, 0x00000000);
         x2= DrawFormatString(x2, y2, " RSX: ");
-        if(temp2 < 75) SetFontColor(0xfff000ff, 0x0020c020); else SetFontColor(0xff0000ff, 0x0020c020);
+        if(temp2 < 75) SetFontColor(0xfff000ff, 0x00000000); else SetFontColor(0xff0000ff, 0x00000000);
         x2= DrawFormatString(x2, y2, "%uºC ", temp2);
 
         SetFontColor(0xffffffff, 0x00000000);
@@ -2738,6 +2943,561 @@ void draw_screen1(float x, float y)
 
     tiny3d_Flip();
 
+
+}
+
+void draw_gui2(float x, float y)
+{
+    int i, n, m;
+
+    float x2;
+
+    static char str_home[4][16]={" Homebrew", "", " PS3", " PSX"};
+
+    int str_type = (mode_homebrew == HOMEBREW_MODE) ? 0 : 1 + game_list_category;
+
+    int selected = select_px + select_py * 4;
+
+    SetCurrentFont(FONT_TTF);
+
+    // header title
+
+    DrawBox(x, y, 0, 200 * 4 - 8, 18, 0x00000028);
+
+    SetFontColor(0xffffffff, 0x00000000);
+
+    SetFontSize(18, 20);
+
+    SetFontAutoCenter(0);
+
+    if(mode_favourites >= 131072) {
+        DrawFormatString(x, y, " %s%s", language[DRAWSCREEN_FAVSWAP], &str_home[str_type][0]);
+    }
+    else if(mode_favourites >= 65536) {
+        DrawFormatString(x, y, " %s%s", language[DRAWSCREEN_FAVINSERT], &str_home[str_type][0]);
+    }
+    else if(mode_favourites) {
+        DrawFormatString(x, y, " %s%s", language[DRAWSCREEN_FAVORITES], &str_home[str_type][0]);
+    }
+    else {
+     
+        DrawFormatString(x, y, " %i/%i %s%s", 
+             ndirectories ? select_px + currentdir + 1 : 0, ndirectories, language[DRAWSCREEN_GAMES], &str_home[str_type][0]);
+    
+    }
+
+    u32 hh = 0, mm = 0, ss = 0, day = 0, month = 0, year = 0;
+
+    PS3GetDateTime(&hh, &mm, &ss, &day, &month, &year);
+    
+
+    SetFontColor(0xffffffff, 0x00000000);
+    SetCurrentFont(FONT_BUTTON);
+
+    SetFontSize(8, 20);
+
+    SetFontAutoCenter(0);
+
+    float y2 = y + 80;
+
+    y2= y + 3 * 150 - 4 + 12 + 24;
+    x2 = x;
+
+    if(sys_dateformat == 0)
+        DrawFormatString(x2, y2, " %s, %04u/%02u/%02u %02u:%02u:%02u ", PS3TimeZone[sys_timezone % 110].name, year, month, day, hh, mm, ss);
+    else if(sys_dateformat == 2)
+        DrawFormatString(x2, y2, " %s, %02u/%02u/%04u %02u:%02u:%02u ", PS3TimeZone[sys_timezone % 110].name, month, day, year, hh, mm, ss);
+    else
+        DrawFormatString(x2, y2, " %s, %02u/%02u/%04u %02u:%02u:%02u ", PS3TimeZone[sys_timezone % 110].name, day, month, year, hh, mm, ss);
+
+    SetFontAutoCenter(0);
+
+    SetFontColor(0xffffffff, 0x00000000);
+
+    SetCurrentFont(FONT_TTF);
+    SetFontSize(18, 20);
+
+    // list device space
+
+    m = selected;
+
+    if(Png_offset[m]) {
+
+        i = -1;
+
+        if(!mode_favourites || ((mode_favourites !=0) && favourites.list[m].index >= 0))
+            for(i = 0; i < 11; i++)
+                if((directories[(mode_favourites !=0) ? favourites.list[m].index : (currentdir + m)].flags & GAMELIST_FILTER)== (1<<i)) break;
+        m = i;
+    } else m = -1;
+
+    x2 = 1200;
+    for(n = 0; n < 2; n++) {
+        for(i = 0; i < 11; i++) {
+
+            if(((fdevices>>i) & 1)) {
+                
+                if(m == i) SetFontColor(0xafd836ff, 0x00000000); else SetFontColor(0xffffff44, 0x00000000);
+                if(i==0)
+                    x2= DrawFormatString(x2, 0, "hdd0: %.2fGB ", freeSpace[i]);
+                else
+                    x2= DrawFormatString(x2, 0, "usb00%c: %.2fGB ", 47 + i, freeSpace[i]);
+            }
+
+        }
+    
+        x2 = 848 -(x2 - 1200) - x; 
+    }
+
+    SetFontAutoCenter(0);
+    SetFontSize(18, 20);
+
+    SetFontColor(0xffffffff, 0x00000000);
+
+    y += 24;
+    
+    i = 0;
+    int flash2 = 0;
+    #define MAX_FLASH 32
+    if (frame_count & MAX_FLASH) flash2= (MAX_FLASH-1) - (frame_count & (MAX_FLASH-1)); else flash2= (frame_count & (MAX_FLASH-1));
+
+
+    ///////////////////////
+
+    int rel_posx[12];
+    int rel_posy[12];
+    int rel_widthx[12];
+    int rel_widthy[12];
+
+    int relx = 0;
+    int centerx = 0;
+
+    int icony = 128;
+
+    int l;
+
+
+    for(n = 0; n < 3; n++) 
+        for(m = 0; m < 4; m++) {
+
+        rel_widthy[i] = 142;
+        rel_posy[i] = y + icony;
+        if(Png_offset[i]) {
+            if((directories[get_currentdir(i)].flags  & ((1<<11) | (1<<23)))== ((1<<11) | (1<<23))) 
+                {Png_iscover[i] = -1;}
+        else if(Png_iscover[i] < 1 && (directories[get_currentdir(i)].flags  & (1<<23))) 
+            {Png_iscover[i] = -1;}
+           
+        }
+
+        if((select_px == m && select_py == n)) {
+            centerx = relx;
+            if(Png_iscover[i] == -1) centerx+= (142 + 10)/2;
+            else if(Png_iscover[i] == 1) centerx+= (124 + 10)/2;
+            else centerx+= (162 + 10)/2;
+        }
+
+        if(Png_offset[i]) {
+
+            if(Png_iscover[i] == -1)
+                {rel_posx[i] = relx; rel_widthx[i] = 142; relx+= rel_widthx[i] + 10;}
+            else if(Png_iscover[i] == 1)
+                {rel_posx[i] = relx; rel_widthx[i] = 124; relx+= rel_widthx[i] + 10;}
+            else
+                {rel_posx[i] = relx; rel_posy[i]+= 16; rel_widthx[i] = 162; rel_widthy[i] = 142 - 16;relx+= rel_widthx[i] + 10;}
+        } else 
+            {rel_posx[i] = relx; rel_widthx[i] = 128; relx+= rel_widthx[i] + 10;}
+        
+
+        i++;
+    }
+
+    //////////////////////
+
+    u32 color_line = 0x404040ff;
+
+    // get_games_3
+
+    if(centerx < 848/2) centerx = -(848/2 - centerx); else centerx -= 848/2;
+
+    if((rel_posx[0] - centerx) > 30)  centerx = -30;
+
+    float f3 = 0.0f;
+    
+    for(l = 0; l < 2; l++) {
+        i = 0;
+
+        for(n = 0; n < 3; n++) 
+            for(m = 0; m < 4; m++) {
+                int f = (select_px == m && select_py == n);
+                float f2 = (int) f;
+
+                if(l != 0 && f) {i++;continue;}
+                if(l == 0 && !f) {i++;continue;}
+
+                if(!mode_favourites && get_currentdir(i) >= ndirectories) break;
+                
+                f2 =  ((float) (flash2 *(select_px == m && select_py == n)))/((float) MAX_FLASH);
+
+
+                if(f) {f2 = 3 + 2 *f2; f3 = f2;}
+                
+                
+                if(Png_offset[i]) {
+                   
+                    if((directories[get_currentdir(i)].flags  & ((1<<11) | (1<<23)))== ((1<<11) | (1<<23))) {
+                        //Png_iscover[i] = -1;
+                        tiny3d_SetTextureWrap(0, Png_res_offset[5], Png_res[5].width, 
+                                                 Png_res[5].height, Png_res[5].wpitch, 
+                                                 TINY3D_TEX_FORMAT_A8R8G8B8,  TEXTWRAP_CLAMP, TEXTWRAP_CLAMP,1);
+                    } else if(Png_iscover[i] < 1 && (directories[get_currentdir(i)].flags  & (1<<23))) { // add PSX iso
+                        //Png_iscover[i] = -1;
+                        tiny3d_SetTextureWrap(0, Png_res_offset[6], Png_res[6].width, 
+                                                 Png_res[6].height, Png_res[6].wpitch, 
+                                                 TINY3D_TEX_FORMAT_A8R8G8B8,  TEXTWRAP_CLAMP, TEXTWRAP_CLAMP,1);
+                    } else  
+                        tiny3d_SetTextureWrap(0, Png_offset[i], Png_datas[i].width, 
+                                                 Png_datas[i].height, Png_datas[i].wpitch, 
+                                                 TINY3D_TEX_FORMAT_A8R8G8B8,  TEXTWRAP_CLAMP, TEXTWRAP_CLAMP,1);
+
+
+                    
+                    DrawBox(rel_posx[i] - centerx - 4 * f2, rel_posy[i] - 4 * f2, !f ? 100 : 0, rel_widthx[i] + 8 * f2, rel_widthy[i] + 8 * f2, 0x00000028);
+                    
+                    DrawTextBoxLine(rel_posx[i] - centerx - 4 * f2, rel_posy[i] - 4 * f2, !f ? 100 : 0, rel_widthx[i] + 8 * f2, rel_widthy[i] + 8 * f2, 0xffffffff, color_line);
+
+                    
+                    DrawBoxShadow(rel_posx[i] - centerx - 4 * f2, y + icony - 4 * f2 + 142 + 8 * f2 + 8, !f ? 100 : 0, rel_widthx[i] + 8 * f2, (rel_widthy[i]  * 5 / 8 + 8 * f2), 0x00000028);
+                    DrawTextBoxShadow(rel_posx[i] - centerx - 4 * f2, y + icony - 4 * f2 + 142 + 8 * f2 + 8, !f ? 100 : 0, rel_widthx[i] + 8 * f2, (rel_widthy[i]  * 5 / 8 + 8 * f2), 0x60606090);
+                 
+                    
+                   // if((mode_favourites !=0) && favourites.list[i].index < 0) exit(0);
+                    if((mode_favourites !=0) && favourites.list[i].index < 0) exit(0);
+ 
+                    if(!mode_favourites || ((mode_favourites !=0) && favourites.list[i].index >= 0)) {
+                        // ignore bluray icon
+                        if((directories[get_currentdir(i)].flags  & ((1<<11) | (1<<23)))== ((1<<11) | (1<<23))) ;
+                        // draw Bluray icon
+                        else if((directories[get_currentdir(i)].flags  & GAMELIST_FILTER)== (1<<11)) {
+                            tiny3d_SetTextureWrap(0, Png_res_offset[0], Png_res[0].width, 
+                                                     Png_res[0].height, Png_res[0].wpitch, 
+                                                     TINY3D_TEX_FORMAT_A8R8G8B8,  TEXTWRAP_CLAMP, TEXTWRAP_CLAMP,1);
+                            DrawTextBox(rel_posx[i] - centerx - 4 * f2 + (rel_widthx[i] - 124)/2, rel_posy[i] + 4 + (rel_widthy[i] - 124)/2 - 4 * f2, !f ? 100 : 0,  (124) + 8 * f2, (124) + 8 * f2, 0xffffffcf);
+
+                            DrawTextBoxShadow(rel_posx[i] - centerx - 4 * f2 + (rel_widthx[i] - 124)/2, y + icony - 4 * f2 + 142 + 8 * f2 + 8, !f ? 100 : 0,  (124) + 8 * f2, (124 * 5 / 8) + 8 * f2, 0x60606090);
+                        } else 
+                        // draw Usb icon    
+                        if((directories[get_currentdir(i)].flags  & GAMELIST_FILTER)> 1) {
+                            tiny3d_SetTextureWrap(0, Png_res_offset[1], Png_res[1].width, 
+                            Png_res[1].height, Png_res[1].wpitch, 
+                                TINY3D_TEX_FORMAT_A8R8G8B8,  TEXTWRAP_CLAMP, TEXTWRAP_CLAMP,1);
+
+                            if(directories[get_currentdir(i)].splitted)
+                                DrawTextBoxLine(rel_posx[i] - centerx - 4 * f2 + 4, rel_posy[i] + 4 - 4 * f2, !f ? 100 : 0, 32, 24, 0xff9999aa, color_line);
+                            else
+                                DrawTextBoxLine(rel_posx[i] - centerx - 4 * f2 + 4, rel_posy[i] + 4 - 4 * f2, !f ? 100 : 0, 32, 24, 0xffffffcf, color_line);
+                            
+                        }
+                    }
+
+
+                } else if(mode_favourites && favourites.list[i].title_id[0] != 0) {
+                    DrawBoxLine(rel_posx[i] - centerx - 4 * f2, rel_posy[i] - 4 * f2, !f ? 100 : 0, 128 + 8 * f2, rel_widthy[i] + 8 * f2, 0xa0a0a028, color_line);
+                    tiny3d_SetTextureWrap(0, Png_res_offset[2], Png_res[2].width, 
+                        Png_res[2].height, Png_res[2].wpitch, 
+                            TINY3D_TEX_FORMAT_A8R8G8B8,  TEXTWRAP_CLAMP, TEXTWRAP_CLAMP,1);
+                        DrawTextBox(rel_posx[i] - centerx - 4 * f2, y  + 7 - 4 * f2 + icony, !f ? 100 : 0, 128 + 8 * f2, 128 + 8 * f2, 0xffffff3f);
+                        DrawBoxShadow(rel_posx[i] - centerx - 4 * f2, y + icony - 4 * f2 + 142 + 8 * f2 + 8, !f ? 100 : 0, 128 + 8 * f2, (rel_widthy[i] * 5 / 8 + 8 * f2), 0x8f8f8f28);
+                        DrawTextBoxShadow(rel_posx[i] - centerx - 4 * f2, y + icony - 4 * f2 + 142 + 8 * f2 + 8, !f ? 100 : 0, 128 + 8 * f2, (rel_widthy[i] * 5 / 8 + 8 * f2), 0x40404090);
+                } else {
+                    // draw Bluray icon with empty icon
+                    if((directories[get_currentdir(i)].flags  & GAMELIST_FILTER)== (1<<11) &&
+                        ((directories[get_currentdir(i)].flags  & ((1<<11) | (1<<23)))!= ((1<<11) | (1<<23)))) {
+
+                        DrawBoxLine(rel_posx[i] - centerx - 4 * f2, rel_posy[i] - 4 * f2, !f ? 100 : 0, 128 + 8 * f2, rel_widthy[i] + 8 * f2, 0xa0a0a040, color_line);
+                        DrawBoxShadow(rel_posx[i] - centerx - 4 * f2, y + icony - 4 * f2 + 142 + 8 * f2 + 8, !f ? 100 : 0, 128 + 8 * f2, (rel_widthy[i] * 5 / 8 + 8 * f2), 0x80808040);
+
+                        tiny3d_SetTextureWrap(0, Png_res_offset[0], Png_res[0].width, 
+                                                     Png_res[0].height, Png_res[0].wpitch, 
+                                                     TINY3D_TEX_FORMAT_A8R8G8B8,  TEXTWRAP_CLAMP, TEXTWRAP_CLAMP,1);
+                        DrawTextBox(rel_posx[i] - centerx - 4 * f2 + (rel_widthx[i] - 124)/2, rel_posy[i] + 4 + (rel_widthy[i] - 124)/2 - 4 * f2, !f ? 100 : 0,  (124) + 8 * f2, (124) + 8 * f2, 0xffffffcf);
+
+                        DrawTextBoxShadow(rel_posx[i] - centerx - 4 * f2 + (rel_widthx[i] - 124)/2, y + icony - 4 * f2 + 142 + 8 * f2 + 8, !f ? 100 : 0,  (124) + 8 * f2, (124 * 5 / 8) + 8 * f2, 0x60606090);
+
+                    } else {
+                        DrawBoxLine(rel_posx[i] - centerx - 4 * f2, rel_posy[i] - 4 * f2, !f ? 100 : 0, 128 + 8 * f2, rel_widthy[i] + 8 * f2, 0xa0a0a040, color_line);
+                        DrawBoxShadow(rel_posx[i] - centerx - 4 * f2, y + icony - 4 * f2 + 142 + 8 * f2 + 8, !f ? 100 : 0, 128 + 8 * f2, (rel_widthy[i] * 5 / 8 + 8 * f2), 0x80808040);
+                    }
+                }
+                         
+                
+            i++;   
+            }
+    }
+
+    i = selected;
+
+    if(flash) {
+
+        int png_on = 0;
+
+        //DrawBox(x + 200 * select_px - 4, y + select_py * 150 - 4 , 0, 200, 150, 0xa0a06080);
+            
+
+        if(mode_favourites >= 65536) {
+
+            if(mode_favourites < 131072) {
+
+                if(Png_offset[12]) {
+                    tiny3d_SetTextureWrap(0, Png_offset[12], Png_datas[12].width, 
+                        Png_datas[12].height, Png_datas[12].wpitch, 
+                            TINY3D_TEX_FORMAT_A8R8G8B8,  TEXTWRAP_CLAMP, TEXTWRAP_CLAMP,1);
+                    png_on = 1;
+                }
+            }
+            else {
+                i = mode_favourites - 131072;
+
+                if(i>= 0 && i < 12) {
+                    if(!Png_offset[i] && favourites.list[i].title_id[0] != 0) {
+                        tiny3d_SetTextureWrap(0, Png_res_offset[2], Png_res[2].width, 
+                            Png_res[2].height, Png_res[2].wpitch, 
+                                TINY3D_TEX_FORMAT_A8R8G8B8,  TEXTWRAP_CLAMP, TEXTWRAP_CLAMP,1);
+                        png_on = 1;
+                            
+                    } else if(Png_offset[i]){
+                        png_on = 1;
+                        tiny3d_SetTextureWrap(0, Png_offset[i], Png_datas[i].width, 
+                        Png_datas[i].height, Png_datas[i].wpitch, 
+                            TINY3D_TEX_FORMAT_A8R8G8B8,  TEXTWRAP_CLAMP, TEXTWRAP_CLAMP,1);
+                    }
+                }
+            }
+
+
+            int ii = select_px + 4 * select_py;
+
+            if(png_on)
+                DrawTextBox(rel_posx[ii] - centerx - 4 * f3, rel_posy[ii] - 4 * f3 , 0 , rel_widthx[ii] + 8 * f3, rel_widthy[ii] + 8 * f3, 0x8fff8fcf);
+            else
+                DrawBox(rel_posx[ii] - centerx - 4 * f3, rel_posy[ii] - 4 * f3 , 0 , rel_widthx[ii] + 8 * f3, rel_widthy[ii] + 8 * f3, 0x8fff8fcf);
+        }
+    
+    }
+
+    SetFontColor(0xffffffff, 0x00000000);
+
+    // display temp
+    if((frame_count & 0x100)) {
+        static u32 temp = 0;
+        static u32 temp2 = 0;
+        int y2;
+
+        if(temp==0 || (frame_count & 0x1f) == 0x0 ) {
+            sys_game_get_temperature(0, &temp);
+            sys_game_get_temperature(1, &temp2);
+        }
+
+        SetCurrentFont(FONT_TTF);
+        SetFontSize(20, 20);
+        
+        x2= DrawFormatString(1024, 0, " Temp CPU: 99ºC RSX: 99ºC ");
+
+        y2= y + 3 * 150 - 4 + 12;
+        SetFontColor(0xffffffff, 0x00000000);
+        x2= DrawFormatString(x + 4 * 200 - (x2 - 1024) - 12 , y2, " Temp CPU: ");
+        if(temp < 80) SetFontColor(0xfff000ff, 0x00000000); else SetFontColor(0xff0000ff, 0x00000000);
+        x2= DrawFormatString(x2, y2, "%uºC",  temp);
+        SetFontColor(0xffffffff, 0x00000000);
+        x2= DrawFormatString(x2, y2, " RSX: ");
+        if(temp2 < 75) SetFontColor(0xfff000ff, 0x00000000); else SetFontColor(0xff0000ff, 0x00000000);
+        x2= DrawFormatString(x2, y2, "%uºC ", temp2);
+
+        SetFontColor(0xffffffff, 0x00000000);
+    }
+    else if(Png_offset[i])
+    {
+        SetCurrentFont(FONT_TTF);
+        SetFontSize(20, 20);
+        x2= DrawFormatString(1024, 0, " %s ", language[DRAWSCREEN_SOPTIONS]);
+        DrawFormatString(x + 4 * 200 - (x2 - 1024) - 12 , y + 3 * 150 - 2, " %s ", language[DRAWSCREEN_SOPTIONS]);
+   
+    }
+    else if(mode_favourites && mode_favourites < 65536 && favourites.list[i].title_id[0] != 0) 
+    {
+        SetCurrentFont(FONT_TTF);
+        SetFontSize(20, 20);
+        x2= DrawFormatString(1024, 0, " %s ", language[DRAWSCREEN_SDELETE]);
+        DrawFormatString(x + 4 * 200 - (x2 - 1024) - 12 , y + 3 * 150 - 2, " %s ", language[DRAWSCREEN_SDELETE]);
+    }
+    else
+    {
+        //DrawBox(x + 200 * select_px , y + select_py * 150 , 0, 192, 142, 0x404040a0);
+        SetCurrentFont(FONT_TTF); // get default
+        SetFontSize(20, 20);
+    }
+    
+    if(!(frame_count & 0x100)) {
+        x2= DrawFormatString(1024, 0, " %s ", language[DRAWSCREEN_STGLOPT]);
+        DrawFormatString(x + 4 * 200 - (x2 - 1024) - 12 , y + 3 * 150 + 18, " %s ", language[DRAWSCREEN_STGLOPT]);
+    }
+    
+
+    // draw game name
+    i = selected;
+
+    DrawBox(x, y + 3 * 150, 0, 200 * 4 - 8, 40, 0x00000028);
+
+    SetFontColor(0xffffffee, 0x00000000);
+
+    if((Png_offset[i] && !mode_favourites) || (mode_favourites && favourites.list[i].title_id[0] != 0)) {
+
+        
+        u32 str_color = 0xffffffee;
+
+        if(mode_favourites) {
+
+            if(strncmp((char *) string_title_utf8, favourites.list[i].title, 64)) {
+                strncpy((char *) string_title_utf8, favourites.list[i].title, 128);
+                update_title_utf8 = 1;
+            }
+
+        } else if((directories[(currentdir + i)].flags  & GAMELIST_FILTER)== (1<<11)) {
+         
+            str_color = 0xafd836ee;
+            if(strncmp((char *) string_title_utf8, bluray_game, 64)) {
+                strncpy((char *) string_title_utf8, bluray_game, 128);
+                update_title_utf8 = 1;
+            }
+
+        } else {
+
+            if(strncmp((char *) string_title_utf8, directories[(currentdir + i)].title, 64)) {
+                strncpy((char *) string_title_utf8, directories[(currentdir + i)].title, 128);
+                update_title_utf8 = 1;
+            }
+        }
+
+        n = 0; 
+        while(string_title_utf8[n]) {
+            if(string_title_utf8[n] == 13 || string_title_utf8[n] == 10) string_title_utf8[n] = '/';
+            n++;
+        }
+
+        SetCurrentFont(FONT_TTF);
+        SetFontSize(16, 32);
+        SetFontAutoCenter(1);
+        SetFontColor(str_color, 0x00000020);
+        DrawFormatString(0 , y + 80 - 32, " %s ", string_title_utf8);
+        SetFontColor(0xffffffff, 0x00000000);
+/*
+        if(update_title_utf8) {
+            width_title_utf8 = Render_String_UTF8(ttf_texture, 768, 32, string_title_utf8, 16, 24);
+            update_title_utf8 = 0;
+        }
+
+        tiny3d_SetTextureWrap(0, tiny3d_TextureOffset(ttf_texture), 768, 
+                32, 768 * 2, 
+                TINY3D_TEX_FORMAT_A4R4G4B4,  TEXTWRAP_CLAMP, TEXTWRAP_CLAMP,1);
+        
+        DrawTextBox(x + 3, y + 3 * 150 , 0, 768, 32, str_color);
+        */
+       
+
+        SetFontAutoCenter(0);
+
+        load_gamecfg (get_currentdir(i)); // refresh game info
+
+        
+        x2 = 0;
+
+        if((game_cfg.useBDVD) || (game_cfg.direct_boot == 2))
+        {
+            tiny3d_SetTextureWrap(0, Png_res_offset[0], Png_res[0].width, 
+                Png_res[0].height, Png_res[0].wpitch, 
+                TINY3D_TEX_FORMAT_A8R8G8B8,  TEXTWRAP_CLAMP, TEXTWRAP_CLAMP,1);
+
+            DrawTextBox(x + x2, y + 3 * 150 - 48, 0, 32, 32, 0xffffff99);
+
+            x2+= 40;
+        }
+        
+        if(game_cfg.direct_boot)
+        {
+            tiny3d_SetTextureWrap(0, Png_res_offset[3], Png_res[3].width, 
+                Png_res[3].height, Png_res[3].wpitch, 
+                TINY3D_TEX_FORMAT_A8R8G8B8,  TEXTWRAP_CLAMP, TEXTWRAP_CLAMP,1);
+
+            DrawTextBox(x + x2,  y + 3 * 150 - 48, 0, 32, 32, 0xffffffff); 
+            x2+= 40;
+        }
+
+        n = (directories[get_currentdir(i)].flags & 1) ?  game_cfg.bdemu : game_cfg.bdemu_ext;
+
+        SetFontColor(0xffffffee, 0x00000000);
+        SetCurrentFont(FONT_TTF);
+        SetFontSize(12, 24);
+
+        if(n == 1) x2 = DrawString(x + x2,  y + 3 * 150 - 48 + 4, "BD Emu");
+
+        if(n == 2) x2 = DrawString(x + x2,  y + 3 * 150 - 48 + 4, "LIBFS");
+
+
+    }
+
+    SetFontColor(0xffffffee, 0x00000000);
+    SetCurrentFont(FONT_TTF);
+    SetFontSize(12, 24);
+
+    SetFontAutoCenter(1);
+
+    if(sort_mode == 1)
+        DrawString(0,  y + 3 * 150 - 48 + 4, "PS3 > PSX");
+    else if(sort_mode == 2)
+        DrawString(0,  y + 3 * 150 - 48 + 4, "PSX > PS3");
+    else
+        DrawString(0,  y + 3 * 150 - 48 + 4, "PS3 - PSX");
+
+    SetFontAutoCenter(0);
+
+// draw box config
+    tiny3d_SetPolygon(TINY3D_LINE_STRIP);
+       
+    tiny3d_VertexPos(x - 4    , y + 3 * 150 - 52    , 0);
+    tiny3d_VertexColor(0x808080ff);
+
+    tiny3d_VertexPos(x + 124 + 8, y + 3 * 150 - 52    , 0);
+
+    tiny3d_VertexPos(x + 124 + 8, y + 3 * 150 - 52 + 40, 0);
+
+    tiny3d_VertexPos(x - 4   , y + 3 * 150 - 52 + 40, 0);
+
+    tiny3d_VertexPos(x - 4   , y + 3 * 150 - 52    , 0);
+
+    tiny3d_End();
+
+    if(flash && ftp_inited) {
+        tiny3d_SetTextureWrap(0, Png_res_offset[4], Png_res[4].width, 
+            Png_res[4].height, Png_res[4].wpitch, 
+            TINY3D_TEX_FORMAT_A8R8G8B8,  TEXTWRAP_CLAMP, TEXTWRAP_CLAMP,1);
+
+        DrawTextBox(200 * 4 -32, y + 3 * 150 - 48, 0, 64, 32, 0xffffffff); 
+    }
+
+    //SetCurrentFont(FONT_DEFAULT);
+
+    tiny3d_Flip();
+
+}
+
+void gui_control()
+{
+
+    int i, n;
+
+    int selected = select_px + select_py * 4;
+
+
     ps3pad_read();
 
     if(autolaunch == LAUCHMODE_TOCHECK) {
@@ -2853,6 +3613,27 @@ void draw_screen1(float x, float y)
                 reset_sys8_path_table();
 
                 int use_cache = 0;
+
+                if(!(directories[currentgamedir].flags & (1<<11)) && !((directories[currentgamedir].flags>>31) & 1)) {
+               
+                    struct stat s;
+                 
+                    sprintf(temp_buffer, "%s/PS3_GAME/USRDIR/EBOOT.BIN", directories[currentgamedir].path_name);
+
+                    if(!stat(temp_buffer, &s)) {
+                        int r =  patch_exe_error_09(temp_buffer);
+                        if(r == 1) {
+                            pause_music(1);
+
+                            test_game(currentgamedir);
+                        } else if(r == -1) {
+                            DrawDialogOKTimer("This game requires a higher CFW or rebuild the SELFs/SPRX\n\nEste juego requieren un CFW superior or reconstruir los SELFs/SPRX", 2000.0f);
+                            return;
+                        }
+                    }
+
+
+                }
 
                 if(!((directories[currentgamedir].flags & ((1<<11) | (1<<23))) == ((1<<11) | (1<<23))) || // !psx CD
                    ((directories[currentgamedir].flags>>31) & 1)) { // !homebrew
@@ -3316,6 +4097,8 @@ void draw_screen1(float x, float y)
 
                 exit_program = 1; 
 
+                if(game_cfg.direct_boot) game_cfg.direct_boot = 555;
+
                 set_device_wakeup_mode(bdvd_is_usb ? 0xFFFFFFFF : directories[currentgamedir].flags);
                 
                 skip_sys8: 
@@ -3350,34 +4133,10 @@ void draw_screen1(float x, float y)
             Png_offset[12] = 0;
 
             wait_event_thread();
+            int_currentdir = currentdir;
             // program new event thread function
             event_thread_send(0x555ULL, (u64) get_pict, (u64) &i); 
-            /*
-
-            if(!mode_favourites || (mode_favourites != 0 && favourites.list[i].index >= 0)) {
-                sprintf(temp_buffer, "%s%sPIC1.PNG", directories[get_currentdir(i)].path_name, &folder_mode[!((directories[get_currentdir(i)].flags>>31) & 1)][0]);
-                
-                if(LoadTexturePNG(temp_buffer, 12) < 0) {
-                    sprintf(temp_buffer, "%s%sPIC0.PNG", directories[(mode_favourites != 0) 
-                        ? favourites.list[i].index : (currentdir + i)].path_name, &folder_mode[!((directories[(mode_favourites != 0) 
-                        ? favourites.list[i].index : (currentdir + i)].flags>>31) & 1)][0]);
-
-                    if(LoadTexturePNG(temp_buffer, 12) < 0) {
-                        sprintf(temp_buffer, "%s%sICON0.PNG", directories[(mode_favourites != 0) 
-                            ? favourites.list[i].index : (currentdir + i)].path_name, &folder_mode[!((directories[(mode_favourites != 0) 
-                            ? favourites.list[i].index : (currentdir + i)].flags>>31) & 1)][0]);
-                        if(LoadTexturePNG(temp_buffer, 12) < 0) {
-                        sprintf(temp_buffer, "%s%sPIC2.PNG", directories[(mode_favourites != 0) 
-                            ? favourites.list[i].index : (currentdir + i)].path_name, &folder_mode[!((directories[(mode_favourites != 0) 
-                            ? favourites.list[i].index : (currentdir + i)].flags>>31) & 1)][0]);
-                        
-                            
-                            if(LoadTexturePNG(temp_buffer, 12) < 0) Png_offset[12] = 0;
-                        }
-                    }
-                }
-            }
-            */
+           
             currentgamedir = get_currentdir(i);
             if(currentgamedir >= 0 && currentgamedir < ndirectories) {
                 // access to PSX configuration menu
@@ -3394,6 +4153,8 @@ void draw_screen1(float x, float y)
                 }
                 else {
                    menu_screen = 1;
+                   load_gamecfg(-1); // force refresh game info
+                   load_gamecfg (get_currentdir(i));
                    if(!(directories[currentgamedir].flags & (1<<11)) && lv2peek(0x80000000000004E8ULL))
                         set_BdId(currentgamedir);
                 }
@@ -3403,6 +4164,12 @@ void draw_screen1(float x, float y)
     }
 
     static int auto_up = 0, auto_down = 0, auto_left = 0, auto_right = 0;
+
+/************************************************************************************************************/
+/* GUI 0                                                                                                    */
+/************************************************************************************************************/
+
+    if(gui_mode == 0) {
 
     AUTO_BUTTON_REP(auto_up, BUTTON_UP)
     AUTO_BUTTON_REP(auto_down, BUTTON_DOWN)
@@ -3516,6 +4283,235 @@ void draw_screen1(float x, float y)
         return;
     }
 
+// end of GUI 0
+    } else {
+/************************************************************************************************************/
+/* GUI 1                                                                                                    */
+/************************************************************************************************************/
+    // AUTO_BUTTON_REP(auto_up, BUTTON_UP)
+    //AUTO_BUTTON_REP(auto_down, BUTTON_DOWN)
+    AUTO_BUTTON_REP3(auto_left, BUTTON_LEFT)
+    AUTO_BUTTON_REP3(auto_right, BUTTON_RIGHT)
+
+    if(new_pad & BUTTON_UP) {
+        
+        auto_up = 1;
+        frame_count = 32;
+
+        if(mode_favourites >= 65536) ;
+        else if(mode_favourites) {
+            mode_favourites = 0;
+            currentdir = 0;
+            select_px = select_py = 0;             
+            get_games();
+
+        } else {
+            mode_favourites = (!mode_favourites && havefavourites);
+            currentdir = 0;
+            select_px = select_py = 0;
+            get_games();
+        }
+        
+        return;
+    }
+
+    if(new_pad & BUTTON_DOWN) {
+        
+
+        auto_down = 1;
+        frame_count = 32;
+        
+        if(mode_favourites >= 65536) ;
+        else if(mode_favourites) {
+            mode_favourites = 0;
+            currentdir = 0;
+            select_px = select_py = 0;        
+            get_games();
+
+        } else {
+            sort_mode++; if(sort_mode > 2) sort_mode = 0;
+
+            sort_entries2(directories, &ndirectories, sort_mode);
+            UpdateFavourites(directories, ndirectories);
+            load_gamecfg(-1); // force refresh game info
+            manager_cfg.gui_mode = ((sort_mode & 0xf)<<4) | (gui_mode & 0xf); 
+            SaveManagerCfg();
+
+            currentdir = 0;
+            select_px = select_py = 0;
+            get_games();
+        }
+
+        return;
+    }
+
+    if(new_pad & BUTTON_LEFT) {
+        
+        int tmp_currentdir = currentdir;
+        int update = 0;
+
+        select_px--;
+
+        auto_left = 1;
+        frame_count = 32;
+
+        if(select_px < 0) {
+            
+            select_px = 3;
+
+            select_py--;
+
+            if(select_py < 0) {
+                select_py = 2;
+            
+                if(mode_favourites >= 65536) ;
+                else if(mode_favourites) {mode_favourites = 0; update = 1;
+                        currentdir = ndirectories - 1;
+                        if(currentdir < 0) currentdir = 0;
+                        if(currentdir >= 3) {select_px = 3; currentdir-= 2;} else select_px = currentdir;
+                    
+                } else select_py = 5;
+               
+            }
+
+
+        }
+
+        if(!mode_favourites) {
+        
+
+            if(currentdir > 0 || (currentdir==0 && select_py != 5)) {
+                if(currentdir > 0) {currentdir--; if(!update) update = 2; if(currentdir <= 3 && select_px == 2) select_px = 3;} 
+                if(currentdir >= 3) select_px = 3; select_py = 0;}
+            else {mode_favourites = (!mode_favourites && havefavourites);
+                
+                if(mode_favourites) {currentdir = (ndirectories/12) * 12; select_px = 3; select_py = 2;}
+                else {
+                    currentdir = ndirectories - 1;
+                    if(currentdir < 0) currentdir = 0;
+                    if(currentdir >= 3) {select_px = 3; currentdir-= 3;} else select_px = currentdir;
+                    select_py = 0;
+                }
+            update = 1;
+            }
+            
+        
+        }
+
+     
+        if(currentdir < 0 || currentdir >= ndirectories)  {currentdir = 0; select_px = 0; select_py = 0; update = 1;}
+
+        if(update)  {
+            if(update==2 && currentdir == (tmp_currentdir - 1)) {
+
+                wait_event_thread(); // wait previous event thread function
+
+                int_currentdir = currentdir;
+
+                // program new event thread function
+                event_thread_send(0x555ULL, (u64) get_games_3, 0);
+
+            } else get_games();
+        }
+
+        return;
+    }
+
+    if(new_pad & BUTTON_RIGHT) {
+       
+        int tmp_currentdir = currentdir;
+        int update = 0;
+        select_px++; 
+
+        auto_right = 1;
+        frame_count = 32;
+
+        if(!mode_favourites && (currentdir + select_px) >= ndirectories) {currentdir = ndirectories; select_px = 4; select_py = 2;}
+
+        if(select_px > 3) {
+            
+            select_px = 0; 
+
+            select_py++;
+
+            if(select_py > 2) {
+                select_py = 0;
+
+          
+                if(mode_favourites >= 65536) ;
+                else if(mode_favourites) {mode_favourites = 0; if(!update) update = 1; currentdir = 0; }
+                else select_py = 1;
+              
+            }
+            
+        }
+
+        //
+
+        if(!mode_favourites) {
+            if(select_px <= 3 && select_py == 0 && currentdir <= 3) ;
+            else {
+
+                if(currentdir < ndirectories) {currentdir++; update = 2;   select_px = 3; select_py = 0;}
+                else {mode_favourites = (!mode_favourites && havefavourites); currentdir = 0; select_px = 0; select_py = 0;update = 1;}
+            }
+        
+        }
+
+     
+        if(currentdir < 0 || currentdir >= ndirectories)  currentdir = 0; 
+
+        if(update)  {
+            if(update==2 && currentdir == (tmp_currentdir + 1)) {
+
+                wait_event_thread(); // wait previous event thread function
+            
+                int_currentdir = currentdir;
+
+                
+                // program new event thread function
+                event_thread_send(0x555ULL, (u64) get_games_3, 1ULL);
+
+            } else get_games();
+        }
+        
+
+        return;
+    }
+
+    if(new_pad & BUTTON_L1) //change page
+    {
+        
+        frame_count = 32;
+            
+        if(mode_favourites >= 65536) ;
+        else if(mode_favourites) {mode_favourites = 0; select_px = select_py = 0;get_games();}
+        else if(currentdir >= 12) {mode_favourites = 0; currentdir -= 12; 
+        if(currentdir < 0) currentdir = 0; if(currentdir >= 3) {select_px = 3; currentdir-= 3;} else select_px = currentdir; select_py = 0; select_py = 0;get_games();}
+        else {mode_favourites = (!mode_favourites && havefavourites); currentdir = ndirectories - 12; 
+        if(currentdir < 0) currentdir = 0; if(currentdir >= 3) {select_px = 3; currentdir-= 3;} else select_px = currentdir; select_py = 0; get_games();}
+
+        return;
+    }
+    
+    if(new_pad & BUTTON_R1) //change page
+    {
+        //maybe wait some seconds here...
+        frame_count = 32;
+            
+        if(mode_favourites >= 65536) ;
+        else if(mode_favourites) {if(currentdir >= ndirectories) {currentdir = 0; select_px = select_py = 0;} mode_favourites = 0; get_games();}
+        else if(currentdir + 12 < ndirectories) {mode_favourites = 0; currentdir += 12; 
+             select_px = select_py = 0; if(currentdir >= 3) {select_px = 3; currentdir-= 3;} else select_px = currentdir; get_games();}
+        else {mode_favourites = (!mode_favourites && havefavourites); currentdir = 0; get_games();}
+
+
+
+        return;
+    }
+// end of GUI 1
+    }
+
     if(new_pad & BUTTON_R3) //change games/homebrew
     {
 
@@ -3611,7 +4607,7 @@ void draw_options(float x, float y, int index)
     SetFontAutoCenter(0);
 
   
-    DrawFormatString(x, y - 2, " %s", language[DRAWGMOPT_OPTS]);
+    DrawFormatString(x, y, " %s", language[DRAWGMOPT_OPTS]);
 
 
     if(directories[currentgamedir].flags & 1) {
@@ -4035,7 +5031,7 @@ void draw_configs(float x, float y, int index)
 
     SetFontAutoCenter(0);
   
-    DrawFormatString(x, y - 2, " %s", language[DRAWGMCFG_CFGS]);
+    DrawFormatString(x, y, " %s", language[DRAWGMCFG_CFGS]);
 
     i = selected;
 
@@ -4345,15 +5341,15 @@ void draw_gbloptions(float x, float y)
 
     SetFontAutoCenter(0);
   
-    DrawFormatString(x, y - 2, " %s", language[DRAWGLOPT_OPTS]);
+    DrawFormatString(x, y, " %s", language[DRAWGLOPT_OPTS]);
 
     if(x3 < 0)
     {
         x3 = 2000;
-        x3 = DrawFormatString(x3, y - 2,  music[song_selected + MAX_SONGS]); // calculate first time
+        x3 = DrawFormatString(x3, y,  music[song_selected + MAX_SONGS]); // calculate first time
         x3 = 848 -(x3 - 2000) - x;
     }else
-        DrawFormatString(x3, y - 2,  music[song_selected + MAX_SONGS]); //print current song name
+        DrawFormatString(x3, y,  music[song_selected + MAX_SONGS]); //print current song name
     
     y += 24;
 
@@ -4361,13 +5357,13 @@ void draw_gbloptions(float x, float y)
 
     
     x2 = x;
-    y2 = y + 32;
+    y2 = y + 32 - 24;
     
     DrawButton1_UTF8((848 - 520) / 2, y2, 520, language[DRAWGLOPT_SCRADJUST], (flash && select_option == 0));
     
     y2+= 48;
 
-    DrawButton1_UTF8((848 - 520) / 2, y2, 520, language[DRAWGLOPT_CHANGEDIR], (flash && select_option == 1));
+    DrawButton1_UTF8((848 - 520) / 2, y2, 520, language[DRAWGLOPT_CHANGEGUI], (flash && select_option == 1));
     
     y2+= 48;
 
@@ -4375,23 +5371,27 @@ void draw_gbloptions(float x, float y)
     
     y2+= 48;
 
-    DrawButton1_UTF8((848 - 520) / 2, y2, 520, (manager_cfg.opt_flags & OPTFLAGS_PLAYMUSIC)? language[DRAWGLOPT_SWMUSICOFF] : language[DRAWGLOPT_SWMUSICON] , (flash && select_option == 3));
+    DrawButton1_UTF8((848 - 520) / 2, y2, 520, language[DRAWGLOPT_CHANGEDIR], (flash && select_option == 3));
     
     y2+= 48;
 
-    DrawButton1_UTF8((848 - 520) / 2, y2, 520, (ftp_ip_str[0]) ? ftp_ip_str : language[DRAWGLOPT_INITFTP], (flash && select_option == 4));
+    DrawButton1_UTF8((848 - 520) / 2, y2, 520, (manager_cfg.opt_flags & OPTFLAGS_PLAYMUSIC)? language[DRAWGLOPT_SWMUSICOFF] : language[DRAWGLOPT_SWMUSICON] , (flash && select_option == 4));
     
     y2+= 48;
 
-    DrawButton1_UTF8((848 - 520) / 2, y2, 520, language[DRAWGLOPT_TOOLS], (flash && select_option == 5));
+    DrawButton1_UTF8((848 - 520) / 2, y2, 520, (ftp_ip_str[0]) ? ftp_ip_str : language[DRAWGLOPT_INITFTP], (flash && select_option == 5));
     
     y2+= 48;
 
-    DrawButton1_UTF8((848 - 520) / 2, y2, 520, language[GLOBAL_RETURN], (flash && select_option == 6));
+    DrawButton1_UTF8((848 - 520) / 2, y2, 520, language[DRAWGLOPT_TOOLS], (flash && select_option == 6));
+    
+    y2+= 48;
+
+    DrawButton1_UTF8((848 - 520) / 2, y2, 520, language[GLOBAL_RETURN], (flash && select_option == 7));
     
     y2+= 48;
     
-    DrawButton1_UTF8((848 - 520) / 2, y2, 520, language[DRAWGLOPT_CREDITS], (flash && select_option == 7));
+    DrawButton1_UTF8((848 - 520) / 2, y2, 520, language[DRAWGLOPT_CREDITS], (flash && select_option == 8));
    
     y2+= 48;
 
@@ -4403,7 +5403,7 @@ void draw_gbloptions(float x, float y)
     SetFontColor(0xccccffff, 0x00000000);
     SetFontSize(18, 20);
     SetFontAutoCenter(1);
-    DrawFormatString(0, y2 + 40, payload_str );
+    DrawFormatString(0, y2 + 40 - 24, payload_str );
     SetFontAutoCenter(0);
     
     if(help) {
@@ -4458,6 +5458,28 @@ void draw_gbloptions(float x, float y)
                 return;
 
             case 1:
+                gui_mode = gui_mode==0;
+                manager_cfg.gui_mode = ((sort_mode & 0xf)<<4) | (gui_mode & 0xf);
+                select_option = 0;
+                menu_screen = 0; 
+                SaveManagerCfg();
+                currentgamedir = currentdir = 0;
+                select_px = select_py = 0;
+                select_option = 0;
+                menu_screen = 0;
+                get_games();
+                load_gamecfg(-1); // force refresh game info
+
+                return;
+
+            case 2:
+                background_sel++;
+                background_sel &= 7;
+                manager_cfg.background_sel = background_sel;
+                SaveManagerCfg();
+                break;
+
+            case 3:
                 menu_screen = 0;
                 Select_games_folder();
      
@@ -4474,23 +5496,17 @@ void draw_gbloptions(float x, float y)
                 forcedevices=0;
                 find_device=0;
                 bdvd_notify = 1;
+                load_gamecfg(-1); // force refresh game info
 
                 return;
 
-            case 2:
-                background_sel++;
-                background_sel &= 7;
-                manager_cfg.background_sel = background_sel;
-                SaveManagerCfg();
-                break;
-
-            case 3:
+            case 4:
                 manager_cfg.opt_flags ^= OPTFLAGS_PLAYMUSIC; //change bit
                 pause_music((manager_cfg.opt_flags & OPTFLAGS_PLAYMUSIC)? 0 : 1);
                 SaveManagerCfg();
                 break;
 
-            case 4:
+            case 5:
                 if(test_ftp_working()) break;
                 if ((manager_cfg.opt_flags & OPTFLAGS_FTP) == 0)
                 {
@@ -4506,6 +5522,7 @@ void draw_gbloptions(float x, float y)
                         if(r == -1) DrawDialogOK("Error in netInitialize()");
                         else if(r == -2) DrawDialogOK("Error in netCtlInit()");
                         else if(r == -3) DrawDialogOK("Error in netCtlGetInfo()");
+                        else if(r == -4) DrawDialogOK("Net Disconnected or Connection not Established");
                         else DrawDialogOK(language[DRAWGLOPT_FTPARINITED]);
 
                         break;
@@ -4521,17 +5538,17 @@ void draw_gbloptions(float x, float y)
                 SaveManagerCfg();
                 break;
 
-            case 5:
+            case 6:
                 select_option = 0;
                 menu_screen = 4; 
                 return;
 
-            case 6:
+            case 7:
                 select_option = 0;
                 menu_screen = 0; 
                 return;
 
-            case 7:
+            case 8:
                    DrawDialogOK(credits_str1);
                    DrawDialogOK(credits_str2);
                    DrawDialogOK(credits_str3);
@@ -4548,7 +5565,7 @@ void draw_gbloptions(float x, float y)
 
         frame_count = 32;
 
-        ROT_DEC(select_option, 0, 7)
+        ROT_DEC(select_option, 0, 8)
         
     }
 
@@ -4556,7 +5573,7 @@ void draw_gbloptions(float x, float y)
 
         frame_count = 32;
         
-        ROT_INC(select_option, 7, 0); 
+        ROT_INC(select_option, 8, 0); 
         
     }
     
@@ -4581,7 +5598,7 @@ void draw_toolsoptions(float x, float y)
 
     SetFontAutoCenter(0);
   
-    DrawFormatString(x, y - 2, " %s", language[DRAWTOOLS_TOOLS]);
+    DrawFormatString(x, y, " %s", language[DRAWTOOLS_TOOLS]);
 
     y += 24;
 
@@ -4830,11 +5847,11 @@ void draw_cachesel(float x, float y)
 
     SetFontAutoCenter(0);
   
-    DrawFormatString(x, y - 2, " %s", language[DRAWCACHE_CACHE]);
+    DrawFormatString(x, y, " %s", language[DRAWCACHE_CACHE]);
     
-    x2= DrawFormatString(2000, -2, "hdd0: %.2fGB ", freeSpace[0]);
+    x2= DrawFormatString(2000, 0, "hdd0: %.2fGB ", freeSpace[0]);
     x2 = 848 -(x2 - 2000) - x;
-    DrawFormatString(x2, -2, "hdd0: %.2fGB ", freeSpace[0]);
+    DrawFormatString(x2, 0, "hdd0: %.2fGB ", freeSpace[0]);
 
 
     y += 24;

@@ -485,7 +485,9 @@ int display_ttf_string(int posx, int posy, char *string, u32 color, u32 bkcolor,
 
     }
 
-    Y_ttf = (float) posy;
+   
+
+    Y_ttf = (float) posy + sh;
 
     if(posx < lenx) posx = lenx;
     return posx;
