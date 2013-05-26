@@ -59,7 +59,16 @@ int ftp_init()
     ftp_working = 0;
 
     if(netInitialize()<0) return -1;
-	if(netCtlInit()<0) return -2;
+	if(netCtlInit()<0) {netDeinitialize();return -2;}
+    
+    s32 state = 0;
+    
+    if(netCtlGetState(&state)<0 || state !=3) {
+        ftp_initialized = 0;
+        netCtlTerm();
+        netDeinitialize();
+        return -4;
+    }
 
     union net_ctl_info info;
 	
@@ -106,6 +115,7 @@ int ftp_init()
 		//msgDialogOpen2(mt_ok, OFTP_ERRMSG_NETWORK, dialog_handler, NULL, NULL);
 
         ftp_initialized = 0;
+        netCtlTerm();
         netDeinitialize();
 
 	}
