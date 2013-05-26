@@ -187,7 +187,7 @@ void draw_psx_options(float x, float y, int index)
 
     SetFontAutoCenter(0);
 
-    DrawFormatString(x, y - 2, " PSX %s", language[DRAWGMOPT_OPTS]);
+    DrawFormatString(x, y, " PSX %s", language[DRAWGMOPT_OPTS]);
 
 
     if(!(directories[currentgamedir].flags & 2048) && 
@@ -197,8 +197,8 @@ void draw_psx_options(float x, float y, int index)
         SetFontSize(18, 22);
         utf8_truncate("Press [] to copy MC as Internal_MC", temp_buffer, 64);
        
-        x2= DrawFormatString(1024, y - 2, "%s", temp_buffer);
-        DrawFormatString(848 - x2 + 1024 - x, y - 2, "%s", temp_buffer);
+        x2= DrawFormatString(1024, y, "%s", temp_buffer);
+        DrawFormatString(848 - x2 + 1024 - x, y, "%s", temp_buffer);
         
         if(select_option == 0) mc_name = psx_options.mc1; else mc_name = psx_options.mc2;
 
@@ -679,7 +679,7 @@ void draw_psx_options2(float x, float y, int index)
 
     SetFontAutoCenter(0);
 
-    DrawFormatString(x, y - 2, " %s", language[DRAWPSX_VIDEOPS]);
+    DrawFormatString(x, y, " %s", language[DRAWPSX_VIDEOPS]);
 
         
     SetFontSize(16, 20);
@@ -1630,7 +1630,7 @@ int psx_iso_prepare(char *path, char *name)
 
             SetFontAutoCenter(0);
           
-            DrawFormatString(x, y - 2, " %s", language[DRAWPSX_DISCORDER]);
+            DrawFormatString(x, y, " %s", language[DRAWPSX_DISCORDER]);
 
             if(strncmp((char *) string_title_utf8, name, 64)) {
                 strncpy((char *) string_title_utf8, name, 128);

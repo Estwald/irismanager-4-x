@@ -199,7 +199,7 @@ char path_pkghdd[256];
 
         SetFontAutoCenter(0);
    
-        DrawFormatString(x, y - 2, " %s", language[PKG_HEADER]);
+        DrawFormatString(x, y, " %s", language[PKG_HEADER]);
         update_twat();
 
         y += 24;
