@@ -51,8 +51,9 @@ DRAWGMCFG_SAVECFG       = ذخيره پيكر بندي
 # DRAW GLOBAL OPTIONS
 DRAWGLOPT_OPTS          = تنظيمات اصلي
 DRAWGLOPT_SCRADJUST     = Video Adjust
-DRAWGLOPT_CHANGEDIR     = تغيير مسير بازي
+DRAWGLOPT_CHANGEGUI     = Change Current GUI
 DRAWGLOPT_CHANGEBCK     = تغيير رنگ پس زمينه
+DRAWGLOPT_CHANGEDIR     = تغيير مسير بازي
 DRAWGLOPT_SWMUSICOFF    = كليد آهنگ روشن
 DRAWGLOPT_SWMUSICON     = كليد آهنگ خاموش
 DRAWGLOPT_INITFTP       = -Initialize FTP server

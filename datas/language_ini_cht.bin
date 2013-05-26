@@ -1,4 +1,4 @@
-﻿[Language]
+[Language]
 VERSION = 2
 DESCRIPTION = 繁體中文
 
@@ -68,8 +68,9 @@ DRAWGMCFG_SAVECFG       = 保存設置
 # DRAW GLOBAL OPTIONS
 DRAWGLOPT_OPTS          = 全局設置
 DRAWGLOPT_SCRADJUST     = 屏幕調整
-DRAWGLOPT_CHANGEDIR     = 變更遊戲目錄
+DRAWGLOPT_CHANGEGUI     = Change Current GUI
 DRAWGLOPT_CHANGEBCK     = 更改背景顏色
+DRAWGLOPT_CHANGEDIR     = 變更遊戲目錄
 DRAWGLOPT_SWMUSICOFF    = 關閉音樂
 DRAWGLOPT_SWMUSICON     = 開啟音樂
 DRAWGLOPT_INITFTP       = 開啟FTP服務器

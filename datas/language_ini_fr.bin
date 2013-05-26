@@ -68,8 +68,9 @@ DRAWGMCFG_SAVECFG       = Sauver Config
 # DRAW GLOBAL OPTIONS
 DRAWGLOPT_OPTS          = Options Globales
 DRAWGLOPT_SCRADJUST     = Ajuster la video
-DRAWGLOPT_CHANGEDIR     = Changer le repertoire du jeu
+DRAWGLOPT_CHANGEGUI     = Change Current GUI
 DRAWGLOPT_CHANGEBCK     = Changer la couleur du fond d ecran
+DRAWGLOPT_CHANGEDIR     = Changer le repertoire du jeu
 DRAWGLOPT_SWMUSICOFF    = Switcher la Musique sur Off
 DRAWGLOPT_SWMUSICON     = Switcher la Musique sur On
 DRAWGLOPT_INITFTP       = Initializer le Server FTP
