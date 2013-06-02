@@ -247,7 +247,7 @@ void PS3GetDateTime(u32 * hh, u32 * mm, u32 * ss, u32 * day, u32 * month, u32 * 
 
     for(n= 0; n < 12; n++) {
         
-        if(*day <= day_month[n] + ((n==1) && bi)) {
+        if(*day < day_month[n] + ((n==1) && bi)) {
             *day += 1;
             *month = n + 1;
             break;
