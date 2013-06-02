@@ -3,16 +3,16 @@ VERSION = 2
 DESCRIPTION = 简体中文
 
 # VIDEO - ADJUST
-VIDEOADJUST_POSITION    = 使用 左 (-X) / 右 (+X) / 上 (-Y) / 下 (+Y) 调整屏幕
-VIDEOADJUST_SCALEINFO   = 屏幕缩放 X: %i Y: %i
+VIDEOADJUST_POSITION    = 使用 左 (-X) / 右 (+X) / 上 (-Y) / 下 (+Y) 调整屏幕范围
+VIDEOADJUST_SCALEINFO   = 屏幕范围 X轴 : %i Y轴 : %i
 VIDEOADJUST_EXITINFO    = 按X保存退出
 VIDEOADJUST_DEFAULTS    = 按〇还原默认值
 
 # SELECT - GAME FOLDER
 GAMEFOLDER_WANTUSE      = 要使用
-GAMEFOLDER_TOINSTALLNTR = 安装游戏?
+GAMEFOLDER_TOINSTALLNTR = 存放游戏?
 GAMEFOLDER_USING        = 使用
-GAMEFOLDER_TOINSTALL    = 安装游戏
+GAMEFOLDER_TOINSTALL    = 存放游戏
     
 # DRAW SCREEN1
 DRAWSCREEN_FAVSWAP      = 替换收藏夹
@@ -24,26 +24,26 @@ DRAWSCREEN_PLAY         = 游玩
 DRAWSCREEN_SOPTIONS     = SELECT: 游戏选项
 DRAWSCREEN_SDELETE      = SELECT: 删除收藏夹
 DRAWSCREEN_STGLOPT      = START: 全局选项
-DRAWSCREEN_EXITXMB      = 返回至XMB菜单?
+DRAWSCREEN_EXITXMB      = 退出至XMB™界面?
 DRAWSCREEN_CANRUNFAV    = 不能打开此收藏夹
-DRAWSCREEN_MARKNOTEXEC  = 标记为不可执行 尝试安装到内置硬盘
+DRAWSCREEN_MARKNOTEXEC  = 标记为不可执行 尝试安装到内置缓存
 DRAWSCREEN_MARKNOTEX4G  = 标记为不可执行 - 包含分割文件 >= 4GB
-DRAWSCREEN_GAMEINOFMNT  = 无法找到一个文件夹挂载到 /dev_hdd0/game
+DRAWSCREEN_GAMEINOFMNT  = 未从USB设备找到文件夹挂载 /dev_hdd0/game
 DRAWSCREEN_GAMEIASKDIR  = 创建在 /dev_usb00
-DRAWSCREEN_GAMEICANTFD  = 无法找到一个USB设备挂载到 /dev_hdd0/game
-DRAWSCREEN_GAMEIWLAUNCH = 启动游戏?
-DRAWSCREEN_EXTEXENOTFND = 外部执行程序未发现
+DRAWSCREEN_GAMEICANTFD  = 未找到USB设备挂载 /dev_hdd0/game
+DRAWSCREEN_GAMEIWLAUNCH = 确认加载游戏?
+DRAWSCREEN_EXTEXENOTFND = 外置执行文件未发现
 DRAWSCREEN_EXTEXENOTCPY = 使用 '从USB复制EBOOT.BIN' 来导入.
-DRAWSCREEN_REQBR        = 需要BR-Disc@ 重试?
+DRAWSCREEN_REQBR        = 请放入引导光盘@      重试?
 
 # DRAW OPTIONS
 DRAWGMOPT_OPTS          = 选项
 DRAWGMOPT_CFGGAME       = 设置游戏
 DRAWGMOPT_CPYGAME       = 复制游戏
 DRAWGMOPT_DELGAME       = 删除游戏
-DRAWGMOPT_FIXGAME       = 修复文件权限
+DRAWGMOPT_FIXGAME       = 修复权限
 DRAWGMOPT_TSTGAME       = 测试游戏
-DRAWGMOPT_CPYEBOOTGAME  = 从USB设备复制EBOOT.BIN
+DRAWGMOPT_CPYEBOOTGAME  = 从USB复制EBOOT.BIN
 DRAWGMOPT_CPYTOFAV      = 添加到收藏夹
 DRAWGMOPT_DELFMFAV      = 从收藏夹中删除
 
@@ -67,26 +67,26 @@ DRAWGMCFG_SAVECFG       = 保存设置
 
 # DRAW GLOBAL OPTIONS
 DRAWGLOPT_OPTS          = 全局设置
-DRAWGLOPT_SCRADJUST     = 屏幕调整
-DRAWGLOPT_CHANGEGUI     = Change Current GUI
+DRAWGLOPT_SCRADJUST     = 屏幕范围调整
+DRAWGLOPT_CHANGEGUI     = 切换显示模式
 DRAWGLOPT_CHANGEBCK     = 更改背景颜色
 DRAWGLOPT_CHANGEDIR     = 变更游戏目录
-DRAWGLOPT_SWMUSICOFF    = 关闭音乐
-DRAWGLOPT_SWMUSICON     = 开启音乐
-DRAWGLOPT_INITFTP       = 开启FTP服务器
+DRAWGLOPT_SWMUSICOFF    = 关闭背景音乐
+DRAWGLOPT_SWMUSICON     = 开启背景音乐
+DRAWGLOPT_INITFTP       = 开启FTP服务
 DRAWGLOPT_TOOLS         = 工具
-DRAWGLOPT_CREDITS       = 鸣谢
-DRAWGLOPT_FTPINITED     = 已启动FTP服务@下次自动启动FTP服务器?
-DRAWGLOPT_FTPARINITED   = FTP服务器已启动
-DRAWGLOPT_FTPSTOPED     = FTP服务器已停止@已移除FTP服务器自启动.
+DRAWGLOPT_CREDITS       = 关于
+DRAWGLOPT_FTPINITED     = 已启动FTP服务@下次自动启动FTP服务?
+DRAWGLOPT_FTPARINITED   = FTP服务已启动
+DRAWGLOPT_FTPSTOPED     = FTP服务已停止@已移除FTP服务自启动.
 
 # DRAW TOOLS
 DRAWTOOLS_TOOLS         = 工具
-DRAWTOOLS_DELCACHE      = 删除缓存工具
-# DRAWTOOLS_SECDISABLE    = Press To Disable Syscall Security
-# DRAWTOOLS_SECENABLE     = Press To Enable Syscall Security
+DRAWTOOLS_DELCACHE      = 删除游戏缓存
+# DRAWTOOLS_SECDISABLE    = 按下关闭系统调用保护
+# DRAWTOOLS_SECENABLE     = 按下启用系统调用保护
 DRAWTOOLS_PKGTOOLS      = PKG文件安裝
-DRAWTOOLS_COPYFROM      = 复制/dev_usb/iris至iris
+DRAWTOOLS_COPYFROM      = 复制文件至Iris
 DRAWTOOLS_WITHBDVD      = 正常光驱模式
 DRAWTOOLS_NOBDVD        = 屏蔽光驱模式
 DRAWTOOLS_NOBDVD2       = 虚拟光驱模式
@@ -106,16 +106,16 @@ MOVETBEMU_ERRMOVE       = 移动到@%s错误:已存在
 # UTILS
 # FAST COPY ADD
 FASTCPADD_FAILED        = 快速复制过程中失败() ret
-FASTCPADD_ERRTMFILES    = 太多文件
+FASTCPADD_ERRTMFILES    = 文件过多
 FASTCPADD_FAILEDSTAT    = 无法统计()
 FASTCPADD_ERROPEN       = 开始错误0 (写入)
 FASTCPADD_COPYING       = 复制中
-FASTCPADD_FAILFASTFILE  = Failed in fast_files(fast_num_files).mem
+FASTCPADD_FAILFASTFILE  = fast_files(fast_num_files).mem失败
 
 # FAST COPY PROCESS
 FASTCPPRC_JOINFILE      = 加入文件
-FASTCPPRC_COPYFILE      = 复制. 文件
-FASTCPPTC_OPENERROR     = 错误!!!!!!!!!!!!!!!!!!!!!!!!!@打开的文件 %i@ 等待20秒显示严重错误
+FASTCPPRC_COPYFILE      = 复制文件
+FASTCPPTC_OPENERROR     = 错误!!!!!!!!!!!!!!!!!!!!!!!!!@打开文件 %i@ 等待20秒显示严重错误
 
 # GAME TEST FILES
 GAMETESTS_FOUNDINSTALL  = 找到 %s@@要安装?
@@ -133,14 +133,14 @@ GAMECPYSL_STARTED       = 开始... @ 复制
 GAMECPYSL_SPLITEDHDDNFO = %s@@分割游戏复制到HDD0 (非可加载)
 GAMECPYSL_SPLITEDUSBNFO = %s@@分割游戏复制到USB00%c (非可加载)
 GAMECPYSL_DONE          = 复制文件 完成!
-GAMECPYSL_FAILDELDUMP   = 删除失败DUMP
+GAMECPYSL_FAILDELDUMP   = 删除未完成转储于
 
 # GAME CACHE COPY
 GAMECHCPY_ISNEEDONEFILE = 抱歉, 但是你需要安装大文件
 GAMECHCPY_NEEDMORESPACE = 你有%.2fGB剩余空间并需要%.2fGB空间@@请删除缓存内容
 GAMECHCPY_NOSPACE       = 抱歉, 你有%.2fGB剩余空间@@并且你需要%.2fGB
 GAMECHCPY_CACHENFOSTART = 缓存文件: %.2fGB - 总计文件: %.2fGB@ 你保存%.2fGB在内置硬盘 (总 %.2fGB )@@按任意键开始
-GAMECHCPY_FAILDELFROM   = 从错误DUMP删除缓存
+GAMECHCPY_FAILDELFROM   = 删除未完成缓存从
 
 # GAME DELETE
 GAMEDELSL_WANTDELETE    = 要删除于
@@ -149,7 +149,7 @@ GAMEDELSL_DONE          = 文件删除 完成!
 
 # GAME TEST
 GAMETSTSL_FINALNFO      = 目录: %i 文件: %i@大文件: %i 分割文件: %i
-GAMETSTSL_TESTED        = 文件测试
+GAMETSTSL_TESTED        = 文件数量
 
 #GLOBAL UTILS
 GLUTIL_SPLITFILE        = 分割文件
@@ -173,20 +173,20 @@ PKG_HEADER              = 安装PKG文件实用工具 -_____X选择 〇退出
 PKG_INSERTUSB           = 请插入USB大容量存储设备
 PKG_ERRTOBIG            = PKG文件太大或磁盘空间过小
 PKG_WANTINSTALL         = 想要安装 PKG文件?
-PKG_ERRALREADY          = 错误: PKG文件堆栈中已有
-PKG_ERRFULLSTACK        = 错误: 堆栈已满 (最多16项)
+PKG_ERRALREADY          = 错误: 后台队列中已有
+PKG_ERRFULLSTACK        = 错误: 后台队列已满 (最多16项)
 PKG_ERRBUILD            = 构建PKG文件错误
-PKG_COPYING             = 复制PKG文件到Iris管理器文件夹...
+PKG_COPYING             = 复制PKG文件到dev_hdd0/vsh/game_pkg文件夹...
 PKG_ERROPENING          = 打开PKG文件错误
 PKG_ERRCREATING         = 创建PKG文件错误
 PKG_ERRREADING          = 读取PKG文件错误
-PKG_ERRLICON            = 读取ICON文件错误
+PKG_ERRLICON            = 加载ICON文件错误
 PKG_ERRMOVING           = 移动PKG文件错误
 
 # DRAW_PSX
 DRAWPSX_EMULATOR        = 模拟核心
 DRAWPSX_VIDEOPS         = PSX 视频设置
-DRAWPSX_SAVEASK         = 保存PSX选项?
+DRAWPSX_SAVEASK         = 保存PSX设置?
 DRAWPSX_SAVED           = PSX设置保存
 DRAWPSX_VIDEOTHER       = 显示/其他
 DRAWPSX_VIDEOMODE       = 输出模式
@@ -220,5 +220,5 @@ DRAWPSX_ISOEXITS        = 已存在@@跳过?
 # generic
 OUT_OFMEMORY            = 内存不足
 OPERATION_DONE          = 完成!
-PLUG_STORAGE1           = 你需要插入一个USB存储设备激活虚拟光盘
-PLUG_STORAGE2           = 虚拟光盘激活
+PLUG_STORAGE1           = 轻按两次PS键激活虚拟光盘(或插入USB存储设备)
+PLUG_STORAGE2           = 虚拟光盘已激活
