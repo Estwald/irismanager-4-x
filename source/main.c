@@ -54,6 +54,7 @@
 #include "payload430dex/payload_430dex.h"
 #include "payload440/payload_440.h"
 #include "payload441/payload_441.h"
+#include "payload446/payload_446.h"
 
 #include "spu_soundmodule.bin.h" // load SPU Module
 #include "spu_soundlib.h"
@@ -105,6 +106,8 @@ u64 restore_syscall8[2]= {0,0};
 
 int gui_mode = 0; // GUI selector
 int sort_mode = 0;
+
+int options_locked = 0; // to 1 when control parental < 9 and not 0 (Disabled)
 
 int noBDVD = 0;
 int stops_BDVD = 1;
@@ -1535,6 +1538,9 @@ s32 main(s32 argc, const char* argv[])
     } else if(is_firm_441()) {
         firmware = 0x441C;
         payload_mode = is_payload_loaded_441();
+	} else if(is_firm_446()) {
+        firmware = 0x446C;
+        payload_mode = is_payload_loaded_446();
 	}
 	
 	
@@ -1716,6 +1722,19 @@ s32 main(s32 argc, const char* argv[])
             {
                 case ZERO_PAYLOAD: //no payload installed
                     load_payload_441(payload_mode);
+                    __asm__("sync");
+                    sleep(1); /* maybe need it, maybe not */
+                    break;
+        		case SKY10_PAYLOAD:
+        		    break;
+            }
+			break;
+        case 0x446C:
+            set_bdvdemu_446(payload_mode);
+            switch(payload_mode)
+            {
+                case ZERO_PAYLOAD: //no payload installed
+                    load_payload_446(payload_mode);
                     __asm__("sync");
                     sleep(1); /* maybe need it, maybe not */
                     break;
@@ -1964,6 +1983,8 @@ s32 main(s32 argc, const char* argv[])
 
     // read xRegitry datas
     read_from_registry();
+
+    if(sys_parental_level !=0 && sys_parental_level < 9) options_locked = 1;
 
     while(!exit_program) {
 
@@ -4108,57 +4129,67 @@ void gui_control()
     }
 
     if(new_pad & BUTTON_START) {
-        select_option = 0;
-         menu_screen = 3; return;
+
+        if(options_locked)
+            DrawDialogOKTimer("Locked by Parental Control", 2000.0f);
+        else {
+
+            select_option = 0;
+            menu_screen = 3; return;
+        }
     }
 
     if(new_pad & BUTTON_SELECT) {
-        i = selected;
+        if(options_locked)
+            DrawDialogOKTimer("Locked by Parental Control", 2000.0f);
+        else {
+            i = selected;
 
-        select_option = 0;
-        
-        if(!Png_offset[i] && mode_favourites && mode_favourites < 65536 && favourites.list[i].title_id[0] != 0) {
-            DeleteFavouritesIfExits(favourites.list[i].title_id);
-
-            sprintf(temp_buffer, "%s/config/", self_path);
-            SaveFavourites(temp_buffer, mode_homebrew);
-
-            if(mode_favourites && !havefavourites) mode_favourites = 0;
-            get_games();
-            return;
-        }
-        if(Png_offset[i]) {
+            select_option = 0;
             
-            stops_BDVD = 1;
-            Png_offset[12] = 0;
+            if(!Png_offset[i] && mode_favourites && mode_favourites < 65536 && favourites.list[i].title_id[0] != 0) {
+                DeleteFavouritesIfExits(favourites.list[i].title_id);
 
-            wait_event_thread();
-            int_currentdir = currentdir;
-            // program new event thread function
-            event_thread_send(0x555ULL, (u64) get_pict, (u64) &i); 
-           
-            currentgamedir = get_currentdir(i);
-            if(currentgamedir >= 0 && currentgamedir < ndirectories) {
-                // access to PSX configuration menu
-                if(!mode_homebrew && 
-                    (directories[(mode_favourites != 0) ? favourites.list[i].index : (currentdir + i)].flags & 
-                    (1<<23)) == (1<<23)) // add PSX iso
-                {
-                    if(!(directories[(mode_favourites != 0) ? favourites.list[i].index : (currentdir + i)].flags & (1<<11))) {
-                        LoadPSXOptions(directories[(mode_favourites != 0) ? favourites.list[i].index : (currentdir + i)].path_name);
-                    } else LoadPSXOptions(NULL);
+                sprintf(temp_buffer, "%s/config/", self_path);
+                SaveFavourites(temp_buffer, mode_homebrew);
 
-                    if(get_psx_memcards()==0)
-                        menu_screen = 444;
-                }
-                else {
-                   menu_screen = 1;
-                   load_gamecfg(-1); // force refresh game info
-                   load_gamecfg (get_currentdir(i));
-                   if(!(directories[currentgamedir].flags & (1<<11)) && lv2peek(0x80000000000004E8ULL))
-                        set_BdId(currentgamedir);
-                }
+                if(mode_favourites && !havefavourites) mode_favourites = 0;
+                get_games();
                 return;
+            }
+            if(Png_offset[i]) {
+                
+                stops_BDVD = 1;
+                Png_offset[12] = 0;
+
+                wait_event_thread();
+                int_currentdir = currentdir;
+                // program new event thread function
+                event_thread_send(0x555ULL, (u64) get_pict, (u64) &i); 
+               
+                currentgamedir = get_currentdir(i);
+                if(currentgamedir >= 0 && currentgamedir < ndirectories) {
+                    // access to PSX configuration menu
+                    if(!mode_homebrew && 
+                        (directories[(mode_favourites != 0) ? favourites.list[i].index : (currentdir + i)].flags & 
+                        (1<<23)) == (1<<23)) // add PSX iso
+                    {
+                        if(!(directories[(mode_favourites != 0) ? favourites.list[i].index : (currentdir + i)].flags & (1<<11))) {
+                            LoadPSXOptions(directories[(mode_favourites != 0) ? favourites.list[i].index : (currentdir + i)].path_name);
+                        } else LoadPSXOptions(NULL);
+
+                        if(get_psx_memcards()==0)
+                            menu_screen = 444;
+                    }
+                    else {
+                       menu_screen = 1;
+                       load_gamecfg(-1); // force refresh game info
+                       load_gamecfg (get_currentdir(i));
+                       if(!(directories[currentgamedir].flags & (1<<11)) && lv2peek(0x80000000000004E8ULL))
+                            set_BdId(currentgamedir);
+                    }
+                    return;
+                }
             }
         }
     }
