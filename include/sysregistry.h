@@ -32,6 +32,7 @@ extern int sys_language;
 extern int sys_timezone;
 extern int sys_dateformat;
 extern int sys_summer;
+extern int sys_parental_level;
 
 int read_from_registry();
 

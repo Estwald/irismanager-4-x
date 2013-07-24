@@ -143,6 +143,7 @@ int sys_language = 0;
 int sys_timezone = 29;
 int sys_dateformat = 1;
 int sys_summer = 0;
+int sys_parental_level = 9;
 
 int read_from_registry()
 {
@@ -176,28 +177,35 @@ int read_from_registry()
            
             memcpy(&ret, &mem[n+9], 4); sys_language = ret;
             found|=1;
-            if(found == 15) goto end;
+            if(found == 31) goto end;
         }
 
         if(str_len == 28 && !strcmp((char *) &mem[str_offset + 5], "/setting/dateTime/summerTime")) {
            
             memcpy(&ret, &mem[n+9], 4);  sys_summer = ret; 
             found|=2;
-            if(found == 15) goto end;
+            if(found == 31) goto end;
         }
 
         if(str_len == 26 && !strcmp((char *) &mem[str_offset + 5], "/setting/dateTime/timeZone")) {
            
             memcpy(&ret, &mem[n+9], 4);  sys_timezone = ret; 
             found|=4;
-            if(found == 15) goto end;
+            if(found == 31) goto end;
         }
 
         if(str_len == 28 && !strcmp((char *) &mem[str_offset + 5], "/setting/dateTime/dateFormat")) {
            
             memcpy(&ret, &mem[n+9], 4);  sys_dateformat = ret; 
             found|=8;
-            if(found == 15) goto end;
+            if(found == 31) goto end;
+        }
+
+        if(str_len == 27 && !strcmp((char *) &mem[str_offset + 5], "/setting/parental/gameLevel")) {
+           
+            memcpy(&ret, &mem[n+9], 4);  sys_parental_level = ret; 
+            found|=16;
+            if(found == 31) goto end;
         }
 
         n+= 10 + data_len;
@@ -205,7 +213,7 @@ int read_from_registry()
 
     
 end:
-    if(found == 15) ret = 0; else ret = -2;
+    if(found == 31) ret = 0; else ret = -2;
     free(mem);
     return ret;
 }
