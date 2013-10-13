@@ -74,6 +74,14 @@
 #include "firmware_symbols_441.h"
 #endif
 
+#ifdef CFW_446
+#include "firmware_symbols_446.h"
+#endif
+
+#ifdef CFW_450
+#include "firmware_symbols_450.h"
+#endif
+
 #define SYS8_VERSION 0x308
 #define PERM_MODE 0  // 0 -> restricted 1-> original 2-> new for some games
 

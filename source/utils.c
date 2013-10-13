@@ -442,7 +442,7 @@ int patch_exe_error_09(char *path_exe)
 {
     
     u16 fw_421 = 42100;
-    u16 fw_446 = 44600;
+    u16 fw_450 = 45000;
     u32 offset_fw;
     s32 ret;
     u64 readed = 0;
@@ -452,7 +452,7 @@ int patch_exe_error_09(char *path_exe)
     int file = -1;
     int flag = 0;
 
-    //if(firmware < 0x421C || firmware >= 0x446C) return 0;
+    //if(firmware < 0x421C || firmware >= 0x450C) return 0;
 
     // open self/sprx and changes the fw version
     ret = sysLv2FsOpen( path_exe, SYS_O_RDWR, &file, 0, NULL, 0 );
@@ -473,7 +473,7 @@ int patch_exe_error_09(char *path_exe)
                         ret = sysLv2FsLSeek64( file, (u64) offset_fw, 0, &pos );
                         u16 cur_firm = ((firmware>>12) & 0xF) * 10000 + ((firmware>>8) & 0xF) * 1000 + ((firmware>>4) & 0xF) * 100;
                         
-                        if(ret == 0 && firmware >= 0x421C && firmware < 0x446C && ver > fw_421 && ver <= fw_446 && ver > cur_firm) {
+                        if(ret == 0 && firmware >= 0x421C && firmware < 0x450C && ver > fw_421 && ver <= fw_450 && ver > cur_firm) {
                             sysLv2FsWrite( file, &cur_firm, 0x2, &written );
                             flag = 1;
                         } else if(ret==0 && ver > cur_firm) flag = -1; // 
@@ -502,7 +502,7 @@ void patch_error_09( const char *path )
     int d = -1;
     s32 ret = 1;
 
-    if(firmware < 0x421C || firmware >= 0x446C) return;
+    if(firmware < 0x421C || firmware >= 0x450C) return;
 
     /* Open the directory specified by "path". */
 	ret = sysLv2FsOpenDir( path, &d );

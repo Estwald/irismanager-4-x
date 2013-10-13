@@ -55,6 +55,7 @@
 #include "payload440/payload_440.h"
 #include "payload441/payload_441.h"
 #include "payload446/payload_446.h"
+#include "payload450/payload_450.h"
 
 #include "spu_soundmodule.bin.h" // load SPU Module
 #include "spu_soundlib.h"
@@ -1541,6 +1542,9 @@ s32 main(s32 argc, const char* argv[])
 	} else if(is_firm_446()) {
         firmware = 0x446C;
         payload_mode = is_payload_loaded_446();
+	} else if(is_firm_450()) {
+        firmware = 0x450C;
+        payload_mode = is_payload_loaded_450();
 	}
 	
 	
@@ -1742,6 +1746,19 @@ s32 main(s32 argc, const char* argv[])
         		    break;
             }
 			break;
+        case 0x450C:
+            set_bdvdemu_450(payload_mode);
+            switch(payload_mode)
+            {
+                case ZERO_PAYLOAD: //no payload installed
+                    load_payload_450(payload_mode);
+                    __asm__("sync");
+                    sleep(1); /* maybe need it, maybe not */
+                    break;
+                case SKY10_PAYLOAD:
+                    break;
+            }
+            break;
         default:
             tiny3d_Init(1024*1024);
             ioPadInit(7);
