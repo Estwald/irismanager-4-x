@@ -64,34 +64,7 @@ syscall_send_cmd_base:       //           + 0xA8
     .quad 0
 
 syscall_usleep:
-    stdu    %sp, -0x00A0(%sp)
-    std     %r2,  0x0080(%sp)
-    std     %r30, 0x0088(%sp)
-    std     %r31, 0x0090(%sp)
-    mflr    %r0
-    std     %r0, 0x00B0(%sp)
-    MEM_BASE(%r31)
-    LOAD_LABEL2(%r30, %r31, datas)
-    lwz     %r10, 0x30(%r30)
-    cmplw   %r10, 0
-    beq     esyscall_usleep
-    li      %r3, 1000
-    
-esyscall_usleep:
-    LOAD_LABEL2(%r11, %r31, syscall_usleep_table)
-    ld      %r0, 0x18(%r11)
-    mtctr   %r0
-    bctrl
-    li      %r4, 0
-    stw     %r4, 0x30(%r30)
-    ld      %r2, 0x0080(%sp)
-    ld      %r30, 0x0088(%sp)
-    ld      %r31, 0x0090(%sp)
-    ld      %r0, 0x00B0(%sp)
-    mtlr    %r0
-    addi    %sp, %sp, 0xA0
     blr
-
 
 syscall_storage_open:
 
@@ -157,7 +130,12 @@ syscall_storage_send_cmd:
 
     std     %r3,  0x80(%sp)
     std     %r4,  0x88(%sp)
-    std     %r9,  0x90(%sp)
+    std     %r5,  0x90(%sp)
+    std     %r6,  0x98(%sp)
+    std     %r7,  0xA0(%sp)
+    std     %r8,  0xA8(%sp)
+    std     %r9,  0xB0(%sp)
+    std     %r10, 0xB8(%sp)
  
     MEM_BASE(%r31)
     mr      %r26, %r5
@@ -359,7 +337,7 @@ disc_event_status:
     stw     %r3, 0x1c(%r30) // event cmd (closedir)
 
     cmplwi  %r5, 0x80 // test previous disconnected status
-    bne     e_busy2
+    bne     sys_recall
 
     LOAD_LABEL2(%r11, %r31, operation_mode)
     lwz     %r4, 4(%r11)
@@ -378,18 +356,22 @@ incre_file:
     stw     %r6, 0x24(%r30) // file pointer
     li      %r4, 0x82
     stw     %r4, 0x0(%r30) // read cmd
-    b       e_busy2
+    b       sys_recall
 
 closedir_event:
     lwz     %r3, 0x20(%r30) // fd opendir
     li      %r11, 807 // closeDir
     bl      syscall
 
+    lwz     %r3, 0x34(%r30)
+    cmplwi  %r3, 1
+    beq     1f
     li      %r3, 1
     li      %r4, 1
+    stw     %r4, 0x34(%r30)
     li      %r11, 386
     bl      syscall
-    
+1:    
     li      %r3, 0
     stw     %r3, 0x1c(%r30) // set event cmd
   
@@ -431,6 +413,7 @@ set_discon:
 nset_discon1:
     li      %r3, 1
     li      %r4, 0x2
+    stw     %r4, 0x34(%r30)
     li      %r11, 386
     bl      syscall
 
@@ -475,7 +458,7 @@ syscall_604:
 #else
     ld      %r3,  0x80(%sp)
     ld      %r4,  0x88(%sp)
-    ld      %r9,  0x90(%sp)
+    ld      %r9,  0xB0(%sp)
     mr      %r5, %r26
     mr      %r6, %r27
     mr      %r7, %r28
@@ -489,6 +472,7 @@ syscall_604:
     b       return
 
 #endif
+
 
 sleep_method:
     li      %r3, 1
@@ -536,7 +520,7 @@ nopen_method2:
     stw     %r5, 0x4(%r30) // save fd
     li      %r4, 2
     stw     %r4, 0x0(%r30) // new mode
-    b       e_busy2
+    b       sys_recall
 
 lseek_method:
 
@@ -560,7 +544,7 @@ nlseek_method:
     li      %r4, 3
     stw     %r4, 0x0(%r30) // new mode
     cmplwi  %r3, 0
-    beq     e_busy2
+    beq     sys_recall
     b       e_close
 
 read_method:
@@ -664,7 +648,7 @@ iread_method:
    
     li      %r4, 2 // read more datas
     stw     %r4, 0x0(%r30) // new mode 
-    b       e_busy2
+    b       sys_recall
 
 check_and_ret:   
     lwz     %r11, 0x2c(%r30)
@@ -701,10 +685,23 @@ nclose_method:
     stw     %r4, 0x4(%r30) // new fd
     b       e_busy
 
-e_busy2:
-    li      %r4, 1
-    stw     %r4, 0x30(%r30)
-    b       e_busy
+sys_recall:
+// new recall syscall method
+   
+    ld      %r6, (0x130 + 0x80)(%sp) // decrease 4 bytes the syscall return address
+    addi    %r6, %r6, -4
+    std     %r6, (0x130 + 0x80)(%sp)
+    sync
+
+    ld      %r3,  0x80(%sp)
+    ld      %r4,  0x88(%sp)
+    ld      %r5,  0x90(%sp)
+    ld      %r6,  0x98(%sp)
+    ld      %r7,  0xA0(%sp)
+    ld      %r8,  0xA8(%sp)
+    ld      %r9,  0xB0(%sp)
+    li      %r11, 604
+    b       return
 
 e_close:
     li      %r4, 4
@@ -714,7 +711,6 @@ e_busy:
     ori     %r3, %r3, 0xA # 0x8001000A
     
 return:
-    //extsw   %r3, %r3
 
     ld      %r26, 0x100(%sp)
     ld      %r27, 0x108(%sp)
@@ -884,6 +880,7 @@ datas:
     .long   0 // counter           // 28
     .long   0 // addr2             // 2c
     .long   0 // check usleep      // 30
+    .long   0 // check leds        // 34
     
     .align 2
 file_name:

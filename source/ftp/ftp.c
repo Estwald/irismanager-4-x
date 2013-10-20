@@ -7,6 +7,7 @@
 
 #include <sys/file.h>
 #include <sys/thread.h>
+#include <sys/systime.h>
 
 #include "defines.h"
 #include "server.h"
@@ -19,17 +20,55 @@ int appstate = 0;
 
 static int ftp_initialized = 0;
 
+volatile int ftp_working = 0;
+
 char ftp_ip_str[256] = "";
 
 static sys_ppu_thread_t thread_id;
+static sys_ppu_thread_t thread_id2;
+
+static void control_thread(void *a)
+{
+    int n = 0;
+
+    while(appstate != 1) {
+        sysUsleep(100000);
+        n++;
+        if(ftp_working == 2) {ftp_working = 3; n = 0;}
+        if(n >= 100) {
+            if(ftp_working == 3) ftp_working = 0;
+            n = 0;
+        }
+    }
+
+    sysThreadExit(0);
+}
+
+int get_ftp_activity()
+{
+    if(!ftp_initialized) return 0;
+
+    return (ftp_working!=0);
+}
+
 
 int ftp_init()
 {
-
     if(ftp_initialized) return 1;
 
-    netInitialize();
-	netCtlInit();
+    ftp_working = 0;
+
+    if(netInitialize()<0) return -1;
+	if(netCtlInit()<0) {netDeinitialize();return -2;}
+    
+    s32 state = 0;
+    
+    if(netCtlGetState(&state)<0 || state !=3) {
+        ftp_initialized = 0;
+        netCtlTerm();
+        netDeinitialize();
+        return -4;
+    }
 
     union net_ctl_info info;
 	
@@ -39,8 +78,9 @@ int ftp_init()
 		
         appstate = 0;
         sprintf(ftp_ip_str, "FTP active (%s:%i)", info.ip_address, 21);
-		sysThreadCreate(&thread_id, listener_thread, NULL, 1500, 0x400, 0, "listener");
-		
+		sysThreadCreate(&thread_id, listener_thread, NULL, 999, 0x400, THREAD_JOINABLE, "listener");
+        sysThreadCreate(&thread_id2, control_thread, NULL, 1501, 0x400, THREAD_JOINABLE, "ctrl_ftp");
+   	
 		//s32 fd;
 		//u64 read = 0;
 		
@@ -75,11 +115,12 @@ int ftp_init()
 		//msgDialogOpen2(mt_ok, OFTP_ERRMSG_NETWORK, dialog_handler, NULL, NULL);
 
         ftp_initialized = 0;
+        netCtlTerm();
         netDeinitialize();
 
 	}
 
-    return -1;
+    return -3;
 }
 
 void ftp_deinit()
@@ -93,8 +134,10 @@ void ftp_deinit()
 
     u64 retval;
     sysThreadJoin(thread_id, &retval);
+    sysThreadJoin(thread_id2, &retval);
 
     ftp_initialized = 0;
+    ftp_working = 0;
 
     memset(ftp_ip_str, 0, sizeof(ftp_ip_str));
 }

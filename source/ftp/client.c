@@ -39,7 +39,9 @@
 int cqueue = 0;
 int dqueue = 0;
 
-extern int pad_last_time; // to prevent shutdown when FTP is used
+volatile int ftp_working;
+
+extern u64 pad_last_time; // to prevent shutdown when FTP is used
 
 void client_thread(void *conn_s_p)
 {
@@ -64,7 +66,7 @@ void client_thread(void *conn_s_p)
 	
 	bytes = sprintf(temp, "220 OpenPS3FTP %s by jjolano\r\n", OFTP_VERSION);
 	send(conn_s, temp, bytes, 0);
-	
+
 	while(appstate != 1 && (bytes = recv(conn_s, temp, 511, 0)) > 0)
 	{
 		// check if client sent a valid message
@@ -110,12 +112,14 @@ void client_thread(void *conn_s_p)
 		else
 		if(strcmp2(cmd, "NOOP") == 0)
 		{
+            ftp_working = 0;
 			bytes = ftpresp(temp, 200, "NOOP command successful");
 			send(conn_s, temp, bytes, 0);
 		}
 		else
 		if(strcmp2(cmd, "QUIT") == 0)
 		{
+            ftp_working = 0;
 			bytes = ftpresp(temp, 221, "Goodbye");
 			send(conn_s, temp, bytes, 0);
 			break;
@@ -195,6 +199,8 @@ void client_thread(void *conn_s_p)
 				if(itemp == 1)
 				{
 					abspath(param, cwd, rnfr);
+
+                    if(ftp_working != 1) ftp_working = 2;
 					
 					if(sysLv2FsMkdir(rnfr, 0755) == 0)
 					{
@@ -214,6 +220,8 @@ void client_thread(void *conn_s_p)
 				if(itemp == 1)
 				{
 					abspath(param, cwd, temp);
+
+                    if(ftp_working != 1) ftp_working = 2;
 					
 					if(sysLv2FsRmdir(temp) == 0)
 					{
@@ -767,6 +775,7 @@ void client_thread(void *conn_s_p)
 					
 					if(sysLv2FsOpen(temp, SYS_O_WRONLY | SYS_O_CREAT | (strcmp2(cmd, "APPE") == 0 ? SYS_O_APPEND : 0), &fd, 0644, NULL, 0) == 0)
 					{
+                        ftp_working = 1;
 						if(data_s == -1)
 						{
 							if(pasv_s > 0)
@@ -871,6 +880,7 @@ void client_thread(void *conn_s_p)
 					}
 					
 					sysLv2FsClose(fd);
+                    ftp_working = 2;
 				}
 				else
 				{
@@ -893,6 +903,8 @@ void client_thread(void *conn_s_p)
 					
 					if(sysLv2FsOpen(temp, SYS_O_RDONLY, &fd, 0, NULL, 0) == 0)
 					{
+                        ftp_working = 1;
+
 						if(data_s == -1)
 						{
 							if(pasv_s > 0)
@@ -992,6 +1004,7 @@ void client_thread(void *conn_s_p)
 					}
 					
 					sysLv2FsClose(fd);
+                    ftp_working = 2;
 				}
 				else
 				{
@@ -1067,6 +1080,8 @@ void client_thread(void *conn_s_p)
 				if(itemp == 1)
 				{
 					abspath(param, cwd, temp);
+
+                    if(ftp_working != 1) ftp_working = 2;
 					
 					if(sysLv2FsUnlink(temp) == 0)
 					{
@@ -1115,6 +1130,8 @@ void client_thread(void *conn_s_p)
 				if(itemp == 1)
 				{
 					abspath(param, cwd, temp);
+
+                    if(ftp_working != 1) ftp_working = 2;
 					
 					if(sysLv2FsRename(rnfr, temp) == 0)
 					{
@@ -1154,6 +1171,8 @@ void client_thread(void *conn_s_p)
 								perms[0] = '0';
 								
 								abspath(filename, cwd, temp);
+
+                                if(ftp_working != 1) ftp_working = 2;
 								
 								if(sysLv2FsChmod(temp, strtol(perms, NULL, 8)) == 0)
 								{

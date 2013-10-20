@@ -32,7 +32,7 @@ extern float Z_ttf;
 // display UTF8 string int posx/posy position. With color 0 don´t display and refrest/calculate the width. 
 // color is the character color and sw/sh de width/height of the characters
 
-int display_ttf_string(int posx, int posy, char *string, u32 color, int sw, int sh);
+int display_ttf_string(int posx, int posy, char *string, u32 color, u32 bkcolor, int sw, int sh);
 
 
 #endif

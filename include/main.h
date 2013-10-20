@@ -43,8 +43,22 @@ int LoadJPG(JpgDatas *jpg, char *filename);
                                  if(v > 20) {v = 0; new_pad |= b;} \
                                  } else v = 0;
 
+#define AUTO_BUTTON_REP3(v, b) if(v && (old_pad & b)) { \
+                                 v++; \
+                                 if(v > 9) {v = 0; new_pad |= b;} \
+                                 } else v = 0;
+
 
 void load_gamecfg (int current_dir);
+
+extern u8 * png_texture;
+extern PngDatas Png_datas[24];
+extern u32 Png_offset[24];
+extern int Png_iscover[24];
+
+extern PngDatas Png_res[24];
+extern u32 Png_res_offset[24];
+
 
 #endif
 

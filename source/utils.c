@@ -1,3 +1,29 @@
+/* 
+    (c) 2011 Hermes/Estwald <www.elotrolado.net>
+    IrisManager (HMANAGER port) (c) 2011 D_Skywalk <http://david.dantoine.org>
+
+    HMANAGER4 is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    HMANAGER4 is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    apayloadlong with HMANAGER4.  If not, see <http://www.gnu.org/licenses/>.
+
+*/
+
+/* NOTE: Added patch_error_09() with some modifications
+
+Credits:
+- Rancid-o
+- Zz_SACRO_zZ
+
+*/ 
 
 #include "utils.h"
 #include "language.h"
@@ -13,9 +39,8 @@ extern char * language[];
 extern char self_path[MAXPATHLEN];
 extern int game_list_category;
 
-void UTF8_to_Ansi(char *utf8, char *ansi, int len); // from osk_input
-
-static char ansi[1024];
+//void UTF8_to_Ansi(char *utf8, char *ansi, int len); // from osk_input
+void UTF32_to_UTF8(u32 *stw, u8 *stb);
 
 int copy_async(char *path1, char *path2, u64 size, char *progress_string1, char *progress_string2);
 
@@ -23,6 +48,8 @@ msgType mdialogyesno = MSG_DIALOG_NORMAL | MSG_DIALOG_BTN_TYPE_YESNO | MSG_DIALO
 msgType mdialogyesno2 = MSG_DIALOG_NORMAL | MSG_DIALOG_BTN_TYPE_YESNO | MSG_DIALOG_DISABLE_CANCEL_ON;
 
 msgType mdialogok = MSG_DIALOG_NORMAL | MSG_DIALOG_BTN_TYPE_OK;
+
+msgType mdialog = MSG_DIALOG_NORMAL | MSG_DIALOG_DISABLE_CANCEL_ON;
 
 volatile int dialog_action = 0;
 
@@ -109,11 +136,23 @@ void DrawDialogOKTimer(char * str, float milliseconds)
     wait_dialog();
 }
 
+
 void DrawDialogOK(char * str)
 {
     dialog_action = 0;
 
     msgDialogOpen2(mdialogok, str, my_dialog2, (void*) 0x0000aaab, NULL );
+            
+    wait_dialog();
+}
+
+
+void DrawDialogTimer(char * str, float milliseconds)
+{
+    dialog_action = 0;
+
+    msgDialogOpen2(mdialog, str, my_dialog2, (void*) 0x0000aaab, NULL );
+    msgDialogClose(milliseconds);
             
     wait_dialog();
 }
@@ -396,6 +435,145 @@ int parse_ps3_disc(char *path, char * id)
 
 }
 
+extern int firmware;
+
+
+int patch_exe_error_09(char *path_exe)
+{
+    
+    u16 fw_421 = 42100;
+    u16 fw_450 = 45000;
+    u32 offset_fw;
+    s32 ret;
+    u64 readed = 0;
+    u64 written = 0;
+    u64 pos = 0;
+    u16 ver = 0;
+    int file = -1;
+    int flag = 0;
+
+    //if(firmware < 0x421C || firmware >= 0x450C) return 0;
+
+    // open self/sprx and changes the fw version
+    ret = sysLv2FsOpen( path_exe, SYS_O_RDWR, &file, 0, NULL, 0 );
+    if(ret == 0) {
+        // set to offset position
+        ret = sysLv2FsLSeek64( file, 0xC, 0, &pos );
+        if(ret == 0 && pos == 0xCULL) {
+            // read offset in file
+            ret = sysLv2FsRead( file, &offset_fw, 0x4, &readed );
+
+            if(ret == 0 && readed == 4ULL) {
+                offset_fw+= 0x1E;
+                ret = sysLv2FsLSeek64( file, (u64) offset_fw, 0, &pos );
+
+                if(ret == 0 && pos == (u64) offset_fw) {
+                    ret = sysLv2FsRead( file, &ver, 0x2, &readed );
+                    if(ret == 0 && readed == 0x2ULL) {
+                        ret = sysLv2FsLSeek64( file, (u64) offset_fw, 0, &pos );
+                        u16 cur_firm = ((firmware>>12) & 0xF) * 10000 + ((firmware>>8) & 0xF) * 1000 + ((firmware>>4) & 0xF) * 100;
+                        
+                        if(ret == 0 && firmware >= 0x421C && firmware < 0x450C && ver > fw_421 && ver <= fw_450 && ver > cur_firm) {
+                            sysLv2FsWrite( file, &cur_firm, 0x2, &written );
+                            flag = 1;
+                        } else if(ret==0 && ver > cur_firm) flag = -1; // 
+                    }
+
+                }
+
+
+            }
+        }
+
+        sysLv2FsClose( file );
+    }
+
+   return flag;
+}
+
+
+// exported from PS3 Ita Manager method with some modifications (support caps types, error control
+// automatic file offset and "intelligent" patch method
+
+static int self_alarm_version = 0;
+
+void patch_error_09( const char *path )
+{
+    int d = -1;
+    s32 ret = 1;
+
+    if(firmware < 0x421C || firmware >= 0x450C) return;
+
+    /* Open the directory specified by "path". */
+	ret = sysLv2FsOpenDir( path, &d );
+    
+    /* Check it was opened. */
+    if( d == -1 )
+		return;
+		
+    while( 1 )
+    {
+        sysFSDirent entry;
+        const char * d_name;
+        u64 read = 0;
+
+        /* "Readdir" gets subsequent entries from "d". */
+        ret = sysLv2FsReadDir( d, &entry, &read );
+        if ( read == 0 || ret != 0 ) 
+        {
+            /* There are no more entries in this directory, so break
+               out of the while loop. */
+            break;
+        }
+        d_name = entry.d_name;
+
+	
+	//Trovo dove inizia l'estensione
+		int ext = entry.d_namlen - 4;
+		
+        //DIRECTORY
+		if(entry.d_type & DT_DIR) {
+            if(strcmp( entry.d_name, "." ) != 0 && strcmp( entry.d_name, ".." ) != 0 
+                && strcmp( entry.d_name, "GAMES" ) != 0 && strcmp( entry.d_name, "GAMEZ" ) != 0) { //aggiungere iris, multiman, nostro manager (PS3ITA Manager), showtime, altro??
+                char path_dir[ 0x420 ];
+     
+                snprintf( path_dir, 0x420, "%s/%s", path, d_name);
+                    
+            /* Recursively call "list_dir" with the new path. */
+                patch_error_09( path_dir );
+            }
+        } else if(ext > 1 ) {
+		
+          // SELF/SPRX/EBOOT.BIN
+           
+			if( (entry.d_name[ ext ] == 's' && entry.d_name[ ext + 1 ] == 'p' && entry.d_name[ ext + 2 ] == 'r' && entry.d_name[ ext + 3 ] == 'x') 
+                || (entry.d_name[ ext ] == 'S' && entry.d_name[ ext + 1 ] == 'P' && entry.d_name[ ext + 2 ] == 'R' && entry.d_name[ ext + 3 ] == 'X')
+                || (entry.d_name[ ext ] == 's' && entry.d_name[ ext + 1 ] == 'e' && entry.d_name[ ext + 2 ] == 'l' && entry.d_name[ ext + 3 ] == 'f')
+                || (entry.d_name[ ext ] == 'S' && entry.d_name[ ext + 1 ] == 'E' && entry.d_name[ ext + 2 ] == 'L' && entry.d_name[ ext + 3 ] == 'F')
+                ||  strcmp( entry.d_name, "EBOOT.BIN" ) == 0) {
+				
+				char path_exe[0x420];
+				
+			//Azzero array
+				memset( path_exe, 0, 0x420);
+				
+			//Copio percorso e nome file in path_sprx
+				snprintf( path_exe, 0x420, "%s/%s", path, d_name );
+				
+			    if(patch_exe_error_09(path_exe) == -1) self_alarm_version = 1;
+				
+				
+			}
+        }
+		
+	
+		
+    }
+    
+    /* After going through all the entries, close the directory. */
+    sysLv2FsCloseDir( d );
+}
+
 int unlink_secure(void *path)
 {
 //    struct stat s;
@@ -556,6 +734,31 @@ void sort_entries(t_directories *list, int *max)
 			}
 }
 
+void sort_entries2(t_directories *list, int *max, u32 mode)
+{
+	int n,m;
+	int fi= (*max);
+
+    if(mode > 2) mode = 0;
+    if(mode == 0) {sort_entries(list, max); return;}
+	
+
+	for(n=0; n< (fi -1);n++)
+		for(m=n+1; m< fi ;m++)
+			{
+   
+			if((mode == 1 && (list[n].flags & (1<<23)) != (list[m].flags & (1<<23)) && (list[n].flags & (1<<23))!=0) ||
+               (mode == 2 && (list[n].flags & (1<<23)) != (list[m].flags & (1<<23)) && (list[n].flags & (1<<23))==0) ||
+                (mode && (list[n].flags & (1<<23)) == (list[m].flags & (1<<23)) && strcasecmp(list[n].title, list[m].title)>0  && ((list[n].flags | list[m].flags) & 2048)==0)
+                || 
+				((list[m].flags & 2048) && n==0))
+				{
+				t_directories swap;
+					swap=list[n];list[n]=list[m];list[m]=swap;
+				}
+			}
+}
+
 void delete_entries(t_directories *list, int *max, u32 flag)
 {
     int n;
@@ -679,6 +882,7 @@ void fill_entries_from_device(char *path, t_directories *list, int *max, u32 fla
         if(entry->d_name[0]=='.') continue;
 
         if(!(entry->d_type & DT_DIR)) continue;
+        if(!strcmp(entry->d_name, "covers")) continue; // skip global covers folder
         
         list[*max ].flags=flag;
 
@@ -744,7 +948,8 @@ void fill_entries_from_device(char *path, t_directories *list, int *max, u32 fla
 static char dbg_str1[128];
 static char dbg_str2[128];
 
-static char dbg_data[128 * CONSOLE_HEIGHT];
+static u32 dbg_data[128 * (CONSOLE_HEIGHT + 1)];
+static char dbg_string[1024];
 
 int con_x = 0, con_y =0;
 
@@ -752,7 +957,7 @@ void initConsole()
 {
     con_x = 0; con_y =0;
     dbg_str1[0] = dbg_str2[0] = 0;
-    memset(dbg_data, 0, 128 * CONSOLE_HEIGHT);
+    memset((void *) dbg_data, 0, 128 * CONSOLE_HEIGHT * 4);
 }
 
 static char buff[4096];
@@ -774,28 +979,33 @@ void DbgDraw()
 
     cls2();
 
+    
     SetFontColor(0x0fcf2fff, 0x00000000);
-
     SetFontAutoCenter(0);
-    SetCurrentFont(FONT_BUTTON);
-    SetFontSize(10, 16);
+    SetCurrentFont(FONT_TTF/*BUTTON*/);
+    SetFontSize(14, 16);
 
     
     for(n = 0; n < CONSOLE_HEIGHT; n++) {
-       DrawString(0, 56 + n * 16, &dbg_data[128 * n]);
+
+       UTF32_to_UTF8(&dbg_data[128 * n], (void *) dbg_string);
+       DrawString(4, 56 + n * 16, dbg_string);
     }
     
     SetFontColor(0xffffffff, 0x00000000);
-    SetCurrentFont(FONT_BUTTON);
+    SetCurrentFont(FONT_TTF);
 
     SetFontSize(14, 32);
+    
     SetFontAutoCenter(1);
-
     DrawString(0, 16, dbg_str1);
+    
 
     DrawString(0, 480, dbg_str2);
 
     SetFontAutoCenter(0);
+
+    SetCurrentFont(FONT_BUTTON);
 
 
 }
@@ -810,17 +1020,45 @@ void DPrintf(char *format, ...)
 	va_end(opt);
 
     while(*str) {
-        if(*str == '\n') {
+        u32 ttf_char;
+        int n, m;
+
+        if(*str & 128) {
+            m = 1;
+
+            if((*str & 0xf8)==0xf0) { // 4 bytes
+                ttf_char = (u32) (*(str++) & 3);
+                m = 3;
+            } else if((*str & 0xE0)==0xE0) { // 3 bytes
+                ttf_char = (u32) (*(str++) & 0xf);
+                m = 2;
+            } else if((*str & 0xE0)==0xC0) { // 2 bytes
+                ttf_char = (u32) (*(str++) & 0x1f);
+                m = 1;
+            } else {str++;continue;} // error!
+
+             for(n = 0; n < m; n++) {
+                if(!*str) break; // error!
+                    if((*str & 0xc0) != 0x80) break; // error!
+                    ttf_char = (ttf_char <<6) |((u32) (*(str++) & 63));
+             }
+           
+            if((n != m) && !*str) break;
+        
+        } else ttf_char = (u32) *(str++);
+
+        if(ttf_char == '\n') {
             con_y++;
             con_x = 0;
+           
             if(con_y >= CONSOLE_HEIGHT) {
                 con_y = CONSOLE_HEIGHT - 1;
-                memcpy(dbg_data, dbg_data + 128, 128 * (CONSOLE_HEIGHT -1));
+                memcpy((void *) dbg_data, (void *) (dbg_data + 128), 128 * (CONSOLE_HEIGHT -1) * 4);
                 dbg_data[128 * (CONSOLE_HEIGHT -1)] = 0;
             } else dbg_data[128 * con_y + con_x] = 0;
         } else {
             if(con_x < CONSOLE_WIDTH) {
-                dbg_data[128 * con_y + con_x] = *str;
+                dbg_data[128 * con_y + con_x] = ttf_char;
                 dbg_data[128 * con_y + con_x + 1] = 0;
                 con_x++;
             } else {
@@ -828,18 +1066,18 @@ void DPrintf(char *format, ...)
             con_x = 0;
             if(con_y >= CONSOLE_HEIGHT) {
                 con_y = CONSOLE_HEIGHT - 1;
-                memcpy(dbg_data, dbg_data + 128, 128 * (CONSOLE_HEIGHT -1));
+                memcpy((void *) dbg_data, (void *) (dbg_data + 128), 128 * (CONSOLE_HEIGHT -1) * 4);
                 dbg_data[128 * (CONSOLE_HEIGHT -1)] = 0;
                
             }
             
-            dbg_data[128 * con_y + con_x] = *str;
+            dbg_data[128 * con_y + con_x] = ttf_char;
             dbg_data[128 * con_y + con_x + 1] = 0;
             con_x++;
             }
         }
 
-        str++;
+       
     }
 
     DbgDraw();
@@ -973,7 +1211,7 @@ static int fast_copy_process();
 
 static int nfilecached = 0;
 static s64 filecached_bytes[MAX_FILECACHED];
-static char filecached[MAX_FILECACHED][2][0x420];
+static char filecached[MAX_FILECACHED][2][0x400];
 
 static char * path_cache = NULL;
 
@@ -992,16 +1230,16 @@ static int fast_copy_add(char *pathr, char *pathw, char *file)
 	int ret = fast_copy_process();
 
 		if(ret < 0 || abort_copy) {
-            UTF8_to_Ansi(language[FASTCPADD_FAILED], ansi, 1024);
-            DPrintf("%s%i\n", ansi, ret);
+         
+            DPrintf("%s%i\n", language[FASTCPADD_FAILED], ret);
             return ret;
         }
 
 	}
 
 	if(fast_num_files >= MAX_FAST_FILES) {
-        UTF8_to_Ansi(language[FASTCPADD_ERRTMFILES], ansi, 1024);
-        DPrintf("%s\n", ansi); return -1;
+
+        DPrintf("%s\n", language[FASTCPADD_ERRTMFILES]); return -1;
     }
 	
 	fast_files[fast_num_files].bigfile_mode = 0;
@@ -1054,8 +1292,7 @@ static int fast_copy_add(char *pathr, char *pathw, char *file)
     sprintf(fast_files[fast_num_files].pathr, "%s/%s", pathr, file);
 
 	if(sysFsStat(fast_files[fast_num_files].pathr, &s) < 0) {
-        UTF8_to_Ansi(language[FASTCPADD_FAILEDSTAT], ansi, 1024);
-        DPrintf("%s\n", ansi); 
+        DPrintf("%s\n", language[FASTCPADD_FAILEDSTAT]); 
         abort_copy = 1;
         return -1;
     }
@@ -1104,8 +1341,7 @@ static int fast_copy_add(char *pathr, char *pathw, char *file)
 		int fdw;
 
 		if(sysFsOpen(fast_files[fast_num_files].pathw, SYS_O_CREAT | SYS_O_TRUNC | SYS_O_WRONLY, &fdw, 0,0) != 0) {
-            UTF8_to_Ansi(language[FASTCPADD_ERROPEN], ansi, 1024);
-			DPrintf("%s:\n%s\n\n", ansi, fast_files[current_fast_file_r].pathw);
+			DPrintf("%s:\n%s\n\n", language[FASTCPADD_ERROPEN], fast_files[current_fast_file_r].pathw);
 			abort_copy = 1;
 			return -1;
 	    }
@@ -1114,13 +1350,10 @@ static int fast_copy_add(char *pathr, char *pathw, char *file)
 
 		sysFsChmod(fast_files[fast_num_files].pathw, FS_S_IFMT | 0777);
 		
-        UTF8_to_Ansi(language[FASTCPADD_COPYING], ansi, 1024);
-        DPrintf("%s ", ansi);
-        UTF8_to_Ansi(fast_files[current_fast_file_r].pathr, ansi, 1024);
-        DPrintf("%s\n", ansi);
-        UTF8_to_Ansi(language[GLUTIL_WROTE], ansi, 1024);
+        DPrintf("%s ", language[FASTCPADD_COPYING]);
+        DPrintf("%s\n", fast_files[current_fast_file_r].pathr);
         
-        DPrintf("w%s 0 B\n", ansi);
+        DPrintf("w%s 0 B\n", language[GLUTIL_WROTE]);
 		
         file_counter++;
 		
@@ -1176,8 +1409,7 @@ static int fast_copy_add(char *pathr, char *pathw, char *file)
 	fast_files[fast_num_files].size_mem = size_mem;
 
 	if(!fast_files[fast_num_files].mem) {
-        UTF8_to_Ansi(language[FASTCPADD_FAILFASTFILE], ansi, 1024);
-        DPrintf("%s\n", ansi);abort_copy = 1;return -1;
+        DPrintf("%s\n", language[FASTCPADD_FAILFASTFILE]);abort_copy = 1;return -1;
     }
 
 	fast_used_mem+= size_mem;
@@ -1257,10 +1489,8 @@ int fast_copy_process()
 				
 			if(fast_files[current_fast_file_r].bigfile_mode == 1) {
 				
-                UTF8_to_Ansi(language[GLUTIL_SPLITFILE], ansi, 1024);
-                DPrintf("%s >= 4GB\n", ansi);
-                UTF8_to_Ansi(fast_files[current_fast_file_r].pathr, ansi, 1024);
-                DPrintf(" %s\n", ansi);
+                DPrintf("%s >= 4GB\n", language[GLUTIL_SPLITFILE]);
+                DPrintf(" %s\n", fast_files[current_fast_file_r].pathr);
 
 					sprintf(&fast_files[current_fast_file_r].pathw[fast_files[current_fast_file_r].pos_path], ".666%2.2i",
 						fast_files[current_fast_file_r].number_frag);
@@ -1268,21 +1498,18 @@ int fast_copy_process()
 				
 			if(fast_files[current_fast_file_r].bigfile_mode == 2) {
 
-                UTF8_to_Ansi(language[FASTCPPRC_JOINFILE], ansi, 1024);
-                DPrintf("%s >= 4GB\n", ansi);
-                UTF8_to_Ansi(fast_files[current_fast_file_r].pathw, ansi, 1024);
-                DPrintf(" %s\n", ansi);
+                DPrintf("%s >= 4GB\n", language[FASTCPPRC_JOINFILE]);
+                DPrintf(" %s\n", fast_files[current_fast_file_r].pathw);
 				
 				sprintf(&fast_files[current_fast_file_r].pathr[fast_files[current_fast_file_r].pos_path], ".666%2.2i",
 				fast_files[current_fast_file_r].number_frag);
 			}
 
             if(fast_files[current_fast_file_r].bigfile_mode == 3) {
-				
-                UTF8_to_Ansi(language[FASTCPPRC_JOINFILE], ansi, 1024);
-                DPrintf("%s >= 4GB\n", ansi);
-                UTF8_to_Ansi(fast_files[current_fast_file_r].pathw, ansi, 1024);
-                DPrintf(" %s\n", ansi);
+			
+                DPrintf("%s >= 4GB\n", language[FASTCPPRC_JOINFILE]);
+               
+                DPrintf(" %s\n", fast_files[current_fast_file_r].pathw);
 
                 if(fast_files[current_fast_file_r].number_frag!=0) 
 				    sprintf(&fast_files[current_fast_file_r].pathr[fast_files[current_fast_file_r].pos_path], ".%i.part",
@@ -1586,22 +1813,20 @@ int fast_copy_process()
                 }
 
                 if(write_size < 1024LL) {
-                    UTF8_to_Ansi(language[GLUTIL_WROTE], ansi, 1024);
-                    DPrintf("%s %lli B ", ansi, write_size);
-                    UTF8_to_Ansi(fast_files[current_fast_file_w].pathw, ansi, 1024);
-                    DPrintf("%s\n\n", ansi);
+                   
+                    DPrintf("%s %lli B ", language[GLUTIL_WROTE], write_size);
+                    DPrintf("%s\n\n", fast_files[current_fast_file_w].pathw);
                     }
                 else
                     if(write_size < 0x100000LL) {
-                        UTF8_to_Ansi(language[GLUTIL_WROTE], ansi, 1024);
-                        DPrintf("%s %lli KB ", ansi, write_size  / 1024LL);
-                        UTF8_to_Ansi(fast_files[current_fast_file_w].pathw, ansi, 1024);
-                        DPrintf("%s\n\n", ansi);
+                    
+                        DPrintf("%s %lli KB ", language[GLUTIL_WROTE], write_size  / 1024LL);
+                      
+                        DPrintf("%s\n\n", fast_files[current_fast_file_w].pathw);
                     } else  {
-                        UTF8_to_Ansi(language[GLUTIL_WROTE], ansi, 1024);
-                        DPrintf("%s %lli MB ", ansi, write_size / 0x100000LL);
-                        UTF8_to_Ansi(fast_files[current_fast_file_w].pathw, ansi, 1024);
-                        DPrintf("%s\n\n", ansi);
+                   
+                        DPrintf("%s %lli MB ", language[GLUTIL_WROTE], write_size / 0x100000LL);
+                        DPrintf("%s\n\n", fast_files[current_fast_file_w].pathw);
                     }
                     
                 
@@ -1656,8 +1881,8 @@ int fast_copy_process()
         {
             if(progress_action2) {
                 abort_copy = 1;
-                UTF8_to_Ansi(language[GLUTIL_ABORTEDUSER], ansi, 1024);
-                DPrintf("%s \n", ansi);
+             
+                DPrintf("%s \n", language[GLUTIL_ABORTEDUSER]);
                 error = -666;
             }
 
@@ -1684,12 +1909,9 @@ int fast_copy_process()
                
             }
             
-            
-            UTF8_to_Ansi(language[FASTCPPRC_COPYFILE], ansi, 512);
-            UTF8_to_Ansi(language[GLUTIL_TIME], ansi + 512, 512);
 
-            sprintf(string1, "%s: %i (%2.2i%%) %s: %2.2i:%2.2i:%2.2i  Vol: %1.2f GB\n", ansi, file_counter, 
-                    (int)(write_end * 100ULL / write_size), ansi + 512, seconds / 3600, (seconds / 60) % 60, seconds % 60, 
+            sprintf(string1, "%s: %i (%2.2i%%) %s: %2.2i:%2.2i:%2.2i  Vol: %1.2f GB\n", language[FASTCPPRC_COPYFILE], file_counter, 
+                    (int)(write_end * 100ULL / write_size), language[GLUTIL_TIME], seconds / 3600, (seconds / 60) % 60, seconds % 60, 
                     ((double) global_device_bytes) / (1024.0* 1024.* 1024.0));
         }
         else
@@ -1701,8 +1923,7 @@ int fast_copy_process()
             
             if(progress_action2) {
                 abort_copy = 1;
-                UTF8_to_Ansi(language[GLUTIL_ABORTEDUSER], ansi, 1024);
-                DPrintf("%s \n", ansi);
+                DPrintf("%s \n", language[GLUTIL_ABORTEDUSER]);
                 error = -666;
             }
 
@@ -1727,12 +1948,10 @@ int fast_copy_process()
                 bar2_countparts-= (float) ((u32) bar2_countparts);
                
             }
-        
-            UTF8_to_Ansi(language[FASTCPPRC_COPYFILE], ansi, 512);
-            UTF8_to_Ansi(language[GLUTIL_TIMELEFT], ansi + 512, 512);
+     
 
-            sprintf(string1, "%s: %i (%2.2i%%) %s: %2.2i:%2.2i:%2.2i %1.2f/%1.2f GB\n", ansi, file_counter, 
-                    (int)(write_end * 100ULL / write_size), ansi + 512, time_left / 3600, (time_left / 60) % 60, time_left % 60, 
+            sprintf(string1, "%s: %i (%2.2i%%) %s: %2.2i:%2.2i:%2.2i %1.2f/%1.2f GB\n", language[FASTCPPRC_COPYFILE], file_counter, 
+                    (int)(write_end * 100ULL / write_size), language[GLUTIL_TIMELEFT], time_left / 3600, (time_left / 60) % 60, time_left % 60, 
                     ((double) global_device_bytes) / (1024.0* 1024.* 1024.0), ((double) copy_total_size/ (1024.0 * 1024. * 1024.0)));
         }
             
@@ -1740,7 +1959,7 @@ int fast_copy_process()
 
         DbgHeader( string1);
         
-        UTF8_to_Ansi(language[GLUTIL_HOLDTRIANGLEAB], dbg_str2, 128);
+        DbgMess(language[GLUTIL_HOLDTRIANGLEAB]);
       
         DbgDraw();
 
@@ -1753,8 +1972,7 @@ int fast_copy_process()
         if ((new_pad & BUTTON_TRIANGLE)) {
 
             abort_copy = 1;
-            UTF8_to_Ansi(language[GLUTIL_ABORTEDUSER], ansi, 1024);
-            DPrintf("%s \n", ansi);
+            DPrintf("%s \n", language[GLUTIL_ABORTEDUSER]);
             error = -666;
             break;
         }
@@ -1762,15 +1980,14 @@ int fast_copy_process()
     }
 
 	if(error && error != -666) {
-        
-        UTF8_to_Ansi(language[FASTCPPTC_OPENERROR], ansi, 1024);
-		DPrintf(ansi, files_opened);
+       
+		DPrintf(language[FASTCPPTC_OPENERROR], files_opened);
 		DPrintf("\n");
 
 		cls2();
 
         DbgHeader( string1);
-        UTF8_to_Ansi(language[GLUTIL_HOLDTRIANGLEAB], dbg_str2, 128);
+        DbgMess(language[GLUTIL_HOLDTRIANGLEAB]);
 
         DbgDraw();
 
@@ -1850,11 +2067,12 @@ static s64 count_cache_bytes(char *path)
 
 }
 
-static int num_directories=0, num_files_big=0, num_files_split=0;
+static int num_directories=0, num_files_big=0, num_files_split=0, fixed_self_sprx = 0;
 
 static int my_game_test(char *path)
 {
 	DIR  *dir;
+    int seconds = 0, seconds2 = 0;
    dir=opendir (path);
    if(!dir) return -1;
    sysFsChmod(path, FS_S_IFDIR | 0777);
@@ -1895,6 +2113,17 @@ static int my_game_test(char *path)
             sprintf(f,"%s/%s", path, entry->d_name);
 
             if(stat(f, &s)<0) {abort_copy=3;DPrintf("File error!!!\n -> %s\n\n", f);if(f) free(f);break;}
+            
+            int ext = entry->d_namlen - 4;
+            if(ext > 1 && ((entry->d_name[ ext ] == 's' && entry->d_name[ ext + 1 ] == 'p' && entry->d_name[ ext + 2 ] == 'r' && entry->d_name[ ext + 3 ] == 'x') 
+                || (entry->d_name[ ext ] == 'S' && entry->d_name[ ext + 1 ] == 'P' && entry->d_name[ ext + 2 ] == 'R' && entry->d_name[ ext + 3 ] == 'X')
+                || (entry->d_name[ ext ] == 's' && entry->d_name[ ext + 1 ] == 'e' && entry->d_name[ ext + 2 ] == 'l' && entry->d_name[ ext + 3 ] == 'f')
+                || (entry->d_name[ ext ] == 'S' && entry->d_name[ ext + 1 ] == 'E' && entry->d_name[ ext + 2 ] == 'L' && entry->d_name[ ext + 3 ] == 'F')
+                ||  strcmp( entry->d_name, "EBOOT.BIN" ) == 0)) {
+                int r = patch_exe_error_09(f);
+                if(r==1) fixed_self_sprx++;
+                if(r == -1) {self_alarm_version = 1;DPrintf("%s requires a higher CFW!!!\n", entry->d_name);}
+            }
 
             size= s.st_size;
 
@@ -1904,8 +2133,7 @@ static int my_game_test(char *path)
                 p+= strlen(f)-6; // adjust for .666xx
                 if(p[0]== '.' && p[1]== '6' && p[2]== '6' && p[3]== '6')
                 {
-                    UTF8_to_Ansi(language[GLUTIL_SPLITFILE], ansi, 1024);
-                    DPrintf("%s %lli MB %s\n\n", ansi, size/0x100000LL, f);
+                    DPrintf("%s %lli MB %s\n\n", language[GLUTIL_SPLITFILE], size/0x100000LL, f);
                     num_files_split++;
                     is_split = 1;
 
@@ -1940,8 +2168,7 @@ static int my_game_test(char *path)
                 p+= strlen(f)-7; // adjust for .666xx
                 if(p[2]== '.' && p[3]== 'p' &&  p[4]== 'a' && p[5]== 'r' && p[6]== 't')
                 {
-                    UTF8_to_Ansi(language[GLUTIL_SPLITFILE], ansi, 1024);
-                    DPrintf("%s %lli MB %s\n\n", ansi, size/0x100000LL, f);
+                    DPrintf("%s %lli MB %s\n\n", language[GLUTIL_SPLITFILE], size/0x100000LL, f);
                     num_files_split++;
                     is_split = 1;
 
@@ -1971,35 +2198,37 @@ static int my_game_test(char *path)
             }
 			
             if(size>=0x100000000LL)	{
-                UTF8_to_Ansi(language[GAMETESTS_BIGFILE], ansi, 1024);
-                DPrintf("%s %lli MB %s\n\n", ansi, size/0x100000LL, f);num_files_big++;}
+                DPrintf("%s %lli MB %s\n\n", language[GAMETESTS_BIGFILE], size/0x100000LL, f);num_files_big++;}
 
             if(f) free(f);
 
             //prepare info for user
-            int seconds= (int) (time(NULL)-time_start);
+            seconds= (int) (time(NULL)-time_start);
 
             file_counter++;
 
             global_device_bytes+=size;
 
-            UTF8_to_Ansi(language[GAMETESTS_TESTFILE], ansi, 512);
-            UTF8_to_Ansi(language[GLUTIL_TIME], ansi + 512, 512);
-            sprintf(string1,"%s: %i %s: %2.2i:%2.2i:%2.2i Vol: %1.2f GB\n", ansi, file_counter,
-                    ansi + 512, seconds/3600, (seconds/60) % 60, seconds % 60, 
-                    ((double) global_device_bytes)/(1024.0*1024.0*1024.0));
-			
-            cls2();
+            if(seconds!=seconds2) {
 
-            DbgHeader( string1);
-            UTF8_to_Ansi(language[GLUTIL_HOLDTRIANGLEAB], dbg_str2, 128);
+                sprintf(string1,"%s: %i %s: %2.2i:%2.2i:%2.2i Vol: %1.2f GB\n", language[GAMETESTS_TESTFILE], file_counter,
+                        language[GLUTIL_TIME], seconds/3600, (seconds/60) % 60, seconds % 60, 
+                        ((double) global_device_bytes)/(1024.0*1024.0*1024.0));
+                
+                cls2();
 
-            DbgDraw();
+                DbgHeader( string1);
+                DbgMess(language[GLUTIL_HOLDTRIANGLEAB]);
 
-            tiny3d_Flip();
+                DbgDraw();
 
-            pad_last_time = 0;
-            ps3pad_read();
+                tiny3d_Flip();
+
+                pad_last_time = 0;
+                ps3pad_read();
+                
+                seconds2 = seconds;
+            }
 
             if(abort_copy) break;
 
@@ -2013,6 +2242,20 @@ static int my_game_test(char *path)
         }
 
     }
+
+    sprintf(string1,"%s: %i %s: %2.2i:%2.2i:%2.2i Vol: %1.2f GB\n", language[GAMETESTS_TESTFILE], file_counter,
+                    language[GLUTIL_TIME], seconds/3600, (seconds/60) % 60, seconds % 60, 
+                    ((double) global_device_bytes)/(1024.0*1024.0*1024.0));
+			
+    cls2();
+
+    DbgHeader( string1);
+    DbgMess(language[GLUTIL_HOLDTRIANGLEAB]);
+
+    DbgDraw();
+
+    tiny3d_Flip();
+
 
     closedir (dir);
 
@@ -2065,16 +2308,14 @@ static int my_game_countsize(char *path)
    	        file_counter++;
 				
 		    copy_total_size+=size;
-
-            UTF8_to_Ansi(language[GAMETESTS_CHECKSIZE], ansi, 512);
 			
             if((file_counter  & 15)== 1) {
 
-                sprintf(string1,"%s: %i Vol: %1.2f GB\n", ansi, file_counter, ((double) copy_total_size)/(1024.0*1024.*1024.0));
+                sprintf(string1,"%s: %i Vol: %1.2f GB\n", language[GAMETESTS_CHECKSIZE], file_counter, ((double) copy_total_size)/(1024.0*1024.*1024.0));
                 cls2();
 
                 DbgHeader( string1);
-                UTF8_to_Ansi(language[GLUTIL_HOLDTRIANGLESK], dbg_str2, 128);
+                DbgMess(language[GLUTIL_HOLDTRIANGLESK]);
 
                 DbgDraw();
 
@@ -2151,25 +2392,23 @@ static int my_game_delete(char *path)
 			sysFsChmod(f, FS_S_IFMT | 0777);
 			if(sysLv2FsUnlink(f)){abort_copy = 3;DPrintf("Deleting Error!!!\n -> %s\n\n", f); if(f) free(f); break;}
 
-            UTF8_to_Ansi(language[GAMEDELFL_DELETED], ansi, 512);
-			DPrintf("%s %s\n\n", ansi, f);
+			DPrintf("%s %s\n\n", language[GAMEDELFL_DELETED], f);
 
 			if(f) free(f);
 
 			display_mess:
 
 			seconds = (int) (time(NULL) - time_start);
-            UTF8_to_Ansi(language[GAMEDELFL_DELETING], ansi, 512);
-            UTF8_to_Ansi(language[GLUTIL_TIME], ansi + 512, 512);
-			sprintf(string1,"%s: %i %s: %2.2i:%2.2i:%2.2i\n", ansi, file_counter, 
-        			ansi + 512, seconds / 3600, (seconds / 60) % 60, seconds % 60);
+          
+			sprintf(string1,"%s: %i %s: %2.2i:%2.2i:%2.2i\n", language[GAMEDELFL_DELETING], file_counter, 
+        			language[GLUTIL_TIME], seconds / 3600, (seconds / 60) % 60, seconds % 60);
 
 			file_counter++;
 		
 			cls2();
 
             DbgHeader( string1);
-            UTF8_to_Ansi(language[GLUTIL_HOLDTRIANGLEAB], dbg_str2, 128);
+            DbgMess(language[GLUTIL_HOLDTRIANGLEAB]);
             DbgDraw();
 
 			tiny3d_Flip();
@@ -2542,10 +2781,7 @@ void copy_from_selection(int game_sel)
         file_counter = 0;
         new_pad = 0;
 
-        UTF8_to_Ansi(language[GAMECPYSL_STARTED], ansi, 512);
-        UTF8_to_Ansi(language[GLUTIL_WTO], ansi + 512, 512);
-
-        DPrintf("%s %s\n %s %s\n\n", ansi, directories[game_sel].path_name, ansi + 512, name);
+        DPrintf("%s %s\n %s %s\n\n", language[GAMECPYSL_STARTED], directories[game_sel].path_name, language[GLUTIL_WTO], name);
 
         if(curr_device != 0) copy_mode = 1; // break files >= 4GB
         else copy_mode = 0;
@@ -2612,15 +2848,13 @@ void copy_from_selection(int game_sel)
         while(1) {
 
             if(abort_copy) {
-                UTF8_to_Ansi(language[GLUTIL_ABORTED], ansi, 512);
-                UTF8_to_Ansi(language[GLUTIL_TIME], ansi + 512, 512);
-                sprintf(string1,"%s  %s: %2.2i:%2.2i:%2.2i\n", ansi, ansi + 512, 
+  
+                sprintf(string1,"%s  %s: %2.2i:%2.2i:%2.2i\n", language[GLUTIL_ABORTED], language[GLUTIL_TIME], 
                     seconds / 3600, (seconds/60) % 60, seconds % 60);
             }
             else {
-                UTF8_to_Ansi(language[GAMECPYSL_DONE], ansi, 512);
-                UTF8_to_Ansi(language[GLUTIL_TIME], ansi + 512, 512);
-                sprintf(string1,"%s  %s: %2.2i:%2.2i:%2.2i Vol: %1.2f GB\n", ansi, ansi + 512, 
+
+                sprintf(string1,"%s  %s: %2.2i:%2.2i:%2.2i Vol: %1.2f GB\n", language[GAMECPYSL_DONE], language[GLUTIL_TIME], 
                     seconds / 3600, (seconds/60) % 60, seconds % 60, ((double) global_device_bytes) / (1024.0 * 1024. * 1024.0));
             }
              
@@ -2629,9 +2863,9 @@ void copy_from_selection(int game_sel)
             DbgHeader( string1);
 
             if(vflip & 32)
-                UTF8_to_Ansi(language[GLUTIL_XEXIT], dbg_str2, 128);
+                DbgMess(language[GLUTIL_XEXIT]);
             else
-                strcpy(dbg_str2, "");
+               DbgMess("");
 
             vflip++;
                 
@@ -2883,15 +3117,13 @@ void copy_from_bluray()
         while(1) {
 
             if(abort_copy) {
-                UTF8_to_Ansi(language[GLUTIL_ABORTED], ansi, 512);
-                UTF8_to_Ansi(language[GLUTIL_TIME], ansi + 512, 512);
-                sprintf(string1,"%s  %s: %2.2i:%2.2i:%2.2i\n", ansi, ansi + 512, 
+
+                sprintf(string1,"%s  %s: %2.2i:%2.2i:%2.2i\n", language[GLUTIL_ABORTED], language[GLUTIL_TIME], 
                     seconds / 3600, (seconds/60) % 60, seconds % 60);
             }
             else {
-                UTF8_to_Ansi(language[GAMECPYSL_DONE], ansi, 512);
-                UTF8_to_Ansi(language[GLUTIL_TIME], ansi + 512, 512);
-                sprintf(string1,"%s  %s: %2.2i:%2.2i:%2.2i Vol: %1.2f GB\n", ansi, ansi + 512, 
+           
+                sprintf(string1,"%s  %s: %2.2i:%2.2i:%2.2i Vol: %1.2f GB\n", language[GAMECPYSL_DONE], language[GLUTIL_TIME], 
                     seconds / 3600, (seconds/60) % 60, seconds % 60, ((double) global_device_bytes) / (1024.0 * 1024. * 1024.0));
             }
 
@@ -2900,9 +3132,9 @@ void copy_from_bluray()
             DbgHeader( string1);
 
             if(vflip & 32)
-                UTF8_to_Ansi(language[GLUTIL_XEXIT], dbg_str2, 128);
+                DbgMess(language[GLUTIL_XEXIT]);
             else
-                strcpy(dbg_str2, "");
+                DbgMess("");
 
             vflip++;
             
@@ -3019,7 +3251,7 @@ void copy_to_cache(int game_sel, char * hmanager_path)
         
         global_device_bytes = 0;
         cache_need_free = 0;
-        num_directories = file_counter = num_files_big = num_files_split = 0;
+        num_directories = file_counter = num_files_big = num_files_split = fixed_self_sprx = 0;
 
         copy_split_to_cache = 1;
         my_game_test((char *) name2);
@@ -3107,9 +3339,7 @@ void copy_to_cache(int game_sel, char * hmanager_path)
 
         ////////////////
 
-        UTF8_to_Ansi(language[GAMECPYSL_STARTED], ansi, 512);
-        UTF8_to_Ansi(language[GLUTIL_WTO], ansi + 512, 512);
-        DPrintf("%s %s\n %s %s\n\n", ansi, directories[game_sel].path_name, ansi + 512, name);
+        DPrintf("%s %s\n %s %s\n\n", language[GAMECPYSL_STARTED], directories[game_sel].path_name, language[GLUTIL_WTO], name);
 
         abort_copy = 0;
         file_counter = 0;
@@ -3127,15 +3357,13 @@ void copy_to_cache(int game_sel, char * hmanager_path)
         while(1) {
             
             if(abort_copy) {
-                UTF8_to_Ansi(language[GLUTIL_ABORTED], ansi, 512);
-                UTF8_to_Ansi(language[GLUTIL_TIME], ansi + 512, 512);
-                sprintf(string1,"%s  %s: %2.2i:%2.2i:%2.2i\n", ansi, ansi + 512, 
+
+                sprintf(string1,"%s  %s: %2.2i:%2.2i:%2.2i\n", language[GLUTIL_ABORTED], language[GLUTIL_TIME], 
                     seconds / 3600, (seconds/60) % 60, seconds % 60);
             }
             else {
-                UTF8_to_Ansi(language[GAMECPYSL_DONE], ansi, 512);
-                UTF8_to_Ansi(language[GLUTIL_TIME], ansi + 512, 512);
-                sprintf(string1,"%s  %s: %2.2i:%2.2i:%2.2i Vol: %1.2f GB\n", ansi, ansi + 512, 
+
+                sprintf(string1,"%s  %s: %2.2i:%2.2i:%2.2i Vol: %1.2f GB\n", language[GAMECPYSL_DONE], language[GLUTIL_TIME], 
                     seconds / 3600, (seconds/60) % 60, seconds % 60, ((double) global_device_bytes) / (1024.0 * 1024. * 1024.0));
             }
 
@@ -3144,9 +3372,9 @@ void copy_to_cache(int game_sel, char * hmanager_path)
             DbgHeader( string1);
 
             if(vflip & 32)
-                UTF8_to_Ansi(language[GLUTIL_XEXIT], dbg_str2, 128);
+                DbgMess(language[GLUTIL_XEXIT]);
             else
-                strcpy(dbg_str2, "");
+                DbgMess("");
 
             vflip++;
                 
@@ -3236,10 +3464,8 @@ void delete_game(int game_sel)
         initConsole();
         file_counter = 0;
         new_pad = 0;
-        
-        UTF8_to_Ansi(language[GAMEDELSL_STARTED], ansi, 512);
       
-        DPrintf("%s %s\n\n", ansi, directories[game_sel].path_name);
+        DPrintf("%s %s\n\n", language[GAMEDELSL_STARTED], directories[game_sel].path_name);
 
         my_game_delete((char *) directories[game_sel].path_name);
         
@@ -3253,15 +3479,12 @@ void delete_game(int game_sel)
         while(1){
 
             if(abort_copy) {
-                UTF8_to_Ansi(language[GLUTIL_ABORTED], ansi, 512);
-                UTF8_to_Ansi(language[GLUTIL_TIME], ansi + 512, 512);
-                sprintf(string1,"%s  %s: %2.2i:%2.2i:%2.2i\n", ansi, ansi + 512, 
+
+                sprintf(string1,"%s  %s: %2.2i:%2.2i:%2.2i\n", language[GLUTIL_ABORTED], language[GLUTIL_TIME], 
                     seconds / 3600, (seconds/60) % 60, seconds % 60);
             }
             else {
-                UTF8_to_Ansi(language[GAMEDELSL_DONE], ansi, 512);
-                UTF8_to_Ansi(language[GLUTIL_TIME], ansi + 512, 512);
-                sprintf(string1,"%s  %s: %2.2i:%2.2i:%2.2i\n", ansi, ansi + 512, 
+                sprintf(string1,"%s  %s: %2.2i:%2.2i:%2.2i\n", language[GAMEDELSL_DONE], language[GLUTIL_TIME], 
                     seconds / 3600, (seconds/60) % 60, seconds % 60);
             }
 
@@ -3270,9 +3493,9 @@ void delete_game(int game_sel)
             DbgHeader( string1);
 
             if(vflip & 32)
-                UTF8_to_Ansi(language[GLUTIL_XEXIT], dbg_str2, 128);
+                DbgMess(language[GLUTIL_XEXIT]);
             else
-                strcpy(dbg_str2, "");
+                DbgMess("");
 
             vflip++;
             
@@ -3294,7 +3517,9 @@ void delete_game(int game_sel)
 void test_game(int game_sel)
 {
    
-   time_start= time(NULL);
+    int r;
+
+    time_start= time(NULL);
 			
     abort_copy=0;
 
@@ -3307,14 +3532,40 @@ void test_game(int game_sel)
     
     global_device_bytes = 0;
 
-    num_directories = file_counter = num_files_big = num_files_split = 0;
+    num_directories = file_counter = num_files_big = num_files_split = fixed_self_sprx = 0;
+
     
-    
+    self_alarm_version = 0;
+
     my_game_test(directories[game_sel].path_name);
+
+    r = self_alarm_version;
+
+    char game_update[0x420];
+
+    sprintf(game_update, "/dev_hdd0/game/%c%c%c%c%s", directories[game_sel].title_id[0], directories[game_sel].title_id[1],
+            directories[game_sel].title_id[2], directories[game_sel].title_id[3], &directories[game_sel].title_id[5]);
+    sysFSStat s;
+
+    self_alarm_version = 0;
+
+    if(!sysLv2FsStat(game_update, &s)) {
+
+        patch_error_09(game_update);
+    }
     
-    UTF8_to_Ansi(language[GAMETSTSL_FINALNFO], ansi, 512);
-    DPrintf(ansi, num_directories, file_counter, num_files_big, num_files_split);
+    DPrintf(language[GAMETSTSL_FINALNFO2], num_directories, file_counter, num_files_big, num_files_split);
     DPrintf("\n\n");
+    DPrintf("SPRX/SELF fixed (error 0x80010009) %i", fixed_self_sprx);
+    DPrintf("\n\n");
+
+    if(r) {
+        DPrintf("This game requires a higher CFW or rebuild the SELFs/SPRX\n\nEste juego requiere un CFW superior o reconstruir los SELFs/SPRX\n\n");
+    }
+
+    if(self_alarm_version) {
+        DPrintf("The update of this game requires a higher CFW or rebuild the SELFs/SPRX\n\nLa actualizacion de este juego requiere un CFW superior o reconstruir los SELFs/SPRX\n\n");
+    }
 
     int seconds = (int) (time(NULL) - time_start);
     int vflip = 0;
@@ -3322,16 +3573,14 @@ void test_game(int game_sel)
     while(1){
 
         if(abort_copy) {
-            UTF8_to_Ansi(language[GLUTIL_ABORTED], ansi, 512);
-            UTF8_to_Ansi(language[GLUTIL_TIME], ansi + 512, 512);
-            sprintf(string1,"%s  %s: %2.2i:%2.2i:%2.2i\n", ansi, 
-                                ansi + 512, seconds / 3600, (seconds/60) % 60, seconds % 60);
+      
+            sprintf(string1,"%s  %s: %2.2i:%2.2i:%2.2i\n", language[GLUTIL_ABORTED], 
+                                language[GLUTIL_TIME], seconds / 3600, (seconds/60) % 60, seconds % 60);
         }
         else {
-            UTF8_to_Ansi(language[GAMETSTSL_TESTED], ansi, 512);
-            UTF8_to_Ansi(language[GLUTIL_TIME], ansi + 512, 512);
-            sprintf(string1,"%s: %i %s: %2.2i:%2.2i:%2.2i Vol: %1.2f GB\n", ansi, file_counter, 
-                                ansi + 512, seconds / 3600, (seconds / 60) % 60, seconds % 60, 
+           
+            sprintf(string1,"%s: %i %s: %2.2i:%2.2i:%2.2i Vol: %1.2f GB\n", language[GAMETSTSL_TESTED], file_counter, 
+                                language[GLUTIL_TIME], seconds / 3600, (seconds / 60) % 60, seconds % 60, 
                                 ((double) global_device_bytes) / (1024.0 * 1024.* 1024.0));
         }
 
@@ -3340,9 +3589,9 @@ void test_game(int game_sel)
         DbgHeader( string1);
 
         if(vflip & 32)
-            UTF8_to_Ansi(language[GLUTIL_XEXIT], dbg_str2, 128);
+            DbgMess(language[GLUTIL_XEXIT]);
         else
-            strcpy(dbg_str2, "");
+            DbgMess("");
 
         vflip++;
         
@@ -3512,8 +3761,78 @@ int getConfigMemValueInt (char* mem, int size, char* pchSection, char* pchKey, i
 
 */
 
+void reverse_strings(u8 *str)
+{
+    int n, m, l;
+    int len1, len2;
+    u32 string_buffer[1024];
+
+    while(1) {
+        if(*str==0) break;
+        while(*str < 32) str++;
+        if(*str==0) break;
+
+        len1 = 0; len2 =0;
+        // process one phrase
+        while(str[len1]>=32) {
+
+            if((str[len1] & 0xE0) == 0xC0 && (str[len1 + 1] & 0xc0) == 0x80) {
+                string_buffer[len2] = ((u32) str[len1 + 1] << 8) | (u32) str[len1 + 0]; len1+=2; len2++;
+            } else if((str[len1] & 0xF0) == 0xE0  && (str[len1 + 1] & 0xc0) == 0x80 && (str[len1 + 2] & 0xc0) == 0x80) {
+                string_buffer[len2] = ((u32) str[len1 + 2] << 16) | ((u32) str[len1 + 1] << 8) | (u32) str[len1 + 0]; len1+=3; len2++;
+            } else if((str[len1] & 0xF0) == 0xF0  && (str[len1 + 1] & 0xc0) == 0x80  && (str[len1 + 2] & 0xc0) == 0x80  && (str[len1 + 3] & 0xc0) == 0x80) {
+                string_buffer[len2] = ((u32) str[len1 + 3] << 24) | ((u32) str[len1 + 2] << 16) | ((u32) str[len1 + 1] << 8) | (u32) str[len1 + 0]; len1+=4; len2++;
+            } else 
+                {if(str[len1 + 0] & 0x80)  string_buffer[len2] = '?'; else string_buffer[len2] = (u32) str[len1 + 0];
+                len1++; len2++;
+                }
+            
+        }
+
+        
+        l= 0;
+       
+        len2--;
+        for(n=0; n<len2 + 1; n++) {
+        
+            // reverse UTF8 symbols
+            if(string_buffer[len2 - n] == 32   || (string_buffer[len2 - n] & 0xffffff80)) {
+                str[l]= string_buffer[len2 - n] & 0xff; string_buffer[len2 - n]>>= 8;l++;
+                if(string_buffer[len2 - n] & 0xff) {
+                    str[l]= string_buffer[len2 - n] & 0xff; string_buffer[len2 - n]>>= 8;l++;
+                    if(string_buffer[len2 - n] & 0xff) {
+                        str[l]= string_buffer[len2 - n] & 0xff; string_buffer[len2 - n]>>= 8;l++;
+                        if(string_buffer[len2 - n] & 0xff) {
+                            str[l]= string_buffer[len2 - n] & 0xff;l++;
+                        }
+                    }
+                }
+            } else {
+
+                // don´t reverse words with symbols from 32 to 127 UTF8
+                int s;
+                m= 0;
+                while((m+n) < (len2 + 1) && (string_buffer[len2 - n - m] & 0xff) > 32
+                    && (string_buffer[len2 - n - m] & 0xffffff80) == 0) m++;
+                
+                for(s = 0; s < m; s++) {
+                    str[l + m - s - 1]= string_buffer[len2 - n - s] & 0xff;
+                }
+                l += m;
+                n += m - 1;
+            }
+        }
+
+        str+= len1;
+
+
+    }
+
+}
+
 void convertStringEndl(char* string, int iSize);
 
+extern int reverse_language;
 
 int getConfigMemValueString (char* mem, int size, char* pchSection, char* pchKey, char* pchValue, int iSize, char* pchDefaultValue)
 {
@@ -3523,6 +3842,11 @@ int getConfigMemValueString (char* mem, int size, char* pchSection, char* pchKey
    int find_section = 0;
 
      // open the config file
+
+     while(n<size) {
+        if(mem[n]=='[') break;
+        n++;
+     }
 
       while(n<size) { // grab one line
         
@@ -3587,6 +3911,14 @@ int getConfigMemValueString (char* mem, int size, char* pchSection, char* pchKey
             strncpy(pchValue, &chLine[m], iSize); // copy to destination
 
             pchValue[iSize -1] = 0;
+            
+            if(reverse_language) {
+                if(pchValue[0]=='-') { // don't reverse this string
+                    strncpy(pchValue, &chLine[m + 1], iSize);
+                    pchValue[iSize -1] = 0;
+                } else
+                    reverse_strings((u8*) pchValue);
+            }
 
             return 0;
 
@@ -3594,29 +3926,35 @@ int getConfigMemValueString (char* mem, int size, char* pchSection, char* pchKey
       }
      
    
-    strncpy(pchValue, pchDefaultValue, iSize); // no value found, return the default
+   strncpy(pchValue, pchDefaultValue, iSize); // no value found, return the default
    pchValue[iSize -1] = 0;
    return 1;
 
 }
 
-#define MAX_CONVERSIONS 2
+#define MAX_CONVERSIONS 1
 
 char conversionTable[MAX_CONVERSIONS][2] = 
 { 
     { '@', '\n' },
-    { '_', ' ' },
+   // { '_', ' ' },
 };
 
 void convertStringEndl(char* string, int iSize)
 {
     int n;
     int m = 0;
+    int flag = 0;
 
     do
     {
         if(string[m] == 9) string[m] = ' ';
         if(string[m] < 32) {string[m] = 0; return;} // break the string
+        // special symbol '_' used as space when it is concatenated
+        if(string[m] == '_') {
+            if(flag || string[m + 1] == '_') {flag = 1; string[m]=' ';}
+        }    
+        else flag = 0;
 
         for(n = 0; n < MAX_CONVERSIONS; n++)
             if(string[m] == conversionTable[n][0])
@@ -4110,7 +4448,7 @@ void build_sys8_path_table()
     
     if(!datas) return;
 
-    u64 dest_table_addr = 0x80000000007FF000ULL - (u64)((arena_size + sizeof(path_open_entry) * (entries + 1) + 15) & ~15);
+    u64 dest_table_addr = 0x80000000007FE000ULL - (u64)((arena_size + sizeof(path_open_entry) * (entries + 1) + 15) & ~15);
 
     u32 arena_offset = (sizeof(path_open_entry) * (entries + 1));
 
@@ -4229,10 +4567,7 @@ void copy_usb_to_iris(char * path)
         file_counter = 0;
         new_pad = 0;
 
-        UTF8_to_Ansi(language[GAMECPYSL_STARTED], ansi, 512);
-        UTF8_to_Ansi(language[GLUTIL_WTO], ansi + 512, 512);
-
-        DPrintf("%s %s\n %s %s\n\n", ansi, "USB", ansi + 512, "Iris Manager");
+        DPrintf("%s %s\n %s %s\n\n", language[GAMECPYSL_STARTED], "USB", language[GLUTIL_WTO], "Iris Manager");
 
         copy_mode = 0;
 
@@ -4251,15 +4586,13 @@ void copy_usb_to_iris(char * path)
         while(1) {
 
             if(abort_copy) {
-                UTF8_to_Ansi(language[GLUTIL_ABORTED], ansi, 512);
-                UTF8_to_Ansi(language[GLUTIL_TIME], ansi + 512, 512);
-                sprintf(string1,"%s  %s: %2.2i:%2.2i:%2.2i\n", ansi, ansi + 512, 
+
+                sprintf(string1,"%s  %s: %2.2i:%2.2i:%2.2i\n", language[GLUTIL_ABORTED], language[GLUTIL_TIME], 
                     seconds / 3600, (seconds/60) % 60, seconds % 60);
             }
             else {
-                UTF8_to_Ansi(language[GAMECPYSL_DONE], ansi, 512);
-                UTF8_to_Ansi(language[GLUTIL_TIME], ansi + 512, 512);
-                sprintf(string1,"%s  %s: %2.2i:%2.2i:%2.2i Vol: %1.2f GB\n", ansi, ansi + 512, 
+
+                sprintf(string1,"%s  %s: %2.2i:%2.2i:%2.2i Vol: %1.2f GB\n", language[GAMECPYSL_DONE], language[GLUTIL_TIME], 
                     seconds / 3600, (seconds/60) % 60, seconds % 60, ((double) global_device_bytes) / (1024.0 * 1024. * 1024.0));
             }
 
@@ -4269,9 +4602,9 @@ void copy_usb_to_iris(char * path)
             DbgHeader( string1);
 
             if(vflip & 32)
-                UTF8_to_Ansi(language[GLUTIL_XEXIT], dbg_str2, 128);
+                DbgMess(language[GLUTIL_XEXIT]);
             else
-                strcpy(dbg_str2, "");
+                DbgMess("");
 
             vflip++;
                 

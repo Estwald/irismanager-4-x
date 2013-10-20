@@ -82,10 +82,13 @@ int SaveFile(char *path, char *mem, int file_size);
 
 void DrawDialogOK(char * str);
 void DrawDialogOKTimer(char * str, float milliseconds);
+void DrawDialogTimer(char * str, float milliseconds);
+
 int DrawDialogYesNo(char * str);
 int DrawDialogYesNo2(char * str);
 int DrawDialogYesNoTimer(char * str, float milliseconds);
 int DrawDialogYesNoTimer2(char * str, float milliseconds);
+
 
 int parse_param_sfo(char * file, char *title_name);
 int parse_ps3_disc(char *path, char * id);
@@ -94,6 +97,8 @@ void utf8_to_ansi(char *utf8, char *ansi, int len);
 void utf8_truncate(char *utf8, char *utf8_trunc, int len);
 
 void sort_entries(t_directories *list, int *max);
+void sort_entries2(t_directories *list, int *max, u32 mode);
+
 void delete_entries(t_directories *list, int *max, u32 flag);
 void fill_entries_from_device(char *path, t_directories *list, int *max, u32 flag, int sel);
 
@@ -148,6 +153,9 @@ void DPrintf(char *format, ...);
 int unlink_secure(void *path);
 int mkdir_secure(void *path);
 int rmdir_secure(void *path);
+
+int patch_exe_error_09(char *path_exe);
+void patch_error_09( const char *path );
 
 
 #endif

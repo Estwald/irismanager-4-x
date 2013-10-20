@@ -85,6 +85,122 @@ void DrawTextBox(float x, float y, float z, float w, float h, u32 rgba)
     tiny3d_End();
 }
 
+
+void DrawBoxLine(float x, float y, float z, float w, float h, u32 rgba, u32 rgba2)
+{
+    tiny3d_SetPolygon(TINY3D_QUADS);
+       
+    tiny3d_VertexPos(x    , y    , z);
+    tiny3d_VertexColor(rgba);
+
+    tiny3d_VertexPos(x + w, y    , z);
+
+    tiny3d_VertexPos(x + w, y + h, z);
+
+    tiny3d_VertexPos(x    , y + h, z);
+
+    tiny3d_End();
+
+    tiny3d_SetPolygon(TINY3D_LINE_STRIP);
+       
+    tiny3d_VertexPos(x    , y    , z);
+    tiny3d_VertexColor(rgba2);
+
+    tiny3d_VertexPos(x + w, y    , z);
+
+    tiny3d_VertexPos(x + w, y + h, z);
+
+    tiny3d_VertexPos(x    , y + h, z);
+
+    tiny3d_VertexPos(x    , y    , z);
+
+    tiny3d_End();
+}
+
+
+void DrawTextBoxLine(float x, float y, float z, float w, float h, u32 rgba, u32 rgba2)
+{
+    tiny3d_SetPolygon(TINY3D_QUADS);
+    
+   
+    tiny3d_VertexPos(x    , y    , z);
+    tiny3d_VertexColor(rgba);
+    tiny3d_VertexTexture(0.0f , 0.0f);
+
+    tiny3d_VertexPos(x + w, y    , z);
+    tiny3d_VertexTexture(0.99f, 0.0f);
+
+    tiny3d_VertexPos(x + w, y + h, z);
+    tiny3d_VertexTexture(0.99f, 0.99f);
+
+    tiny3d_VertexPos(x    , y + h, z);
+    tiny3d_VertexTexture(0.0f , 0.99f);
+
+    tiny3d_End();
+
+    tiny3d_SetPolygon(TINY3D_LINE_STRIP);
+       
+    tiny3d_VertexPos(x    , y    , z);
+    tiny3d_VertexColor(rgba2);
+
+    tiny3d_VertexPos(x + w, y    , z);
+
+    tiny3d_VertexPos(x + w, y + h, z);
+
+    tiny3d_VertexPos(x    , y + h, z);
+
+    tiny3d_VertexPos(x    , y    , z);
+
+    tiny3d_End();
+}
+
+
+void DrawTextBoxShadow(float x, float y, float z, float w, float h, u32 rgba)
+{
+    tiny3d_SetPolygon(TINY3D_QUADS);
+    
+   
+    tiny3d_VertexPos(x    , y    , z);
+    tiny3d_VertexColor(rgba);
+    tiny3d_VertexTexture(0.0f , 0.99f);
+
+    tiny3d_VertexPos(x + w, y    , z);
+    tiny3d_VertexColor(rgba);
+    tiny3d_VertexTexture(0.99f, 0.99f);
+
+    rgba = 0x20202000;
+    tiny3d_VertexPos(x + w + 2, y + h, z);
+    tiny3d_VertexColor(rgba);
+    tiny3d_VertexTexture(0.99f, 0.00f);
+
+    tiny3d_VertexPos(x - 1   , y + h, z);
+    tiny3d_VertexColor(rgba);
+    tiny3d_VertexTexture(0.0f , 0.00f);
+
+    tiny3d_End();
+}
+
+void DrawBoxShadow(float x, float y, float z, float w, float h, u32 rgba)
+{
+    tiny3d_SetPolygon(TINY3D_QUADS);
+    
+   
+    tiny3d_VertexPos(x    , y    , z);
+    tiny3d_VertexColor(rgba);
+
+    tiny3d_VertexPos(x + w, y    , z);
+    tiny3d_VertexColor(rgba);
+
+    rgba = 0x20202000;
+    tiny3d_VertexPos(x + w + 2, y + h, z);
+    tiny3d_VertexColor(rgba);
+
+    tiny3d_VertexPos(x - 1   , y + h, z);
+    tiny3d_VertexColor(rgba);
+
+    tiny3d_End();
+}
+
 void DrawLineBox(float x, float y, float z, float w, float h, u32 rgba)
 {
     tiny3d_SetPolygon(TINY3D_LINE_LOOP);
@@ -185,7 +301,7 @@ float DrawButton1_UTF8(float x, float y, float w, char * t, int select)
     u32 brgba2 = 0x404040ff;
 
     set_ttf_window(0, 0, 848, 512, WIN_SKIP_LF);
-    len = display_ttf_string(0, 0, t, 0, 16, 32);
+    len = display_ttf_string(0, 0, t, 0, 0, 16, 32);
 
     if(w < (len + 24)) w = (len + 24);
 
@@ -199,7 +315,7 @@ float DrawButton1_UTF8(float x, float y, float w, char * t, int select)
 
     //DrawString(x + (w - len * 12) / 2, y + 4, t);
 
-    display_ttf_string(x + (w - len) / 2, y + 4, t, rgba, 16, 32);
+    display_ttf_string(x + (w - len) / 2, y + 4, t, rgba, 0, 16, 32);
 
     return x + w;
 
@@ -212,7 +328,7 @@ float DrawButton2_UTF8(float x, float y, float w, char * t, int select)
     u32 brgba2 = 0x003080ff;
 
     set_ttf_window(0, 0, 848, 512, WIN_SKIP_LF);
-    len = display_ttf_string(0, 0, t, 0, 14, 32);
+    len = display_ttf_string(0, 0, t, 0, 0, 14, 32);
 
     if(w < (len + 20)) w = (len + 20);
 
@@ -226,7 +342,7 @@ float DrawButton2_UTF8(float x, float y, float w, char * t, int select)
     DrawLineBox(x, y, 0.0f, w, 40, 0xc0c0c0ff);
 
     //DrawString(x + (w - len * 10) / 2, y + 4, t);
-    display_ttf_string(x + (w - len) / 2, y + 4, t, rgba, 14, 32);
+    display_ttf_string(x + (w - len) / 2, y + 4, t, rgba, 0, 14, 32);
 
     return x + w;
 
@@ -319,7 +435,7 @@ void draw_twat(float x, float y, float angle)
 
         tiny3d_VertexPos(40.0f *sinf(ang), 40.0f *cosf(ang), 1000);
         tiny3d_VertexColor(0xffffff18);
-        tiny3d_VertexPos(60.0f *sinf(ang+angs/2), 60.0f *cosf(ang+angs/2), 1000);
+        tiny3d_VertexPos(58.0f *sinf(ang+angs/2), 58.0f *cosf(ang+angs/2), 1000);
         tiny3d_VertexColor(0xffffff18);
         tiny3d_VertexPos(40.0f *sinf(ang+angs), 40.0f *cosf(ang+angs), 1000);
         tiny3d_VertexColor(0xffffff18);
@@ -370,7 +486,7 @@ void draw_twat2(float x, float y, float angle)
 
         tiny3d_VertexPos(20.0f *sinf(ang), 20.0f *cosf(ang), 1000);
         tiny3d_VertexColor(0xffffff18);
-        tiny3d_VertexPos(30.0f *sinf(ang+angs/2), 30.0f *cosf(ang+angs/2), 1000);
+        tiny3d_VertexPos(28.0f *sinf(ang+angs/2), 28.0f *cosf(ang+angs/2), 1000);
         tiny3d_VertexColor(0xffffff18);
         tiny3d_VertexPos(20.0f *sinf(ang+angs), 20.0f *cosf(ang+angs), 1000);
         tiny3d_VertexColor(0xffffff18);
@@ -397,3 +513,4 @@ void draw_twat2(float x, float y, float angle)
     tiny3d_SetMatrixModelView(NULL); // set matrix identity
 
 }
+

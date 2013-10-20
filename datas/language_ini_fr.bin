@@ -5,8 +5,8 @@ DESCRIPTION = DEFAULT FRENCH
 # VIDEO - ADJUST
 VIDEOADJUST_POSITION    = Utiliser GAUCHE (-X) / DROIT (+X) / HAUT (-Y) / BAS (+Y) pour ajuster l image
 VIDEOADJUST_SCALEINFO   = Video Scale X: %i Y: %i
-VIDEOADJUST_EXITINFO    = Appuyer 'X' pour sortir
-VIDEOADJUST_DEFAULTS    = Appuyer 'O' pour les valeurs par default
+VIDEOADJUST_EXITINFO    = Appuyer CROSS pour sortir
+VIDEOADJUST_DEFAULTS    = Appuyer CIRCLE pour les valeurs par default
 
 # SELECT - GAME FOLDER
 GAMEFOLDER_WANTUSE      = Vous souhaitez utiliser
@@ -68,8 +68,9 @@ DRAWGMCFG_SAVECFG       = Sauver Config
 # DRAW GLOBAL OPTIONS
 DRAWGLOPT_OPTS          = Options Globales
 DRAWGLOPT_SCRADJUST     = Ajuster la video
-DRAWGLOPT_CHANGEDIR     = Changer le repertoire du jeu
+DRAWGLOPT_CHANGEGUI     = Change Current GUI
 DRAWGLOPT_CHANGEBCK     = Changer la couleur du fond d ecran
+DRAWGLOPT_CHANGEDIR     = Changer le repertoire du jeu
 DRAWGLOPT_SWMUSICOFF    = Switcher la Musique sur Off
 DRAWGLOPT_SWMUSICON     = Switcher la Musique sur On
 DRAWGLOPT_INITFTP       = Initializer le Server FTP
@@ -88,6 +89,7 @@ DRAWTOOLS_PKGTOOLS      = Installer un .PKG
 DRAWTOOLS_COPYFROM      = Copy from /dev_usb/iris to Iris folder
 DRAWTOOLS_WITHBDVD      = With BDVD Controller
 DRAWTOOLS_NOBDVD        = Without BDVD Controller
+DRAWTOOLS_NOBDVD2       = Disc - Less payload
 DRAWTOOLS_ARCHIVEMAN    = Archive Manager
 
 # MAIN - OTHERS
@@ -154,11 +156,11 @@ GLUTIL_SPLITFILE        = Spliter un fichier
 GLUTIL_WROTE            = Ecrire
 GLUTIL_TIME             = Temps
 GLUTIL_TIMELEFT         = Temps restant
-GLUTIL_HOLDTRIANGLEAB   = Hold /\ to Abort
-GLUTIL_HOLDTRIANGLESK   = Hold /\ to Skip
+GLUTIL_HOLDTRIANGLEAB   = Hold TRIANGLE to Abort
+GLUTIL_HOLDTRIANGLESK   = Hold TRIANGLE to Skip
 GLUTIL_ABORTEDUSER      = Abandonner par l utilisateur
 GLUTIL_ABORTED          = Abandonner!!!
-GLUTIL_XEXIT            = Appuyer X pour sortir
+GLUTIL_XEXIT            = Appuyer CROSS pour sortir
 GLUTIL_WANTCPYFROM      = Voulez vous copier vers
 GLUTIL_WTO              = to
 
@@ -202,8 +204,8 @@ DRAWPSX_ERRSECSIZE      = Error: Different sector size in ISO files
 DRAWPSX_ERRUNKSIZE      = Error: Unknown Sector Size
 DRAWPSX_DISCEJECT       = PSX CD Ejected
 DRAWPSX_DISCORDER       = Select Disc Order
-DRAWPSX_PRESSOB         = Press O to change the order
-DRAWPSX_PRESSXB         = Press X to launch de game
+DRAWPSX_PRESSOB         = Press CIRCLE to change the order
+DRAWPSX_PRESSXB         = Press CROSS to launch de game
 DRAWPSX_CHEATMAKE       = PSX Cheat disc found, but different sector size@@Want you build one compatible?
 DRAWPSX_COPYMC          = Copying Memory Card to HDD0 device...
 DRAWPSX_ERRCOPYMC       = Error copying the Memory Card to HDD0 device
@@ -218,4 +220,6 @@ DRAWPSX_ISOEXITS        = exists@@Skip?
 # generic
 OUT_OFMEMORY            = Out of Memory
 OPERATION_DONE          = Done!
+PLUG_STORAGE1           = Remember you to plug an USB storage massive device to create the fake disc event
+PLUG_STORAGE2           = Fake Disc Inserted
 

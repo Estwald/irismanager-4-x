@@ -5,8 +5,8 @@ DESCRIPTION = DEFAULT SPANISH
 # Vídeo - ADJUST
 VídeoADJUST_POSITION    = Usa IZQ (-X) / DER (+X) / ARRIBA (-Y) / ABAJO (+Y) para ajustar la pantalla
 VídeoADJUST_SCALEINFO   = Escala X: %i Y: %i
-VídeoADJUST_EXITINFO    = Pulsa 'X' para salir
-VídeoADJUST_DEFAULTS    = Pulsa 'O' para los valores por defecto
+VídeoADJUST_EXITINFO    = Pulsa EQUIS para salir
+VídeoADJUST_DEFAULTS    = Pulsa CIRCULO para los valores por defecto
 
 # SELECT - GAME FOLDER
 GAMEFOLDER_WANTUSE      = Deseas usar
@@ -68,8 +68,9 @@ DRAWGMCFG_SAVECFG       = Guardar Configuracion
 # DRAW GLOBAL OPTIONS
 DRAWGLOPT_OPTS          = Opciones Globales
 DRAWGLOPT_SCRADJUST     = Ajustes de Pantalla
-DRAWGLOPT_CHANGEDIR     = Cambiar Directorio de Juegos
+DRAWGLOPT_CHANGEGUI     = Cambiar GUI Actual
 DRAWGLOPT_CHANGEBCK     = Cambiar Color de Fondo
+DRAWGLOPT_CHANGEDIR     = Cambiar Directorio de Juegos
 DRAWGLOPT_SWMUSICOFF    = Desactivar Musica
 DRAWGLOPT_SWMUSICON     = Activar Musica
 DRAWGLOPT_INITFTP       = Iniciar Servidor FTP
@@ -88,6 +89,7 @@ DRAWTOOLS_PKGTOOLS      = Instalar .PKG
 DRAWTOOLS_COPYFROM      = Copia desde /dev_usb/iris a carpeta Iris
 DRAWTOOLS_WITHBDVD      = Con Controladora BDVD
 DRAWTOOLS_NOBDVD        = Sin Controladora BDVD
+DRAWTOOLS_NOBDVD2       = Payload Sin Disco
 DRAWTOOLS_ARCHIVEMAN    = Manejador de Archivos
 
 # MAIN - OTHERS
@@ -129,7 +131,7 @@ GAMECPYSL_GSIZEABCNTASK = Chequeo: Abortado - Continuar con la copia?
 GAMECPYSL_STARTED       = Iniciando... @ copia
 GAMECPYSL_SPLITEDHDDNFO = %s@@Juego Fraccionado copiado en HDD0 (no iniciable)
 GAMECPYSL_SPLITEDUSBNFO = %s@@Juego Fraccionado copiado en USB00%c (no iniciable)
-GAMECPYSL_DONE          = Termiando! Ficheros Copiados
+GAMECPYSL_DONE          = Terminando! Ficheros Copiados
 GAMECPYSL_FAILDELDUMP   = Deseas Borrar el volcado fallido en
 
 # GAME CACHE COPY
@@ -153,11 +155,11 @@ GLUTIL_SPLITFILE        = Fichero Fraccionado
 GLUTIL_WROTE            = Escritos
 GLUTIL_TIME             = Tiempo
 GLUTIL_TIMELEFT         = Restante
-GLUTIL_HOLDTRIANGLEAB   = Manten pulsado /\ para Abortar
-GLUTIL_HOLDTRIANGLESK   = Manten pulsado /\ para Saltar
+GLUTIL_HOLDTRIANGLEAB   = Manten pulsado TRIANGULO para Abortar
+GLUTIL_HOLDTRIANGLESK   = Manten pulsado TRIANGULO para Saltar
 GLUTIL_ABORTEDUSER      = Abortado por el usuario
 GLUTIL_ABORTED          = Abortado!!!
-GLUTIL_XEXIT            = Pulsa X para Salir
+GLUTIL_XEXIT            = Pulsa EQUIS para Salir
 GLUTIL_WANTCPYFROM      = Deseas copiar desde
 GLUTIL_WTO              = a
 
@@ -201,8 +203,8 @@ DRAWPSX_ERRSECSIZE      = Error: Tamaño diferente de sector en ficheros ISO
 DRAWPSX_ERRUNKSIZE      = Error: Tamaño de Sector Desconocido
 DRAWPSX_DISCEJECT       = PSX CD Expulsado
 DRAWPSX_DISCORDER       = Selecciona el orden de los Discos
-DRAWPSX_PRESSOB         = Pulsa O para cambiar el orden
-DRAWPSX_PRESSXB         = Pulsa X para lanzar el juego
+DRAWPSX_PRESSOB         = Pulsa CIRCULO para cambiar el orden
+DRAWPSX_PRESSXB         = Pulsa EQUIS para lanzar el juego
 DRAWPSX_CHEATMAKE       = Disco PSX de Cheats encontrado, pero tamaño de sector diferente@@Quieres construir uno compatible?
 DRAWPSX_COPYMC          = Copiando Memory Card a HDD0...
 DRAWPSX_ERRCOPYMC       = Error copiando la Memory Card en HDD0
@@ -217,4 +219,6 @@ DRAWPSX_ISOEXITS        = existe@@Saltar?
 # generic
 OUT_OFMEMORY            = Memoria insuficiente
 OPERATION_DONE          = Hecho!
+PLUG_STORAGE1           = Recuerda enchufar un dispositivo de almacenamiento masivo para crear el evento del falso disco
+PLUG_STORAGE2           = Falso Disco Insertado
 

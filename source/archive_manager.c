@@ -1,5 +1,5 @@
 /* 
-    (c) 2011 Hermes/Estwald <www.elotrolado.net>
+    (c) 2011-2013 Hermes/Estwald <www.elotrolado.net>
     IrisManager (HMANAGER port) (c) 2011 D_Skywalk <http://david.dantoine.org>
 
     HMANAGER4 is free software: you can redistribute it and/or modify
@@ -358,6 +358,7 @@ static char * get_extension(char *path)
 }
 
 extern u64 lv2peek(u64 addr);
+extern u64 lv2poke(u64 addr, u64 value);
 
 static int level_dump(char *path, int mode)
 {
@@ -386,15 +387,16 @@ static int level_dump(char *path, int mode)
         memset((void *) mem, 0, 0x1000000);
 
         lv1_reg regs_i, regs_o;
+        
         memset(&regs_i, 0, sizeof(regs_i));
-
+/*
         regs_i.reg11 = 0xB6; 
         sys8_lv1_syscall(&regs_i, &regs_o);
 
         if(((int) regs_o.reg3) <0) {
             return  (int) 0x80010004;
         }
-
+*/
         single_bar("LV1 Dump process");
 
         for(n = 0; n < 0x1000000/8; n++) {
@@ -963,10 +965,6 @@ static int move_archive_manager(char *path1, char *path2, sysFSDirent *ent, int 
                                  } else v = 0;
 
 
-
-extern PngDatas Png_res[16];
-extern u32 Png_res_offset[16];
-
 static void display_icon(int x, int y, int z, int icon)
 {
     tiny3d_SetTextureWrap(0, Png_res_offset[7 + icon], Png_res[7 + icon].width, 
@@ -976,10 +974,201 @@ static void display_icon(int x, int y, int z, int icon)
     DrawTextBox(x+2, y, z, 18, 18, 0xffffffff);
 }
 
-static int save_hex(s32 fd, u64 pos, void *buffer, u64 readed)
+
+#define FD_LV1 -1
+#define FD_LV2 -2
+
+static u64 begin_lv1 = 0x0;
+static u64 begin_lv2 = 0x0;
+static u64 size_lv1 = 0x10000000ULL;
+static u64 size_lv2 = 0x800000ULL;
+
+
+int read_LV1(u64 pos, char *mem, int size) 
+{
+    int n = 0;
+    u64 temp;
+
+    lv1_reg regs_i, regs_o;
+
+    if(begin_lv1 > pos) return (int) 0x8001002B;
+
+    if(pos + ((u64) size) > size_lv1)  size -= (int) (pos + ((u64) size) - size_lv1);
+
+    if(firmware < 0x421C) return (int) 0x80010009;
+
+    temp = pos;
+
+    if(temp & 7) {
+        
+        n= 8 - (pos & 7);
+        if(n > size) n = size;
+        temp&= ~7ULL;
+        regs_i.reg3 = temp;
+        regs_i.reg11 = 0xB6; 
+        sys8_lv1_syscall(&regs_i, &regs_o);
+        memcpy(&mem[0], ((char *) &regs_o.reg4) + (pos & 7), n);
+        
+        temp+=8;
+    }
+    if(n < size)
+    for(; n< size; n+=8) {
+        regs_i.reg3 = temp;
+        regs_i.reg11 = 0xB6; 
+        sys8_lv1_syscall(&regs_i, &regs_o);
+        memcpy(&mem[n], ((char *) &regs_o.reg4), ((n+8) > size) ? (size - n) : 8);
+        temp+=8;
+        
+    }
+
+    return 0;
+}
+
+int read_LV2(u64 pos, char *mem, int size) 
+{
+    int n = 0;
+    u64 temp;
+    u64 temp2;
+
+    if(begin_lv2 > pos) return (int) 0x8001002B;
+
+    if(pos + ((u64) size) > size_lv2)  size -= (int) (pos + ((u64) size) - size_lv2);
+
+    temp = pos;
+
+    if(temp & 7) {
+        
+        n= 8 - (pos & 7);
+        if(n > size) n = size;
+        temp&= ~7ULL;
+        temp2 = lv2peek(0x8000000000000000ULL + temp);
+
+        memcpy(&mem[0], ((char *) &temp2) + (pos & 7), n);
+        
+        temp+=8;
+    }
+    if(n < size)
+    for(; n< size; n+=8) {
+        temp2 = lv2peek(0x8000000000000000ULL + temp);
+        memcpy(&mem[n], ((char *) &temp2), ((n+8) > size) ? (size - n) : 8);
+        temp+=8;
+        
+    }
+
+    return 0;
+}
+
+int write_LV1(u64 pos, char *mem, int size) 
+{
+    int n = 0;
+    u64 temp;
+
+    lv1_reg regs_i, regs_o;
+
+    if(begin_lv1 > pos) return (int) 0x8001002B;
+
+    if(pos + ((u64) size) > size_lv1)  size -= (int) (pos + ((u64) size) - size_lv1);
+
+    if(firmware < 0x421C) return (int) 0x80010009;
+
+    temp = pos;
+
+    if(temp & 7) {
+        
+        n= 8 - (pos & 7);
+        if(n > size) n = size;
+        temp&= ~7ULL;
+        regs_i.reg3 = temp;
+        regs_i.reg11 = 0xB6; 
+        sys8_lv1_syscall(&regs_i, &regs_o);
+        memcpy(((char *) &regs_o.reg4) + (pos & 7), &mem[0], n);
+
+        regs_i.reg4 = regs_o.reg4;
+        regs_i.reg11 = 0xB7; 
+        sys8_lv1_syscall(&regs_i, &regs_o);
+        
+        temp+=8;
+    }
+    if(n < size)
+    for(; n< size; n+=8) {
+        regs_i.reg3 = temp;
+        regs_i.reg11 = 0xB6; 
+        sys8_lv1_syscall(&regs_i, &regs_o);
+        memcpy(((char *) &regs_o.reg4), &mem[n], ((n+8) > size) ? (size - n) : 8);
+        regs_i.reg4 = regs_o.reg4;
+        regs_i.reg11 = 0xB7; 
+        sys8_lv1_syscall(&regs_i, &regs_o);
+        temp+=8;
+        
+    }
+
+    return 0;
+}
+
+int write_LV2(u64 pos, char *mem, int size) 
+{
+    int n = 0;
+    u64 temp;
+    u64 temp2;
+
+    temp = pos;
+
+    if(begin_lv2 > pos) return (int) 0x8001002B;
+
+    if(pos + ((u64) size) > size_lv2)  size -= (int) (pos + ((u64) size) - size_lv2);
+
+    if(temp & 7) {
+        
+        n= 8 - (pos & 7);
+        if(n > size) n = size;
+        temp&= ~7ULL;
+
+        temp2 = lv2peek(0x8000000000000000ULL + temp);
+        memcpy(((char *) &temp2) + (pos & 7), &mem[0], n);
+        lv2poke(0x8000000000000000ULL + temp, temp2);
+        
+        temp+=8;
+    }
+    if(n < size)
+    for(; n< size; n+=8) {
+        temp2 = lv2peek(0x8000000000000000ULL + temp);
+        memcpy(((char *) &temp2), &mem[n], ((n+8) > size) ? (size - n) : 8);
+        lv2poke(0x8000000000000000ULL + temp, temp2);
+        temp+=8;
+        
+    }
+
+    return 0;
+}
+
+
+static int load_hex(s32 fd, u64 pos, void *buffer, u64 readed)
 {
     int ret;
     u64 temp = 0;
+
+    if(fd == FD_LV1) {
+          
+        ret = read_LV1(pos, buffer, (int) readed);
+        
+        if(ret != 0) {
+            sprintf(temp_buffer + 3072, "Read Error: 0x%08x\n\n%s", ret, getlv2error(ret));
+            DrawDialogOK(temp_buffer + 3072);
+        }
+
+        return ret;
+    } else
+    if(fd == FD_LV2) {
+       
+        ret = read_LV2(pos, buffer, (int) readed);
+        
+        if(ret != 0) {
+            sprintf(temp_buffer + 3072, "Read Error: 0x%08x\n\n%s", ret, getlv2error(ret));
+            DrawDialogOK(temp_buffer + 3072);
+        }
+        
+        return ret;
+    }
 
     ret= sysLv2FsLSeek64(fd, pos, 0, &temp);
 
@@ -991,7 +1180,7 @@ static int save_hex(s32 fd, u64 pos, void *buffer, u64 readed)
     } else {
 
         temp = 0;
-        ret = sysLv2FsWrite(fd, temp_buffer + 0x800, readed, &temp);
+        ret = sysLv2FsRead(fd, buffer, readed, &temp);
         if(ret < 0 || readed != temp) {
             if(ret == 0) ret = (int) 0x8001002B;
             sprintf(temp_buffer + 3072, "Read Error: 0x%08x\n\n%s", ret, getlv2error(ret));
@@ -1002,6 +1191,74 @@ static int save_hex(s32 fd, u64 pos, void *buffer, u64 readed)
 
     return ret;
 }
+
+static int save_hex(s32 fd, u64 pos, void *buffer, u64 readed)
+{
+    int ret;
+    u64 temp = 0;
+
+    if(fd == FD_LV1) {
+          
+        ret = write_LV1(pos, buffer, (int) readed);
+        
+        if(ret != 0) {
+            sprintf(temp_buffer + 3072, "Write Error: 0x%08x\n\n%s", ret, getlv2error(ret));
+            DrawDialogOK(temp_buffer + 3072);
+        }
+
+        return ret;
+    } else
+    if(fd == FD_LV2) {
+       
+        ret = write_LV2(pos, buffer, (int) readed);
+        
+        if(ret != 0) {
+            sprintf(temp_buffer + 3072, "Write Error: 0x%08x\n\n%s", ret, getlv2error(ret));
+            DrawDialogOK(temp_buffer + 3072);
+        }
+        
+        return ret;
+    } 
+
+    ret= sysLv2FsLSeek64(fd, pos, 0, &temp);
+
+    if(ret < 0 || pos != temp) {
+        if(ret == 0) ret = (int) 0x8001001E;
+        sprintf(temp_buffer + 3072, "Lseek Error: 0x%08x\n\n%s", ret, getlv2error(ret));
+        DrawDialogOK(temp_buffer + 3072);
+        
+    } else {
+
+        temp = 0;
+        ret = sysLv2FsWrite(fd, buffer, readed, &temp);
+        if(ret < 0 || readed != temp) {
+            if(ret == 0) ret = (int) 0x8001002B;
+            sprintf(temp_buffer + 3072, "Write Error: 0x%08x\n\n%s", ret, getlv2error(ret));
+            DrawDialogOK(temp_buffer + 3072);
+            
+        }
+    }
+
+    return ret;
+}
+
+
+int memcmp_case(char * p1, char *p2, int len)
+{
+int n;
+char a, b;
+
+    for(n = 0; n < len; n++) {
+        a= *p1++; b= *p2++;
+        if(a >= 'A' && a <= 'Z') a+= 32;
+        if(b >= 'A' && b <= 'Z') b+= 32;
+        if(a!=b) return 1;
+    }
+
+    return 0;
+
+}
+static int find_mode = 0; 
 
 static int find_in_file(s32 fd, u64 pos, u64 size, u64 *finded, void * str, int len, int s)
 {
@@ -1015,7 +1272,7 @@ static int find_in_file(s32 fd, u64 pos, u64 size, u64 *finded, void * str, int 
 
     *finded = -1LL;
 
-    char *mem =  malloc(0x8200);
+    char *mem =  malloc(0x8208);
     if(!mem) return (int) 0x80010004;
     memset(mem, 0, 0x8200);
 
@@ -1029,10 +1286,18 @@ static int find_in_file(s32 fd, u64 pos, u64 size, u64 *finded, void * str, int 
     float cpart = (s >= 0) ? parts * ((double) pos / (double) 0x8000) : 0;
 
     while((s >=0 && pos < size) || (s < 0 && pos >= 0 && flag)) {
+        
+        if(fd == FD_LV1 || fd == FD_LV2) {
+            ret = 0;
+            if(fd == FD_LV1) {if(begin_lv1 > pos) ret=(int) 0x8001001E; if(pos >= size_lv1) temp = 0; else  temp = pos;}
+            if(fd == FD_LV2) {if(begin_lv2 > pos) ret=(int) 0x8001001E; if(pos >= size_lv2) temp = 0; else  temp = pos;}
+   
+        } else
+            ret= sysLv2FsLSeek64(fd, pos, 0, &temp);
 
-        ret= sysLv2FsLSeek64(fd, pos, 0, &temp);
         if(ret < 0 || pos != temp) {
             if(ret == 0) ret = (int) 0x8001001E;
+            msgDialogAbort();
             sprintf(temp_buffer + 3072, "Lseek Error: 0x%08x\n\n%s", ret, getlv2error(ret));
             DrawDialogOK(temp_buffer + 3072);
             goto skip;
@@ -1041,10 +1306,22 @@ static int find_in_file(s32 fd, u64 pos, u64 size, u64 *finded, void * str, int 
 
         readed = size - pos; if(readed > 0x8200ULL) readed = 0x8200ULL;
 
-        ret=sysLv2FsRead(fd, mem, readed, &temp);
+        if(fd == FD_LV1) {
+           
+            ret = read_LV1(pos, mem, (int) readed);
+            temp = readed;
+        } else
+        if(fd == FD_LV2) {
+           
+            ret = read_LV2(pos, mem, (int) readed);
+            temp = readed;
+        } else
+        
+            ret=sysLv2FsRead(fd, mem, readed, &temp);
         
         if(ret < 0 || readed != temp) {
             if(ret == 0) ret = 0x8001000C; 
+            msgDialogAbort();
             sprintf(temp_buffer + 3072, "Read Error: 0x%08x\n\n%s", ret, getlv2error(ret));
             DrawDialogOK(temp_buffer + 3072);
             
@@ -1054,11 +1331,20 @@ static int find_in_file(s32 fd, u64 pos, u64 size, u64 *finded, void * str, int 
         readed-= 0x200ULL * (readed == 0x8200ULL); // resta area solapada de busqueda
 
         for(n = 0; n < (u32) readed; n++) {
-            if(((pos + (u64) n) < pos0 || s>=0) && !memcmp(mem + n, str, len)) {
-                *finded = pos + (u64) n;
-                goto skip;
+            if(find_mode == 2) {
+                if(((pos + (u64) n) < pos0 || s>=0) && !memcmp_case(mem + n, str, len)) {
+                    *finded = pos + (u64) n;
+                    goto skip;
+
+                }
 
             }
+            else 
+                if(((pos + (u64) n) < pos0 || s>=0) && !memcmp(mem + n, str, len)) {
+                    *finded = pos + (u64) n;
+                    goto skip;
+
+                }
         }
 
         if(s >=0) {
@@ -1149,6 +1435,17 @@ static char help5[]= {
     "the Hex Editor window to find the previous/next result from the     current file position\n"
 };
 
+static int hex_mode = 0;
+
+static int mark_flag = 0;
+static u64 mark_ini = 0ULL;
+static u32 mark_len = 0x0;
+
+static void *copy_mem = NULL;
+static u32 copy_len = 0;
+
+static u64 lv1_pos = 0ULL;
+static u64 lv2_pos = 0ULL;
 
 void hex_editor(char *path)
 {
@@ -1183,30 +1480,54 @@ void hex_editor(char *path)
     int f_key = 0;
     int f_pos = 0;
     int f_len = 8;
-    u8 find[512];
+    static u8 find[512];
     int find_len = 4;
+
+    mark_flag = 0;
+    mark_ini = 0ULL;
+    mark_len = 0x0;
 
     sysFSStat stat1;
 
     memset((char *) find, 0, 512);
 
-    if(sysLv2FsStat(path, &stat1)<0) return;
+    if(hex_mode == 0) {
+    
+        if(sysLv2FsStat(path, &stat1)<0) return;
 
-    if(stat1.st_size == 0ULL) return; // ignore zero files
+        if(stat1.st_size == 0ULL) return; // ignore zero files
 
-    ret = sysLv2FsOpen(path, SYS_O_RDWR, &fd, S_IRWXU | S_IRWXG | S_IRWXO, NULL, 0);
-    if(ret < 0) {
-        read_only = 1;
-        ret = sysLv2FsOpen(path, 0, &fd, S_IRWXU | S_IRWXG | S_IRWXO, NULL, 0);
+        ret = sysLv2FsOpen(path, SYS_O_RDWR, &fd, S_IRWXU | S_IRWXG | S_IRWXO, NULL, 0);
+        if(ret < 0) {
+            read_only = 1;
+            ret = sysLv2FsOpen(path, 0, &fd, S_IRWXU | S_IRWXG | S_IRWXO, NULL, 0);
+        }
+
+        if(ret < 0) return;
+
+    } else if(hex_mode == 1) {
+        fd = FD_LV1; pos = lv1_pos;
+        stat1.st_size = size_lv1 = 0x10000000ULL;
+        begin_lv1 = 0;
+
+    } else if(hex_mode == 2) {
+        fd = FD_LV2; pos = lv2_pos;
+        stat1.st_size = size_lv2 = 0x800000ULL;
+        begin_lv2 = 0;
     }
-
-    if(ret < 0) return;
 
 read_file:
 
     memset(temp_buffer + 0x800, 0, 384);
 
-    ret= sysLv2FsLSeek64(fd, pos, 0, &temp);
+    if(fd == FD_LV1 || fd == FD_LV2) {
+        ret = 0;
+        if(fd == FD_LV1) {if(begin_lv1 > pos) ret=(int) 0x8001001E; if(pos >= size_lv1) temp = 0; else  temp = pos;}
+        if(fd == FD_LV2) {if(begin_lv2 > pos) ret=(int) 0x8001001E; if(pos >= size_lv2) temp = 0; else  temp = pos;}
+ 
+    } else
+        ret= sysLv2FsLSeek64(fd, pos, 0, &temp);
+
     if(ret < 0 || pos != temp) {
         if(ret == 0) ret = (int) 0x8001001E;
         sprintf(temp_buffer + 3072, "Lseek Error: 0x%08x\n\n%s", ret, getlv2error(ret));
@@ -1217,7 +1538,18 @@ read_file:
         readed = stat1.st_size - pos;
         if(readed > 384ULL) readed = 384ULL;
         temp = 0;
-        ret = sysLv2FsRead(fd, temp_buffer + 0x800, readed, &temp);
+
+        if(fd == FD_LV1) {
+           
+            ret = read_LV1(pos, temp_buffer + 0x800, (int) readed);
+            temp = readed;
+        } else
+        if(fd == FD_LV2) {
+           
+            ret = read_LV2(pos, temp_buffer + 0x800, (int) readed);
+            temp = readed;
+        } else
+            ret = sysLv2FsRead(fd, temp_buffer + 0x800, readed, &temp);
         if(ret < 0 || readed != temp) {
             if(ret == 0) ret = (int) 0x8001002B;
             sprintf(temp_buffer + 3072, "Read Error: 0x%08x\n\n%s", ret, getlv2error(ret));
@@ -1282,27 +1614,36 @@ read_file:
 
        // draw hex
        for(m = 0; m < 16; m++) {
-           if(m==8) px+=8;
-           px+=8;
+            int sel = 0;
+            if(m==8) px+=8;
+            px+=8;
+
+            sel = mark_flag == 2 && (pos + (u64) ((n<<4) + m)) >= mark_ini && (pos + (u64) ((n<<4) + m)) < (mark_ini + (u64) mark_len);
            
-           if(temp_buffer[0x800 + (n<<4) + m] == temp_buffer[0xA00 + (n<<4) + m]) color = 0xffffffff;
-           else color = 0x8fff00ff;
+            if(temp_buffer[0x800 + (n<<4) + m] == temp_buffer[0xA00 + (n<<4) + m]) color = 0xffffffff;
+            else color = 0x8fff00ff;
 
            // first nibble
-           if(((n<<4) + m) >= readed) color = 0x8f8f8fff;
+            if(((n<<4) + m) >= readed) color = 0x8f8f8fff;
 
-           if((e_x) == (m<<1) && e_y == n) {if(frame & 16) SetFontColor(color, (color == 0x8fff00ff) ? 0x40c0ffff : 0xC000C0FF); else SetFontColor(0x000000ff, color);} 
-           else SetFontColor(color, (color == 0x8fff00ff) ? 0x40c0ffff : 0x0);
+            if((e_x) == (m<<1) && e_y == n) {
+               if(frame & 16) SetFontColor(color, (sel) ? 0x400040ff : ((color == 0x8fff00ff) ? 0x40c0ffff : 0xC000C0FF)); 
+               else SetFontColor(0x000000ff, color);
+            } 
+            else SetFontColor(color, (sel) ? 0x400040ff : ((color == 0x8fff00ff) ? 0x40c0ffff : 0x0));
 
-           px= DrawFormatString(px, py, "%X", (temp_buffer[0x800 + (n<<4) + m])>>4);
+            px= DrawFormatString(px, py, "%X", (temp_buffer[0x800 + (n<<4) + m])>>4);
 
            // second nibble
-           if(((n<<4) + m) >= readed) color = 0x8f8f8fff;
+            if(((n<<4) + m) >= readed) color = 0x8f8f8fff;
 
-           if((e_x) == (m<<1)+1 && e_y == n) {if(frame & 16) SetFontColor(color, (color == 0x8fff00ff) ? 0x40c0ffff : 0xC000C0FF); else SetFontColor(0x000000ff, color);} 
-           else SetFontColor(color, (color == 0x8fff00ff) ? 0x40c0ffff : 0x0);
+            if((e_x) == (m<<1)+1 && e_y == n) {
+               if(frame & 16) SetFontColor(color, (sel) ? 0x400040ff : ((color == 0x8fff00ff) ? 0x40c0ffff : 0xC000C0FF)); 
+               else SetFontColor(0x000000ff, color);
+            } 
+            else SetFontColor(color, (sel) ? 0x400040ff : ((color == 0x8fff00ff) ? 0x40c0ffff : 0x0));
 
-           px= DrawFormatString(px, py, "%X", temp_buffer[0x800 + (n<<4) + m] & 0xF);
+            px= DrawFormatString(px, py, "%X", temp_buffer[0x800 + (n<<4) + m] & 0xF);
        }
 
        px+=16;
@@ -1311,18 +1652,23 @@ read_file:
 
        // draw chars
        for(m = 0; m < 16; m++) {
-           u8 ch = temp_buffer[0x800 + (n<<4) + m];
+            u8 ch = temp_buffer[0x800 + (n<<4) + m];
+            int sel = 0;
 
-           if(temp_buffer[0x800 + (n<<4) + m] == temp_buffer[0xA00 + (n<<4) + m]) color = 0xffffffff;
-           else color = 0x8fff00ff;
+            sel = mark_flag==2 && (pos + (u64) ((n<<4) + m)) >= mark_ini && (pos + (u64) ((n<<4) + m)) < (mark_ini + (u64) mark_len);
 
-           if(((n<<4) + m) >= readed) color = 0x8f8f8fff;
+            if(temp_buffer[0x800 + (n<<4) + m] == temp_buffer[0xA00 + (n<<4) + m]) color = 0xffffffff;
+            else color = 0x8fff00ff;
 
-           if((e_x>>1) == m && e_y == n) {if(frame & 16) SetFontColor(color, (color == 0x8fff00ff) ? 0x40c0ffff : 0xC000C0FF); else SetFontColor(0x000000ff, color);}
-           else SetFontColor(color, (color == 0x8fff00ff) ? 0x40c0ffff : 0x0);
+            if(((n<<4) + m) >= readed) color = 0x8f8f8fff;
+
+            if((e_x>>1) == m && e_y == n) {if(frame & 16) SetFontColor(color, (sel) ? 0x400040ff : ((color == 0x8fff00ff) ? 0x40c0ffff : 0xC000C0FF));
+                else SetFontColor(0x000000ff, color);
+            }
+            else SetFontColor(color, (sel) ? 0x400040ff : ((color == 0x8fff00ff) ? 0x40c0ffff : 0x0));
 
 
-           px= DrawFormatString(px, py, "%c", ch==0 ? '.' : (ch < 32 ? '?' : (char) ch));
+            px= DrawFormatString(px, py, "%c", ch==0 ? '.' : (ch < 32 ? '?' : (char) ch));
        }
 
 
@@ -1341,7 +1687,7 @@ read_file:
 
 
     set_ttf_window(8, 0, 752, 32, WIN_AUTO_LF);
-    display_ttf_string(0, 0, (char *) path, 0x2000ffff, 8, 16);
+    display_ttf_string(0, 0, (char *) path, 0x2000ffff, 0, 8, 16);
 
 
     if(function_menu==1 || function_menu==2) {
@@ -1395,17 +1741,29 @@ read_file:
     if(enable_menu && function_menu==0) {
         int py = 0;
         
-        DrawBox((848 - 224)/2, (512 - 224)/2, 0, 224, 224, 0x602060ff);
-        DrawBox((848 - 216)/2, (512 - 216)/2, 0, 216, 216, 0x802080ff);
-        set_ttf_window((848 - 200)/2, (512 - 216)/2, 200, 216, 0);
+        DrawBox((848 - 224)/2, (512 - 248)/2, 0, 224, 248, 0x602060ff);
+        DrawBox((848 - 216)/2, (512 - 240)/2, 0, 216, 240, 0x802080ff);
+        set_ttf_window((848 - 200)/2, (512 - 240)/2, 200, 240, 0);
 
-        display_ttf_string(0, py, "Go to Address", (enable_menu==1  && (frame & 16)) ? 0 : 0xffffffff, 16, 24); py+= 24;
+        display_ttf_string(0, py, "Go to Address", (enable_menu==1  && (frame & 16)) ? 0 : 0xffffffff, 0, 16, 24); py+= 24;
 
-        display_ttf_string(0, py, "Find Hex", (enable_menu==2  && (frame & 16)) ? 0 : 0xffffffff, 16, 24); py+= 24;
+        display_ttf_string(0, py, "Find Hex", (enable_menu==2  && (frame & 16)) ? 0 : 0xffffffff, 0, 16, 24); py+= 24;
 
-        display_ttf_string(0, py, "Find String", (enable_menu==3  && (frame & 16)) ? 0 : 0xffffffff, 16, 24); py+= 24;
+        display_ttf_string(0, py, "Find String", (enable_menu==3  && (frame & 16)) ? 0 : 0xffffffff, 0, 16, 24); py+= 24;
 
-        display_ttf_string(0, py, "Exit", (enable_menu==4  && (frame & 16)) ? 0 : 0xffffffff, 16, 24); py+= 24;
+        display_ttf_string(0, py, "Find String (no case)", (enable_menu==4 && (frame & 16)) ? 0 : 0xffffffff, 0, 16, 24); py+= 24;
+
+        display_ttf_string(0, py, "Find Hex from Datas", (enable_menu==5 && (frame & 16)) ? 0 : 0xffffffff, 0, 16, 24); py+= 24;
+
+        display_ttf_string(0, py, "Mark Begin", (enable_menu==6 && (frame & 16)) ? 0 : 0xffffffff, 0, 16, 24); py+= 24;
+
+        display_ttf_string(0, py, "Mark End", (enable_menu==7 && (frame & 16)) ? 0 : 0xffffffff, 0, 16, 24); py+= 24;
+
+        display_ttf_string(0, py, "Copy Mark Area", (enable_menu==8 && (frame & 16)) ? 0 : 0xffffffff, 0, 16, 24); py+= 24;
+
+        display_ttf_string(0, py, "Paste Copied Datas", (enable_menu==9 && (frame & 16)) ? 0 : 0xffffffff, 0, 16, 24); py+= 24;
+
+        display_ttf_string(0, py, "Exit", (enable_menu==10 && (frame & 16)) ? 0 : 0xffffffff, 0, 16, 24); py+= 24;
 
     
     }
@@ -1418,10 +1776,10 @@ read_file:
         DrawBox((848 - 616)/2, (512 - 416)/2, 0, 616, 416, 0x802080ff);
         set_ttf_window((848 - 600)/2, (512 - 416)/2, 600, 416, WIN_AUTO_LF);
         
-        if(enable_menu && function_menu==0) display_ttf_string(0, 0, help2, 0xffffffff, 16, 24);
-        else if(function_menu == 1) display_ttf_string(0, 0, help4, 0xffffffff, 16, 24);
-        else if(function_menu == 2) display_ttf_string(0, 0, help5, 0xffffffff, 16, 24);
-        else display_ttf_string(0, 0, help3, 0xffffffff, 16, 24);
+        if(enable_menu && function_menu==0) display_ttf_string(0, 0, help2, 0xffffffff, 0, 16, 24);
+        else if(function_menu == 1) display_ttf_string(0, 0, help4, 0xffffffff, 0, 16, 24);
+        else if(function_menu == 2) display_ttf_string(0, 0, help5, 0xffffffff, 0, 16, 24);
+        else display_ttf_string(0, 0, help3, 0xffffffff, 0, 16, 24);
 
 
     }
@@ -1453,6 +1811,12 @@ read_file:
         }
 
         if(DrawDialogYesNo("Exit from Hex Editor?") == 1) {
+            if(hex_mode == 1) {
+                lv1_pos = pos;
+            } else if(hex_mode == 2) {
+                lv2_pos = pos;
+            }
+
             break;
             
         }
@@ -1487,7 +1851,8 @@ read_file:
             function_menu = enable_menu = 0;
 
             if(finded == -1LL) {
-                DrawDialogOK("String not found");
+                if(find_mode == 0) DrawDialogOKTimer("Hex String not found", 2000.0f);
+                else DrawDialogOKTimer("String not found", 2000.0f);
             } else {
                 pos = finded & ~15ULL;
                 e_y = 0;
@@ -1515,7 +1880,8 @@ read_file:
             function_menu = enable_menu = 0;
 
             if(finded == -1LL) {
-                DrawDialogOK("String not found");
+                if(find_mode == 0) DrawDialogOKTimer("Hex String not found", 2000.0f);
+                else DrawDialogOKTimer("String not found", 2000.0f);
             } else {
                 pos = finded & ~15ULL;
                 e_y = 0;
@@ -1656,7 +2022,7 @@ read_file:
         }
 
         auto_r22++;
-        incre<<= 4 * (auto_r22/10);
+        incre <<= 4 * (auto_r22/10);
 
         if(incre > 0x6400000ULL) incre = 0x6400000ULL;
 
@@ -1839,6 +2205,7 @@ read_file:
 
                 finded = pos + (u64) (e_y * 16 + (e_x>>1) + 1);
                 if(finded >= stat1.st_size) finded = 0ULL;
+                find_mode = 0;
                 find_in_file(fd, finded, stat1.st_size, &finded, find, find_len, 1);
                 
                 function_menu = enable_menu = 0;
@@ -1862,11 +2229,11 @@ read_file:
         if(new_pad & BUTTON_UP) {
 
         
-            if(enable_menu > 1) enable_menu--;  else {enable_menu = 4;} 
+            if(enable_menu > 1) enable_menu--;  else {enable_menu = 10;} 
         }
     
         if(new_pad & BUTTON_DOWN) {
-            if(enable_menu < 4) enable_menu++;  else {enable_menu = 1;}
+            if(enable_menu < 10) enable_menu++;  else {enable_menu = 1;}
         }
 
         if(new_pad & BUTTON_CROSS) {
@@ -1892,6 +2259,7 @@ read_file:
 
                             finded = pos + (u64) (e_y * 16 + (e_x>>1) + 1);
                             if(finded >= stat1.st_size) finded = 0ULL;
+                            find_mode = 1;
                             find_in_file(fd, finded, stat1.st_size, &finded, find, find_len, 1);
                             
                             function_menu = enable_menu = 0;
@@ -1910,6 +2278,149 @@ read_file:
 
                     break;
                 case 4:
+                    memset(find, 0, 512); find_len = 0;
+                    if(Get_OSK_String("Find String (no case sensitive)", (char *) find, 256)==0) {
+                        u64 finded;
+
+                        find_len = strlen((char *) find);
+
+                        if(find_len != 0) {
+
+                            finded = pos + (u64) (e_y * 16 + (e_x>>1) + 1);
+                            if(finded >= stat1.st_size) finded = 0ULL;
+                            find_mode = 2;
+                            find_in_file(fd, finded, stat1.st_size, &finded, find, find_len, 1);
+                            
+                            function_menu = enable_menu = 0;
+
+                            if(finded == -1LL) {
+                                DrawDialogOK("String (no case sensitive) not found");
+                            } else {
+                                pos = finded & ~15ULL;
+                                e_y = 0;
+                                e_x = (finded & 15) << 1;
+                                goto read_file;
+                            }
+                        }
+                    }
+                    function_menu = enable_menu = 0;
+
+                    break;
+                case 5:
+                    if(copy_mem && copy_len) {
+                        find_len = (copy_len > 512) ? 512 : copy_len;
+                        memcpy(find, copy_mem, find_len); 
+                    
+                        u64 finded;
+
+                        if(find_len != 0) {
+
+                            finded = pos + (u64) (e_y * 16 + (e_x>>1) + 1);
+                            if(finded >= stat1.st_size) finded = 0ULL;
+                            find_mode = 0;
+                            find_in_file(fd, finded, stat1.st_size, &finded, find, find_len, 1);
+                            
+                            function_menu = enable_menu = 0;
+
+                            if(finded == -1LL) {
+                                DrawDialogOK("Hex string not found");
+                            } else {
+                                pos = finded & ~15ULL;
+                                e_y = 0;
+                                e_x = (finded & 15) << 1;
+                                goto read_file;
+                            }
+                        }
+                    }
+                    function_menu = enable_menu = 0;
+
+                    break;
+
+                case 6:
+                    enable_menu = 0;
+                    function_menu = 0;
+                    if(pos + (u64) (e_y * 16 + (e_x>>1)) >= stat1.st_size) {
+                        DrawDialogOKTimer("Mark is out of filesize / memory", 2000.0f);
+                    } else {
+                        mark_ini = pos + (u64) (e_y * 16 + (e_x>>1));
+                        mark_flag = 1;
+                    }
+                    break;
+
+                case 7:
+                    enable_menu = 0;
+                    function_menu = 0;
+                    if(!mark_flag) mark_ini = 0;
+
+                    if((pos + (u64) (e_y * 16 + (e_x>>1))) >= mark_ini 
+                        && (pos + (u64) (e_y * 16 + (e_x>>1))) < (mark_ini + 0x100000ULL)) {
+
+                    if(pos + (u64) (e_y * 16 + (e_x>>1)) >= stat1.st_size) {
+                        DrawDialogOKTimer("Mark is out of filesize / memory: truncating to the end position", 2000.0f);
+                        mark_len = stat1.st_size - mark_ini + 1ULL;
+                    } else mark_len = (pos + (u64) (e_y * 16 + (e_x>>1))) - mark_ini + 1ULL;
+                        mark_flag = 2;
+                    } else DrawDialogOKTimer("Mark position out of the range\nyou can select a block of 1 MB max from Mark Begin", 2000.0f);
+                    break;
+
+                case 8:
+                    enable_menu = 0;
+                    function_menu = 0;
+                    
+                    if(mark_flag == 2) {
+                        if(copy_mem) free(copy_mem);
+                        copy_mem = malloc(mark_len);
+                        copy_len = 0;
+                        if(!copy_mem) DrawDialogOKTimer("Out of memory from copy function", 2000.0f);
+                        else {copy_len = mark_len;
+
+                            if(load_hex(fd, mark_ini, copy_mem, mark_len)==0) {
+                                sprintf(temp_buffer + 3072, "Copied %d bytes", copy_len);
+                                DrawDialogOKTimer(temp_buffer + 3072, 2000.0f);
+                            }
+                        }
+                    } else DrawDialogOKTimer("Nothing to Copy", 2000.0f);
+
+
+                    break;
+
+                case 9:
+                    enable_menu = 0;
+                    function_menu = 0;
+
+                    if(copy_len == 0 || !copy_mem) {DrawDialogOKTimer("Paste buffer is empty", 2000.0f);}
+                    //else if(fd != FD_LV1 && fd != FD_LV2) DrawDialogOKTimer("Paste is Only supported to memory for now", 2000.0f);
+                    else {
+                        u64 my_pos = (pos + (u64) (e_y * 16 + (e_x>>1)));
+                        int my_len = copy_len;
+
+                        if((my_pos + (u64) my_len) > stat1.st_size) {
+                             my_len = (u32) (stat1.st_size - my_pos);
+                             sprintf(temp_buffer + 3072, "Paste buffer exceeds %d bytes the file / memory\n\nWant you write %d bytes from 0x%08X%08X ?", copy_len - my_len, my_len,
+                                (u32) (my_pos>>32), (u32) my_pos);
+                        
+                        } else {
+
+                            sprintf(temp_buffer + 3072, "Want you write %d bytes from 0x%08X%08X ?", my_len,
+                                (u32) (my_pos>>32), (u32) my_pos);
+                        }
+
+                        if(DrawDialogYesNo(temp_buffer + 3072) == 1) {
+                            int ret = 0;
+                            
+                            ret = save_hex(fd, my_pos, copy_mem, my_len);
+
+                            if(ret == 0)
+                                sprintf(temp_buffer + 3072, "Writed %d bytes to the current position", my_len);
+                            
+                            DrawDialogOKTimer(temp_buffer + 3072, 2000.0f);
+                            goto read_file; 
+                        }
+                    }
+
+                    break;
+
+                case 10:
                     enable_menu = 0;
                     function_menu = 0;
                     
@@ -2148,25 +2659,25 @@ void archive_manager()
     DrawBox(0, 0, 0, 816, 32,0x20a0a8ff);
     DrawBox(816, 0, 0, 48, 32, (!archive_manager && (frame & 32)) ? 0xc0c000ff : 0x000000ff);
     set_ttf_window(8, 0, 752, 32, WIN_AUTO_LF);
-    display_ttf_string(0, 0, (char *) path1, 0x2000ffff, 8, 16);
+    display_ttf_string(0, 0, (char *) path1, 0x2000ffff, 0, 8, 16);
 
     set_ttf_window(752, 0, 88, 32, WIN_AUTO_LF);
     if(free_device1 < 0x40000000LL)
         sprintf(temp_buffer, "FREE:\n%i MB", (int) (free_device1 / 0x100000LL));
     else
         sprintf(temp_buffer, "FREE:\n%1.2f GB", ((double) free_device1) / (1024.0 * 1024. * 1024.0));
-    display_ttf_string(0, 0, (char *) temp_buffer, 0x000000ff, 8, 16);
+    display_ttf_string(0, 0, (char *) temp_buffer, 0x000000ff, 0, 8, 16);
 
 
     set_ttf_window(816, 0, 36, 32, WIN_AUTO_LF);
-    display_ttf_string(4, 0, (char *) "A", 0xff0000ff, 32, 32);
+    display_ttf_string(4, 0, (char *) "A", 0xff0000ff, 0, 32, 32);
 
     DrawBox2(0, 32, 0, 848, 256 - 32 /*, 0x2080c0ff*/);
 
     DrawBox(0, 256, 0, 816, 32, 0x20a0a8ff);
     DrawBox(816, 256, 0, 48, 32, (archive_manager && (frame & 32)) ? 0xc0c000ff : 0x000000ff);
     set_ttf_window(8, 256, 752, 32, WIN_AUTO_LF);
-    display_ttf_string(0, 0, (char *) path2, 0x2000ffff, 8, 16);
+    display_ttf_string(0, 0, (char *) path2, 0x2000ffff, 0, 8, 16);
 
     set_ttf_window(752, 256, 88, 32, WIN_AUTO_LF);
 
@@ -2174,10 +2685,10 @@ void archive_manager()
         sprintf(temp_buffer, "FREE:\n%i MB", (int) (free_device2 / 0x100000LL));
     else
         sprintf(temp_buffer, "FREE:\n%1.2f GB", ((double) free_device2) / (1024.0 * 1024. * 1024.0));
-    display_ttf_string(0, 0, (char *) temp_buffer, 0x000000ff, 8, 16);
+    display_ttf_string(0, 0, (char *) temp_buffer, 0x000000ff, 0, 8, 16);
 
     set_ttf_window(816, 256, 36, 32, WIN_AUTO_LF);
-    display_ttf_string(4, 0, (char *) "B", 0xff0000ff, 32, 32);
+    display_ttf_string(4, 0, (char *) "B", 0xff0000ff, 0, 32, 32);
 
     DrawBox2(0, 32 + 256 , 0, 848, 256 - 32/*, 0x2080c0ff*/);
     
@@ -2229,18 +2740,18 @@ void archive_manager()
                         sprintf(temp_buffer, "%i MB", (int) (stat1.st_size / 0x100000LL));
                     } else sprintf(temp_buffer, "%1.2f GB", ((double) stat1.st_size) / (1024.0 * 1024. * 1024.0));
 
-                dx= display_ttf_string(0, py, (char *) temp_buffer, 0, 8, 24);
+                dx= display_ttf_string(0, py, (char *) temp_buffer, 0, 0, 8, 24);
             
             }
 
             set_ttf_window(24, 32, 848 - (dx + 24), 256 - 32, 0);
 
-            display_ttf_string(0, py, (char *) entries1[pos1 + n].d_name, color, 16, 24);
+            display_ttf_string(0, py, (char *) entries1[pos1 + n].d_name, color, 0, 16, 24);
 
             if(sel1 == (pos1 + n) && stat1.st_mode != 0xffffffff) {
 
                 set_ttf_window(848 - dx, 32, dx, 256 - 32, 0);
-                display_ttf_string(0, py, (char *) temp_buffer, 0xffffffff, 8, 24);
+                display_ttf_string(0, py, (char *) temp_buffer, 0xffffffff, 0, 8, 24);
             }
 
             py+= 24;
@@ -2297,18 +2808,18 @@ void archive_manager()
                         sprintf(temp_buffer, "%i MB", (int) (stat2.st_size / 0x100000LL));
                     } else sprintf(temp_buffer, "%1.2f GB", ((double) stat2.st_size) / (1024.0 * 1024. * 1024.0));
 
-                dx= display_ttf_string(0, py, (char *) temp_buffer, 0, 8, 24);
+                dx= display_ttf_string(0, py, (char *) temp_buffer, 0, 0, 8, 24);
             
             }
 
             set_ttf_window(24, 256 + 32, 848 - (dx + 24), 256 - 32, 0);
 
-            display_ttf_string(0, py, (char *) entries2[pos2 + n].d_name, color, 16, 24);
+            display_ttf_string(0, py, (char *) entries2[pos2 + n].d_name, color, 0, 16, 24);
 
             if(sel2 == (pos2 + n) && stat2.st_mode != 0xffffffff) {
 
                 set_ttf_window(848 - dx, 256 + 32, dx, 256 - 32, 0);
-                display_ttf_string(0, py, (char *) temp_buffer, 0xffffffff, 8, 24);
+                display_ttf_string(0, py, (char *) temp_buffer, 0xffffffff, 0, 8, 24);
             }
 
             py+= 24;
@@ -2320,27 +2831,33 @@ void archive_manager()
     if(set_menu2) {
         int py = 0;
         
-        DrawBox((848 - 224)/2, (512 - 224)/2, 0, 224, 224, 0x602060ff);
-        DrawBox((848 - 216)/2, (512 - 216)/2, 0, 216, 216, 0x802080ff);
-        set_ttf_window((848 - 200)/2, (512 - 216)/2, 200, 216, 0);
+        DrawBox((848 - 224)/2, (512 - 296)/2, 0, 224, 296, 0x602060ff);
+        DrawBox((848 - 216)/2, (512 - 288)/2, 0, 216, 288, 0x802080ff);
+        set_ttf_window((848 - 200)/2, (512 - 288)/2, 200, 288, 0);
 
-        display_ttf_string(0, py, "New Folder", (set_menu2==1  && (frame & 16)) ? 0 : 0xffffffff, 16, 24); py+= 24;
+        display_ttf_string(0, py, "New Folder", (set_menu2==1  && (frame & 16)) ? 0 : 0xffffffff, 0, 16, 24); py+= 24;
 
-        display_ttf_string(0, py, "Rename", (set_menu2==2  && (frame & 16)) ? 0 : 0xffffffff, 16, 24); py+= 24;
+        display_ttf_string(0, py, "Rename", (set_menu2==2  && (frame & 16)) ? 0 : 0xffffffff, 0, 16, 24); py+= 24;
 
-        display_ttf_string(0, py, "Copy", (set_menu2==3  && (frame & 16)) ? 0 : 0xffffffff, 16, 24); py+= 24;
+        display_ttf_string(0, py, "Copy", (set_menu2==3  && (frame & 16)) ? 0 : 0xffffffff, 0, 16, 24); py+= 24;
 
-        display_ttf_string(0, py, "Move", (set_menu2==4  && (frame & 16)) ? 0 : 0xffffffff, 16, 24); py+= 24;
+        display_ttf_string(0, py, "Move", (set_menu2==4  && (frame & 16)) ? 0 : 0xffffffff, 0, 16, 24); py+= 24;
 
-        display_ttf_string(0, py, "Delete", (set_menu2==5  && (frame & 16)) ? 0 : 0xffffffff, 16, 24); py+= 24;
+        display_ttf_string(0, py, "Delete", (set_menu2==5  && (frame & 16)) ? 0 : 0xffffffff, 0, 16, 24); py+= 24;
 
-        display_ttf_string(0, py, !dev_rewrite ? "Mount /dev_rewrite" : "Unmount /dev_rewrite", (set_menu2==6  && (frame & 16)) ? 0 : 0xffffffff, 16, 24); py+= 24;
+        display_ttf_string(0, py, !dev_rewrite ? "Mount /dev_rewrite" : "Unmount /dev_rewrite", (set_menu2==6  && (frame & 16)) ? 0 : 0xffffffff, 0, 16, 24); py+= 24;
 
-        display_ttf_string(0, py, "LV2 Dump", (set_menu2==7  && (frame & 16)) ? 0 : 0xffffffff, 16, 24); py+= 24;
+        display_ttf_string(0, py, "LV2 Dump", (set_menu2==7  && (frame & 16)) ? 0 : 0xffffffff, 0, 16, 24); py+= 24;
 
-        display_ttf_string(0, py, "LV1 Dump", (set_menu2==8  && (frame & 16)) ? 0 : 0xffffffff, 16, 24); py+= 24;
+        display_ttf_string(0, py, "LV1 Dump", (set_menu2==8  && (frame & 16)) ? 0 : 0xffffffff, 0, 16, 24); py+= 24;
 
-        display_ttf_string(0, py, "Exit", (set_menu2==9  && (frame & 16)) ? 0 : 0xffffffff, 16, 24); py+= 24;
+        display_ttf_string(0, py, "Ram Editor", (set_menu2==9  && (frame & 16)) ? 0 : 0xffffffff, 0, 16, 24); py+= 24;
+
+        display_ttf_string(0, py, "LV2 Editor", (set_menu2==10  && (frame & 16)) ? 0 : 0xffffffff, 0, 16, 24); py+= 24;
+
+        display_ttf_string(0, py, "Paste to New File", (set_menu2==11  && (frame & 16)) ? 0 : 0xffffffff, 0, 16, 24); py+= 24;
+
+        display_ttf_string(0, py, "Exit", (set_menu2==12  && (frame & 16)) ? 0 : 0xffffffff, 0, 16, 24); py+= 24;
 
     
     }
@@ -2351,8 +2868,8 @@ void archive_manager()
         DrawBox((848 - 616)/2, (512 - 416)/2, 0, 616, 416, 0x802080ff);
         set_ttf_window((848 - 600)/2, (512 - 416)/2, 600, 416, WIN_AUTO_LF);
 
-        if(set_menu2) display_ttf_string(0, 0, help2, 0xffffffff, 16, 24);
-        else display_ttf_string(0, 0, help1, 0xffffffff, 16, 24);
+        if(set_menu2) display_ttf_string(0, 0, help2, 0xffffffff, 0, 16, 24);
+        else display_ttf_string(0, 0, help1, 0xffffffff, 0, 16, 24);
 
 
     }
@@ -2379,11 +2896,11 @@ void archive_manager()
         if(new_pad & BUTTON_UP) {
 
         
-            if(set_menu2 > 1) set_menu2--;  else {set_menu2 = 9;} 
+            if(set_menu2 > 1) set_menu2--;  else {set_menu2 = 12;} 
         }
     
         if(new_pad & BUTTON_DOWN) {
-            if(set_menu2 < 9) set_menu2++;  else {set_menu2 = 1;}
+            if(set_menu2 < 12) set_menu2++;  else {set_menu2 = 1;}
         }
 
 
@@ -2715,6 +3232,61 @@ void archive_manager()
 
         
         } // lv1 dump
+        else if(set_menu2==9) { // RAM area editor
+            hex_mode = 1;
+            hex_editor("RAM Area Editor");
+            set_menu2 = 0;
+        } // RAM area editor
+        else if(set_menu2==10) { // LV2 editor
+            hex_mode = 2;
+            hex_editor("LV2 Editor");
+            set_menu2 = 0;
+        } // LV2 Editor
+        else if(set_menu2==11) {// Paste to New File
+
+            if(copy_len == 0 || !copy_mem) {DrawDialogOKTimer("Paste buffer is empty", 2000.0f);set_menu2 = 0;goto skip_menu2;}
+
+            sprintf(buffer1, "%s", "Newfile"); 
+            
+            if(Get_OSK_String("Paste to New File", buffer1, 256)==0) {
+
+                 if(buffer1[0] == 0) {DrawDialogOKTimer("Invalid filename", 2000.0f);set_menu2 = 0;goto skip_menu2;}
+                
+                 sprintf(temp_buffer, "Create new file %s.bin\nto %s ?", buffer1, !archive_manager ? path1 : path2);
+                 if(DrawDialogYesNo(temp_buffer) == 1) {
+
+                     if(!archive_manager) {
+                        sprintf(temp_buffer, "%s/%s.bin", path1, buffer1);
+                     } else {
+                        sprintf(temp_buffer, "%s/%s.bin", path2, buffer1);
+                     }
+                     
+                     s32 fd = -1;
+                     int ret = sysLv2FsOpen(temp_buffer, SYS_O_WRONLY | SYS_O_CREAT | SYS_O_TRUNC, &fd, 0777, NULL, 0);
+
+                     if(ret == 0 && fd>=0) {
+                        sysLv2FsChmod(temp_buffer, FS_S_IFMT | 0777);
+                        ret = save_hex(fd, 0LL, copy_mem, copy_len);
+                     }
+
+                     if(ret<0) {
+                        sprintf(temp_buffer, "New file error: 0x%08x\n\n%s", ret, getlv2error(ret));
+                        DrawDialogOK(temp_buffer);
+                     } else {
+                        sprintf(temp_buffer, "Writed %d bytes to the current position", copy_len);
+                        DrawDialogOKTimer(temp_buffer, 2000.0f);
+                     }
+
+                     nentries2=nentries1=0;
+                     pos1 = sel1 = 0;
+                     pos2 = sel2 = 0;
+
+                 }
+                
+            }
+
+            set_menu2 = 0;
+        }// Paste to New File
         else set_menu2 = 0;
     } 
     skip_menu2:
@@ -2803,6 +3375,7 @@ void archive_manager()
                     exit(0);
                 } else {
                     sprintf(temp_buffer, "%s/%s", path1, entries1[sel1].d_name);
+                    hex_mode = 0;
                     hex_editor(temp_buffer);
                 }
             }
@@ -2912,6 +3485,7 @@ void archive_manager()
                     exit(0);
                 } else {
                     sprintf(temp_buffer, "%s/%s", path2, entries2[sel2].d_name);
+                    hex_mode = 0;
                     hex_editor(temp_buffer);
                 }
             }
@@ -2973,6 +3547,9 @@ void archive_manager()
     }// set menu
 
     }
+
+
+    if(copy_mem) free(copy_mem); copy_mem = NULL;
 
 }
 

@@ -1,0 +1,86 @@
+[Language]
+VERSION = 2
+DESCRIPTION = DEFAULT PERSAIN
+REVERSE = ON
+
+# VIDEO - ADJUST
+VIDEOADJUST_POSITION    = دكمه چپ (-X) / راست (+X) / بالا (-Y) / پايين (+Y) را براي تنظيم صفحه نمايش فشار دهيد
+VIDEOADJUST_EXITINFO    = دكمه 'X' را براي خروج فشار دهيد
+VIDEOADJUST_DEFAULTS    = دكمه 'O' را براي تنظيمات پيشفرض فشار كنيد
+
+# SELECT - GAME FOLDER
+
+    
+# DRAW SCREEN1
+DRAWSCREEN_FAVSWAP      = تغيير برگزيده
+DRAWSCREEN_FAVINSERT    = اضافه كردن به برگزيده ها
+DRAWSCREEN_FAVORITES    = برگزيده ها
+DRAWSCREEN_PAGE         = صفحه
+DRAWSCREEN_GAMES        = بازي ها
+DRAWSCREEN_PLAY         = -Play
+DRAWSCREEN_SOPTIONS     = دكمه :SELECT تنظيمات بازي
+DRAWSCREEN_SDELETE      = دكمه :SELECT حذف برگزيده
+DRAWSCREEN_STGLOPT      = دكمه :START تنظيمات اصلي
+
+
+# DRAW OPTIONS
+DRAWGMOPT_OPTS          = تنظيمات
+DRAWGMOPT_CFGGAME       = پيكربندي. بازي
+DRAWGMOPT_CPYGAME       = كپي بازي
+DRAWGMOPT_DELGAME       = حذف بازي
+DRAWGMOPT_FIXGAME       = -Fix File Permissions
+DRAWGMOPT_TSTGAME       = تست بازي
+DRAWGMOPT_CPYEBOOTGAME  = USB از EBOOT.BIN كپي فايل 
+DRAWGMOPT_CPYTOFAV      = كپي به برگزيده ها
+DRAWGMOPT_DELFMFAV      = حذف از برگزيده ها
+
+
+# DRAW CONFIGS
+DRAWGMCFG_CFGS          = پيكربندي. بازي
+DRAWGMCFG_DSK           = Disc نيازمند
+DRAWGMCFG_NO            = خير
+DRAWGMCFG_YES           = بله
+DRAWGMCFG_UPD           = به روز رساني آنلاين
+DRAWGMCFG_ON            = روشن
+DRAWGMCFG_OFF           = خاموش
+DRAWGMCFG_EXTBOOT       = -Extern EBOOT.BIN
+DRAWGMCFG_BDEMU         = -BD Emu
+DRAWGMCFG_EXTHDD0GAME   = -Ext /dev_hdd0/game
+DRAWGMCFG_SAVECFG       = ذخيره پيكر بندي
+
+# DRAW GLOBAL OPTIONS
+DRAWGLOPT_OPTS          = تنظيمات اصلي
+DRAWGLOPT_SCRADJUST     = Video Adjust
+DRAWGLOPT_CHANGEGUI     = Change Current GUI
+DRAWGLOPT_CHANGEBCK     = تغيير رنگ پس زمينه
+DRAWGLOPT_CHANGEDIR     = تغيير مسير بازي
+DRAWGLOPT_SWMUSICOFF    = كليد آهنگ روشن
+DRAWGLOPT_SWMUSICON     = كليد آهنگ خاموش
+DRAWGLOPT_INITFTP       = -Initialize FTP server
+DRAWGLOPT_TOOLS         = ابزارها
+DRAWGLOPT_CREDITS       = -Credits
+DRAWGLOPT_FTPINITED     = -Server FTP initialized@Do you want auto-enable FTP service on init?
+DRAWGLOPT_FTPARINITED   = -Server FTP already initialized
+DRAWGLOPT_FTPSTOPED     = -Server FTP Stopped@Removed FTP service on init.
+
+# DRAW TOOLS
+DRAWTOOLS_TOOLS         = ابزارها
+DRAWTOOLS_DELCACHE      = حذف ابزار كش
+DRAWTOOLS_PKGTOOLS      = .PKG نصب
+DRAWTOOLS_COPYFROM      = كپي از /dev_usb/iris به Iris پوشه
+ 
+
+# MAIN - OTHERS
+DRAWCACHE_CACHE         = حذف ابزار كش
+
+# DRAW_PSX
+DRAWPSX_EMULATOR        = شبيه ساز
+DRAWPSX_VIDEOPS         = PSX تنظيمات تصوير
+DRAWPSX_VIDEOTHER       = تصوير / ديگر
+DRAWPSX_VIDEOMODE       = حالت تصوير
+DRAWPSX_FULLSC          = تمام صفحه
+DRAWPSX_SMOOTH          = -Smooting
+DRAWPSX_EXTROM          = خارجي ROM
+DRAWPSX_FORMAT          = فرمت كردن Internal_MC
+
+ 

@@ -33,6 +33,11 @@
 #include "language_ini_fr_bin.h"
 #include "language_ini_it_bin.h"
 #include "language_ini_nw_bin.h"
+#include "language_ini_ps_bin.h"
+#include "language_ini_chs_bin.h"
+#include "language_ini_cht_bin.h"
+#include "language_ini_gm_bin.h"
+#include "language_ini_por_bin.h"
 
 #define LANGFILE_VERSION 2
 
@@ -49,8 +54,8 @@ t_lngstr lang_strings[] =
     // VIDEO - ADJUST
     {VIDEOADJUST_POSITION, "VIDEOADJUST_POSITION"    , "Use LEFT (-X) / RIGHT (+X) / UP (-Y) / DOWN (+Y) to adjust the screen" },
     {VIDEOADJUST_SCALEINFO, "VIDEOADJUST_SCALEINFO"   , "Video Scale X: %i Y: %i" },
-    {VIDEOADJUST_EXITINFO, "VIDEOADJUST_EXITINFO"    , "Press 'X' to exit" },
-    {VIDEOADJUST_DEFAULTS, "VIDEOADJUST_DEFAULTS"    , "Press 'O' to default values" },
+    {VIDEOADJUST_EXITINFO, "VIDEOADJUST_EXITINFO"    , "Press CROSS to exit" },
+    {VIDEOADJUST_DEFAULTS, "VIDEOADJUST_DEFAULTS"    , "Press CIRCLE to default values" },
 
     //SELECT - GAME FOLDER
     {GAMEFOLDER_WANTUSE, "GAMEFOLDER_WANTUSE"      , "Want to use" },
@@ -118,8 +123,8 @@ t_lngstr lang_strings[] =
     { DRAWPSX_ERRUNKSIZE,"DRAWPSX_ERRUNKSIZE" , "Error: Unknown Sector Size" },
     { DRAWPSX_DISCEJECT ,"DRAWPSX_DISCEJECT"  , "PSX CD Ejected" },
     { DRAWPSX_DISCORDER , "DRAWPSX_DISCORDER" , "Select Disc Order" },
-    { DRAWPSX_PRESSOB   ,"DRAWPSX_PRESSOB"    , "Press O to change the order" },
-    { DRAWPSX_PRESSXB   ,"DRAWPSX_PRESSXB"    , "Press X to launch de game" },
+    { DRAWPSX_PRESSOB   ,"DRAWPSX_PRESSOB"    , "Press CIRCLE to change the order" },
+    { DRAWPSX_PRESSXB   ,"DRAWPSX_PRESSXB"    , "Press CROSS to launch de game" },
     { DRAWPSX_CHEATMAKE ,"DRAWPSX_CHEATMAKE"  , "PSX Cheat disc found, but different sector size\n\nWant you build one compatible?" },
     { DRAWPSX_COPYMC    ,"DRAWPSX_COPYMC"     , "Copying Memory Card to HDD0 device..." },
     { DRAWPSX_ERRCOPYMC ,"DRAWPSX_ERRCOPYMC"  , "Error copying the Memory Card to HDD0 device" },
@@ -147,8 +152,9 @@ t_lngstr lang_strings[] =
     //DRAW GLOBAL OPTIONS
     { DRAWGLOPT_OPTS, "DRAWGLOPT_OPTS"          , "Global Options" },
     { DRAWGLOPT_SCRADJUST, "DRAWGLOPT_SCRADJUST"     , "Video Adjust" },
-    { DRAWGLOPT_CHANGEDIR, "DRAWGLOPT_CHANGEDIR"     , "Change Game Directory" },
+    { DRAWGLOPT_CHANGEGUI, "DRAWGLOPT_CHANGEGUI"     , "Change Current GUI" },
     { DRAWGLOPT_CHANGEBCK, "DRAWGLOPT_CHANGEBCK"     , "Change Background Color" },
+    { DRAWGLOPT_CHANGEDIR, "DRAWGLOPT_CHANGEDIR"     , "Change Game Directory" },
     { DRAWGLOPT_SWMUSICOFF, "DRAWGLOPT_SWMUSICOFF"    , "Switch Music Off" },
     { DRAWGLOPT_SWMUSICON, "DRAWGLOPT_SWMUSICON"     , "Switch Music On" },
     { DRAWGLOPT_INITFTP, "DRAWGLOPT_INITFTP"       , "Initialize FTP server" },
@@ -168,13 +174,17 @@ t_lngstr lang_strings[] =
     { DRAWTOOLS_LANGUAGE_3, "DRAWTOOLS_LANGUAGE_3"     , "Française" },
     { DRAWTOOLS_LANGUAGE_4, "DRAWTOOLS_LANGUAGE_4"     , "Italiano" },
     { DRAWTOOLS_LANGUAGE_5, "DRAWTOOLS_LANGUAGE_5"     , "Norsk" },
-    { DRAWTOOLS_LANGUAGE_6, "DRAWTOOLS_LANGUAGE_6"     , "Deutsch (not defined)" },
-    { DRAWTOOLS_LANGUAGE_7, "DRAWTOOLS_LANGUAGE_7"     , "Português (not defined)" },
-    { DRAWTOOLS_LANGUAGE_8, "DRAWTOOLS_LANGUAGE_8"     , "Custom (from file)"},
+    { DRAWTOOLS_LANGUAGE_6, "DRAWTOOLS_LANGUAGE_6"     , "Deutsch" },
+    { DRAWTOOLS_LANGUAGE_7, "DRAWTOOLS_LANGUAGE_7"     , "Português" },
+    { DRAWTOOLS_LANGUAGE_8, "DRAWTOOLS_LANGUAGE_8"     , "(test) فارسی" },
+    { DRAWTOOLS_LANGUAGE_9, "DRAWTOOLS_LANGUAGE_9"     , "Chinese Simplified"},
+    { DRAWTOOLS_LANGUAGE_10, "DRAWTOOLS_LANGUAGE_10"     , "Chinese Traditional"},
+    { DRAWTOOLS_LANGUAGE_11, "DRAWTOOLS_LANGUAGE_11"     , "Custom (from file)"},
     
     { DRAWTOOLS_COPYFROM, "DRAWTOOLS_COPYFROM"     , "Copy from /dev_usb/iris to Iris folder"},
     { DRAWTOOLS_WITHBDVD, "DRAWTOOLS_WITHBDVD"     , "With BDVD Controller"},
-    { DRAWTOOLS_NOBDVD,   "DRAWTOOLS_NOBDVD"         , "Without BDVD Controller"},
+    { DRAWTOOLS_NOBDVD,   "DRAWTOOLS_NOBDVD"         , "Without BDVD Device"},
+    { DRAWTOOLS_NOBDVD2,   "DRAWTOOLS_NOBDVD2"         , "Disc - Less payload"},
     
     { DRAWTOOLS_PKGTOOLS, "DRAWTOOLS_PKGTOOLS"         , ".PKG Install" },
     { DRAWTOOLS_ARCHIVEMAN, "DRAWTOOLS_ARCHIVEMAN"         , "Archive Manager" },
@@ -239,7 +249,8 @@ t_lngstr lang_strings[] =
     { GAMEDELSL_DONE, "GAMEDELSL_DONE"          , "Done!  Files Deleted" },
 
     //GAME TEST
-    { GAMETSTSL_FINALNFO, "GAMETSTSL_FINALNFO"      , "Directories: %i Files: %i\nBig files: %i Split files: %i" },
+    // warning! don't translate GAMETSTSL_FINALNFO2 from english
+    { GAMETSTSL_FINALNFO2, "GAMETSTSL_FINALNFO2"      , "Directories: %i Files: %i\nBig files: %i Split files: %i" },
     { GAMETSTSL_TESTED, "GAMETSTSL_TESTED"        , "Files Tested" },
 
     //GLOBAL UTILS
@@ -247,11 +258,11 @@ t_lngstr lang_strings[] =
     { GLUTIL_WROTE, "GLUTIL_WROTE"            , "Wrote" },
     { GLUTIL_TIME, "GLUTIL_TIME"             , "Time" },
     { GLUTIL_TIMELEFT, "GLUTIL_TIMELEFT"         , "Time Left" },
-    { GLUTIL_HOLDTRIANGLEAB, "GLUTIL_HOLDTRIANGLEAB"   , "Hold /\\ to Abort" },
-    { GLUTIL_HOLDTRIANGLESK, "GLUTIL_HOLDTRIANGLESK"   , "Hold /\\ to Skip" },
+    { GLUTIL_HOLDTRIANGLEAB, "GLUTIL_HOLDTRIANGLEAB"   , "Hold TRIANGLE to Abort" },
+    { GLUTIL_HOLDTRIANGLESK, "GLUTIL_HOLDTRIANGLESK"   , "Hold TRIANGLE to Skip" },
     { GLUTIL_ABORTEDUSER, "GLUTIL_ABORTEDUSER"      , "Aborted by user" },
     { GLUTIL_ABORTED, "GLUTIL_ABORTED"          , "Aborted!!!" },
-    { GLUTIL_XEXIT, "GLUTIL_XEXIT"            , "Press X to Exit" },
+    { GLUTIL_XEXIT, "GLUTIL_XEXIT"            , "Press CROSS to Exit" },
     { GLUTIL_WANTCPYFROM, "GLUTIL_WANTCPYFROM"      , "Want to copy from" },
     { GLUTIL_WTO, "GLUTIL_WTO"              , "to" },
     
@@ -274,6 +285,11 @@ t_lngstr lang_strings[] =
      // generic
     { OUT_OFMEMORY, "OUT_OFMEMORY", "Out of Memory"},
     { OPERATION_DONE, "OPERATION_DONE"     , "Done!" },
+    { PLUG_STORAGE1, "PLUG_STORAGE1" , 
+        "Remember you to plug an USB storage massive device to create the fake disc event\n\n"
+        "Recuerda enchufar un dispositivo de almacenamiento masivo para crear el evento del falso disco" },
+    { PLUG_STORAGE2, "PLUG_STORAGE2" , "Fake Disc Inserted\n\nFalso Disco Insertado" },
+    
   
     
     { LANGSTRINGS_COUNT, "", ""}
@@ -283,6 +299,8 @@ char * language[LANGSTRINGS_COUNT];
 
 static int lang_inited = 0;
 
+int reverse_language = 0;
+
 int open_language (int lang, char * filename) 
 {
 
@@ -290,6 +308,10 @@ int open_language (int lang, char * filename)
     struct stat s;
 
     int elements = sizeof(lang_strings)/sizeof(t_lngstr);
+
+    char get_reverse[64]="";
+
+    reverse_language = 0;
 
     for (n = 0; n < LANGSTRINGS_COUNT; n++)
     {
@@ -304,7 +326,7 @@ int open_language (int lang, char * filename)
     char * file_external = NULL;
     int file_size = 0;
 
-    if(lang>=6) { // test external filename
+    if(lang>=10) { // test external filename
         if(!stat(filename, &s))
             file_external = LoadFile(filename, &file_size);
         
@@ -316,8 +338,14 @@ int open_language (int lang, char * filename)
 
         if(lang_strings[n].code == LANGSTRINGS_COUNT) break;
 
-        if(lang>=7)
+        if(lang>=10)
         {
+
+               getConfigMemValueString((char *) file_external, file_size, "Language",
+                "REVERSE", get_reverse, 63, "OFF");
+
+               if(!strcasecmp((const char *) get_reverse, "on")) reverse_language = 1;
+
                 // from external file
            
                 strncpy(language[lang_strings[n].code], lang_strings[n].strdefault, MAX_CFGLINE_LEN-1);
@@ -346,7 +374,32 @@ int open_language (int lang, char * filename)
                     file_bin = (char *) language_ini_nw_bin;
                     file_size = language_ini_nw_bin_size;
                     break;
+                case 5: // gm
+                    file_bin = (char *) language_ini_gm_bin;
+                    file_size = language_ini_gm_bin_size;
+                    break;
+                case 6: // por
+                    file_bin = (char *) language_ini_por_bin;
+                    file_size = language_ini_por_bin_size;
+                    break;
+                case 7: // ps
+                    file_bin = (char *) language_ini_ps_bin;
+                    file_size = language_ini_ps_bin_size;
+                    break;
+                case 8: // chs
+                    file_bin = (char *) language_ini_chs_bin;
+                    file_size = language_ini_chs_bin_size;
+                    break;
+                case 9: // cht
+                    file_bin = (char *) language_ini_cht_bin;
+                    file_size = language_ini_cht_bin_size;
+                    break;
             }
+
+            getConfigMemValueString((char *) file_bin, file_size, "Language",
+                "REVERSE", get_reverse, 63, "OFF");
+
+            if(!strcasecmp((const char *) get_reverse, "on")) reverse_language = 1;
 
             getConfigMemValueString((char *) file_bin, file_size, "Language",
                 lang_strings[n].strname, language[lang_strings[n].code], MAX_CFGLINE_LEN-1, lang_strings[n].strdefault);

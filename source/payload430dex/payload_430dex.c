@@ -206,19 +206,29 @@ static inline void remove_lv2_memcpy()
 }
 
 
-
+static u64 lv1poke(u64 addr, u64 value) 
+{ 
+    lv2syscall2(9, (u64) addr, (u64) value); 
+    return_to_user_prog(u64);
+}
 
 
 void load_payload_430dex(int mode)
 {
+    //Remove lv2 memory protection ( only for cfw Rebug 4.30)
+	
+	if(peekq(0x8000000000001748ULL) == 0x4400002238600000ULL); // if lv1poke is present... 
+	{
+	// Thanks cyberskunk! :)
+		lv1poke(0x370AA8 + 0, 0x0000000000000001ULL);
+		lv1poke(0x370AA8 + 8, 0xe0d251b556c59f05ULL);
+		lv1poke(0x370AA8 + 16, 0xc232fcad552c80d7ULL);
+		lv1poke(0x370AA8 + 24, 0x65140cd200000000ULL);
+	}
+
 	//fix for memcpy syscall on use
 	pokeq(0x800000000037E048ULL,0x8000000000001500ULL);
 	pokeq(0x8000000000001500ULL,0x8000000000001510ULL);
-    // Thanks cyberskunk! :)
- //   lv1poke(0x370AA8 + 0, 0x0000000000000001ULL);
- //   lv1poke(0x370AA8 + 8, 0xe0d251b556c59f05ULL);
- //   lv1poke(0x370AA8 + 16, 0xc232fcad552c80d7ULL);
-  //  lv1poke(0x370AA8 + 24, 0x65140cd200000000ULL);
 
     install_lv2_memcpy();
     /* WARNING!! It supports only payload with a size multiple of 8 */
@@ -261,9 +271,9 @@ void load_payload_430dex(int mode)
 
     PATCH_JUMP(0x05AB54, 0x5AA60);          // fix E3 4.30 added error
     
-    /** Rancid-o: Fix 0x8001003C error (incorrect version in sys_load_param) - It is present in the new game updates **/
-    //_poke(0x29E038, 0x386000007C6307B4);
-   //_poke32(0x2979E4, 0x4E800020);
+     /** Rancid-o: Fix 0x8001003C error (incorrect version in sys_load_param) - It is present in the new game updates **/
+    _poke(0x29E038, 0x386000007C6307B4);
+	_poke32(0x29E038 + 8, 0x4E800020);
 
     /*
         -002c3cf0  f8 01 00 b0 7c 9c 23 78  7c 7d 1b 78 4b d8 aa 1d  |....|.#x|}.xK...|

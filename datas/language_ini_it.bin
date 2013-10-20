@@ -5,8 +5,8 @@ DESCRIPTION = DEFAULT ITALIAN
 # VIDEO - ADJUST
 VIDEOADJUST_POSITION    = Usa tasto SINISTRA (-X) / DESTRO (+X) / SU (-Y) / GIU (+Y) per regolare lo schermo
 VIDEOADJUST_SCALEINFO   = Scala Video X: %i Y: %i
-VIDEOADJUST_EXITINFO    = Premi il tasto 'X' per uscire
-VIDEOADJUST_DEFAULTS    = Premi il tasto 'O' per i valori predefiniti
+VIDEOADJUST_EXITINFO    = Premi il tasto CROSS per uscire
+VIDEOADJUST_DEFAULTS    = Premi il tasto CIRCLE per i valori predefiniti
 
 # SELECT - GAME FOLDER
 GAMEFOLDER_WANTUSE      = Vuoi usare
@@ -32,7 +32,7 @@ DRAWSCREEN_GAMEINOFMNT  = Non posso montare /dev_hdd0/game da USB
 DRAWSCREEN_GAMEIASKDIR  = Vuoi creare in /dev_usb00
 DRAWSCREEN_GAMEICANTFD  = Non posso trovare un dispositivo USB per montare /dev_hdd0/game da USB
 DRAWSCREEN_GAMEIWLAUNCH = Vuoi avviare il Gioco ?
-DRAWSCREEN_EXTEXENOTFND = eseguibile esterno non trovato
+DRAWSCREEN_EXTEXENOTFND = Eseguibile esterno non trovato
 DRAWSCREEN_EXTEXENOTCPY = Utilizzare 'Copia EBOOT.BIN da USB' per importare.
 DRAWSCREEN_REQBR        = Richiesto un disco nel drive BR-DISC@ Riprovare ?
 
@@ -68,8 +68,9 @@ DRAWGMCFG_SAVECFG       = Salva Configurazione
 # DRAW GLOBAL OPTIONS
 DRAWGLOPT_OPTS          = Opzioni Globali
 DRAWGLOPT_SCRADJUST     = Regolazione Video
-DRAWGLOPT_CHANGEDIR     = Modifica la Directory dei Giochi
+DRAWGLOPT_CHANGEGUI     = Change Current GUI
 DRAWGLOPT_CHANGEBCK     = Modifica il colore di Sfondo (BACKGROUND)
+DRAWGLOPT_CHANGEDIR     = Modifica la Directory dei Giochi
 DRAWGLOPT_SWMUSICOFF    = Disattivare la Musica (Off)
 DRAWGLOPT_SWMUSICON     = Attivare la musica (On)
 DRAWGLOPT_INITFTP       = Inizializzare il server FTP
@@ -85,9 +86,10 @@ DRAWTOOLS_DELCACHE      = Elimina i file dalla memoria
 # DRAWTOOLS_SECDISABLE    = Premere per Disattivare la Syscall Security
 # DRAWTOOLS_SECENABLE     = Premere per Attivare la Syscall Security
 DRAWTOOLS_PKGTOOLS      = Installazione di pacchetti .PKG
-DRAWTOOLS_COPYFROM      = Copy from /dev_usb/iris to Iris folder
-DRAWTOOLS_WITHBDVD      = With BDVD Controller
-DRAWTOOLS_NOBDVD        = Without BDVD Controller
+DRAWTOOLS_COPYFROM      = Copia da /dev_usb/iris alla cartella di Iris
+DRAWTOOLS_WITHBDVD      = Con BDVD Controller
+DRAWTOOLS_NOBDVD        = Senza BDVD Controller
+DRAWTOOLS_NOBDVD2       = Disc - Less payload
 DRAWTOOLS_ARCHIVEMAN    = Archive Manager
 
 # MAIN - OTHERS
@@ -105,14 +107,14 @@ MOVETBEMU_ERRMOVE       = Errore nello Spostamento:@%s già esiste
 FASTCPADD_FAILED        = Fallito in fast_copy_process() ret
 FASTCPADD_ERRTMFILES    = Troppi file
 FASTCPADD_FAILEDSTAT    = Fallito in stat()
-FASTCPADD_ERROPEN       = Errore durante l'Apertura 0 (write)
+FASTCPADD_ERROPEN       = Errore durante l'apertura 0 (write)
 FASTCPADD_COPYING       = Copiando
 FASTCPADD_FAILFASTFILE  = Fallito in fast_files(fast_num_files).mem
 
 # FAST COPY PROCESS
 FASTCPPRC_JOINFILE      = Unendo File
 FASTCPPRC_COPYFILE      = Copiando File
-FASTCPPTC_OPENERROR     = Errore!!!!!!!!!!!!!!!!!!!!!!!!!@File Aperti %i@ Attendere 20 secondi per visualizzare l'errore fatale
+FASTCPPTC_OPENERROR     = Errore Grave!@File Aperti %i@ Attendere 20 secondi per visualizzare l'errore fatale
 
 # GAME TEST FILES
 GAMETESTS_FOUNDINSTALL  = Trovato %s@@Vuoi installare ?
@@ -126,7 +128,7 @@ GAMEDELFL_DELETING      = Eliminazione... File
 
 # GAME COPY
 GAMECPYSL_GSIZEABCNTASK = Attendere: Annullato - Continuare con la copia ?
-GAMECPYSL_STARTED       = Iniziando... @ copia
+GAMECPYSL_STARTED       = Inizializzazione... @ copia
 GAMECPYSL_SPLITEDHDDNFO = %s@@Gioco-Splittato copiato in HDD0 (non bootable)
 GAMECPYSL_SPLITEDUSBNFO = %s@@Gioco-Splittato copiato in USB00%c (non bootable)
 GAMECPYSL_DONE          = Finito! File copiati
@@ -141,7 +143,7 @@ GAMECHCPY_FAILDELFROM   = Eliminazione della copia fallita da
 
 # GAME DELETE
 GAMEDELSL_WANTDELETE    = Vuoi eliminare da
-GAMEDELSL_STARTED       = Iniziando... @ eliminazione
+GAMEDELSL_STARTED       = Inizializzazione... @ eliminazione
 GAMEDELSL_DONE          = Finito!  File Eliminati
 
 # GAME TEST
@@ -153,10 +155,10 @@ GLUTIL_SPLITFILE        = Split file
 GLUTIL_WROTE            = Scritti
 GLUTIL_TIME             = Tempo
 GLUTIL_TIMELEFT         = Tempo restante
-GLUTIL_HOLDTRIANGLEAB   = Premi /\ per Annullare
-GLUTIL_HOLDTRIANGLESK   = Premi /\ per Saltare
+GLUTIL_HOLDTRIANGLEAB   = Premi TRIANGOLO per Annullare
+GLUTIL_HOLDTRIANGLESK   = Premi TRIANGOLO per Saltare
 GLUTIL_ABORTEDUSER      = Annullato dall'utente
-GLUTIL_ABORTED          = Annullato!!!
+GLUTIL_ABORTED          = Annullato
 GLUTIL_XEXIT            = Premi X per Uscire
 GLUTIL_WANTCPYFROM      = Vuoi copiare da
 GLUTIL_WTO              = a
@@ -166,55 +168,57 @@ GLOBAL_RETURN           = Torna indietro
 GLOBAL_SAVED            = File Salvato
 
 # INSTALL .PKG
-PKG_HEADER              = Install .PKG Utility -_____Use CROSS to select and CIRCLE to exit
-PKG_INSERTUSB           = Insert the USB mass storage device
-PKG_ERRTOBIG            = .PKG size too big or disk space small
-PKG_WANTINSTALL         = Want to Install this .PKG file?
-PKG_ERRALREADY          = Error: .PKG already in the stack
-PKG_ERRFULLSTACK        = Error: stack is full (max 16 entries)
-PKG_ERRBUILD            = Error Building .PKG process
-PKG_COPYING             = Copying .PKG file to Iris Manager folder...
-PKG_ERROPENING          = Error Opening .PKG file
-PKG_ERRCREATING         = Error Creating .PKG file
-PKG_ERRREADING          = Error Reading .PKG file
-PKG_ERRLICON            = Error Loading ICON file
-PKG_ERRMOVING           = Error moving .PKG
+PKG_HEADER              = Installare il .PKG Utility -_____Usare X e select e CERCHIO per uscire
+PKG_INSERTUSB           = Inserire il dispositivo di archiviazione di massa USB
+PKG_ERRTOBIG            = .PKG dimensione del file troppo grande o spazio insufficiente nel disco
+PKG_WANTINSTALL         = Vuoi installare questo file .PKG ?
+PKG_ERRALREADY          = Errore: .PKG già esistente
+PKG_ERRFULLSTACK        = Errore: stack è pieno (max 16 voci)
+PKG_ERRBUILD            = Errore nel processo di creazione del PKG
+PKG_COPYING             = Copia del file .PKG nella cartella di Iris Manager ...
+PKG_ERROPENING          = Errore nell'apertura del file .PKG
+PKG_ERRCREATING         = Errore nella creazione del file .PKG
+PKG_ERRREADING          = Errore nella lettura del file .PKG
+PKG_ERRLICON            = Errore nel caricamento del file ICON
+PKG_ERRMOVING           = Errore nello spostamento del file .PKG
 
 # DRAW_PSX
-DRAWPSX_EMULATOR        = Emulator
-DRAWPSX_VIDEOPS         = PSX Video Options
-DRAWPSX_SAVEASK         = Save PSX options?
-DRAWPSX_SAVED           = PSX Options Saved
-DRAWPSX_VIDEOTHER       = Video / Others
-DRAWPSX_VIDEOMODE       = Video Mode
-DRAWPSX_VIDEOASP        = Video Aspect (480/576)
-DRAWPSX_FULLSC          = Full Screen
-DRAWPSX_SMOOTH          = Smooting
-DRAWPSX_EXTROM          = External ROM
-DRAWPSX_FORMAT          = Format Internal_MC
-DRAWPSX_ASKFORMAT       = Want you format Internal_MC?@@You LOSE the saves in this operation
-DRAWPSX_ERRWRITING      = Error writing the file (Device full?)
-DRAWPSX_BUILDISO        = Building custom ISO...
-DRAWPSX_ASKCHEATS       = PSX Cheat disc found@@Want you use it?
-DRAWPSX_ERRCHEATS       = PSX Disc for Cheats cannot be launched@@without a PSX game
-DRAWPSX_ERRSECSIZE      = Error: Different sector size in ISO files
-DRAWPSX_ERRUNKSIZE      = Error: Unknown Sector Size
-DRAWPSX_DISCEJECT       = PSX CD Ejected
-DRAWPSX_DISCORDER       = Select Disc Order
-DRAWPSX_PRESSOB         = Press O to change the order
-DRAWPSX_PRESSXB         = Press X to launch de game
-DRAWPSX_CHEATMAKE       = PSX Cheat disc found, but different sector size@@Want you build one compatible?
-DRAWPSX_ERRCOPYMC       = Copying Memory Card to HDD0 device...
-DRAWPSX_PRESSXB         = Error copying the Memory Card to HDD0 device
-DRAWPSX_PUTFNAME        = Put a Folder Name:
-DRAWPSX_FMUSTB          = Folder Name must be >=3 chars
-DRAWPSX_PUTADISC        = Put a PSX disc and press YES to continue or NO to abort@@Disc to copy: 
-DRAWPSX_UNREC           = Unrecognized disc
-DRAWPSX_ERROPENING      = Error opening BDVD drive
-DRAWPSX_ASKEFOLDER      = Folder Exits@@Continue?
-DRAWPSX_ISOEXITS        = exists@@Skip?
+DRAWPSX_EMULATOR        = Emulatore
+DRAWPSX_VIDEOPS         = PSX Opzioni Video
+DRAWPSX_SAVEASK         = Salvare le opzioni PSX ?
+DRAWPSX_SAVED           = PSX Opzioni Salvate
+DRAWPSX_VIDEOTHER       = Video / Altro
+DRAWPSX_VIDEOMODE       = Modalita' Video
+DRAWPSX_VIDEOASP        = Aspetto (480/576)
+DRAWPSX_FULLSC          = Schermo Intero
+DRAWPSX_SMOOTH          = Interpolazione
+DRAWPSX_EXTROM          = ROM Esterna
+DRAWPSX_FORMAT          = Formato Internal_MC
+DRAWPSX_ASKFORMAT       = Desideri formattare l' Internal_MC?@@Perderai TUTTI i salvataggi con questa operazione.
+DRAWPSX_ERRWRITING      = Errore di scrittura del file (Dispositivo Pieno?)
+DRAWPSX_BUILDISO        = Creazione ISO Personalizzata...
+DRAWPSX_ASKCHEATS       = PSX Cheat disco trovato@@Vuoi utilizzarlo?
+DRAWPSX_ERRCHEATS       = PSX Disc per Cheats non puo' essere avviato@@senza un gioco PSX
+DRAWPSX_ERRSECSIZE      = Errore: Differente dimensione nel settore del file ISO
+DRAWPSX_ERRUNKSIZE      = Errore: Dimensione nel settore sconosciuta
+DRAWPSX_DISCEJECT       = Estrai disco PSX
+DRAWPSX_DISCORDER       = Seleziona disco per ordine
+DRAWPSX_PRESSOB         = Premere Cerchio per cambiare l ordine
+DRAWPSX_PRESSXB         = Premere X per lanciare il gioco
+DRAWPSX_CHEATMAKE       = PSX Cheat disco trovato, ma la dimensione del settore è differente@@Vuoi crearne una compatibile?
+DRAWPSX_ERRCOPYMC       = Copia Memory Card nel dispositivo HDD0...
+DRAWPSX_PRESSXB         = Errore copia nella memory card nel dispositivo HDD0...
+DRAWPSX_PUTFNAME        = Dai un nome alla cartella:
+DRAWPSX_FMUSTB          = Il nome della cartella deve essere almeno di 3 caratteri.
+DRAWPSX_PUTADISC        = Mettere un disco PSX e premere Si per continuare o No per annullare@@Disco da copiare: 
+DRAWPSX_UNREC           = Disco non riconosciuto
+DRAWPSX_ERROPENING      = Errore di apertura nel drive BDVD
+DRAWPSX_ASKEFOLDER      = @@Continuare?
+DRAWPSX_ISOEXITS        = esist@@Salta?
        
 # generic
-OUT_OFMEMORY            = Out of Memory
-OPERATION_DONE          = Done!
+OUT_OFMEMORY            = Memoria Piena
+OPERATION_DONE          = Finito!
+PLUG_STORAGE1           = Ricorda di creare un dispositivo di massa USB per creare un FAKE DISC EVENT
+PLUG_STORAGE2           = Fake Disc Inserito
 
