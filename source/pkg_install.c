@@ -43,6 +43,7 @@
 #include "main.h"
 #include "gfx.h"
 #include "pad.h"
+#include "ntfs.h"
 
 extern char * language[];
 extern char temp_buffer[8192];
@@ -320,6 +321,8 @@ void install_pkg(char *path, char *filename)
     int n;
     char string1[] = "80000000";
     int free_slot = -1;
+
+    int is_ntfs = 0; if(!strncmp(path, "/ntfs", 5)) is_ntfs = 1;
     
     if(firmware == 0x341C || firmware == 0x355C || firmware == 0x355D) use_folder =1;
 
@@ -328,7 +331,7 @@ void install_pkg(char *path, char *filename)
 
     sprintf(temp_buffer, "%s/%s", path, filename);
     
-    if(stat(temp_buffer, &s) == 0) {
+    if((!is_ntfs && stat(temp_buffer, &s) == 0) || (is_ntfs && ps3ntfs_stat(temp_buffer, &s) == 0)) {
                  
     if(s.st_size + 0x40000000ULL > free_hdd0/*|| s.st_size >= 0x100000000ULL*/) 
         {DrawDialogOK(language[PKG_ERRTOBIG]);return;}
@@ -691,21 +694,29 @@ int copy_async(char *path1, char *path2, u64 size, char *progress_string1, char 
 
     u64 pos = 0ULL;
     u64 pos2 = 0ULL;
+
+    int is_ntfs = 0; if(!strncmp(path1, "/ntfs", 5)) is_ntfs = 1;
     
     int alternate = 0;
     char *mem= malloc(0x20000);
     if(!mem) return -3;
 
-    if(sysFsAioInit(path1)!= 0)  return -1;
+    if(!is_ntfs) {
+        if(sysFsAioInit(path1)!= 0)  return -1;
 	
 
-    if(sysFsOpen(path1, SYS_O_RDONLY, &fdr, 0,0) != 0) {
-       free(mem);return -1;
+        if(sysFsOpen(path1, SYS_O_RDONLY, &fdr, 0,0) != 0) {
+           free(mem);return -1;
+        }
+        
+    } else {
+        fdr= ps3ntfs_open(path1, O_RDONLY, 0);
+        if(fdr < 0) {free(mem);return -1;}
     }
     
     if(sysFsAioInit(path2)!= 0)  {
-        free(mem);sysFsAioFinish(path1);sysFsClose(fdr); return -2;
-    }
+            free(mem);sysFsAioFinish(path1);sysFsClose(fdr); return -2;
+        }
 
     if(sysFsOpen(path2, SYS_O_CREAT | SYS_O_TRUNC | SYS_O_WRONLY, &fdw, 0, 0) != 0) {
        free(mem);sysFsAioFinish(path1);sysFsAioFinish(path2); sysFsClose(fdr); return -2;
@@ -737,9 +748,16 @@ int copy_async(char *path1, char *path2, u64 size, char *progress_string1, char 
             t_read.size = size - pos; if(t_read.size > 0x10000ULL) t_read.size = 0x10000ULL;
             t_read.usrdata = (u64 ) &async_data;
 
-            if(sysFsAioRead(&t_read, &id_r, fast_func_read) != 0) {
-                ret= -4; goto error;
-            } 
+            if(!is_ntfs) {
+                if(sysFsAioRead(&t_read, &id_r, fast_func_read) != 0) {
+                    ret= -4; goto error;
+                }
+            } else {
+                int rd =ps3ntfs_read(fdr, &mem[alternate*0x10000], (size_t) t_read.size);
+                if(rd < 0 || rd != (int)t_read.size) async_data.readed = -1;
+                else async_data.readed = (s64) rd;
+            }
+
         } if(async_data.readed == -1) {
                 ret= -5; goto error;
         } else if(async_data.readed >= 0 && async_data.writed == -666) {
@@ -781,9 +799,9 @@ int copy_async(char *path1, char *path2, u64 size, char *progress_string1, char 
     }
 
     msgDialogAbort();
-    sysFsClose(t_read.fd);
+    if(!is_ntfs) sysFsClose(t_read.fd); else ps3ntfs_close(fdr);
     sysFsClose(t_write.fd);
-    sysFsAioFinish(path1);
+    if(!is_ntfs) sysFsAioFinish(path1);
 	sysFsAioFinish(path2);
     free(mem);
     usleep(10000);
@@ -792,12 +810,12 @@ int copy_async(char *path1, char *path2, u64 size, char *progress_string1, char 
 
 error:
     msgDialogAbort();
-    sysFsAioCancel(id_r);
+    if(!is_ntfs) sysFsAioCancel(id_r);
     sysFsAioCancel(id_w);
     usleep(200000);
-    sysFsClose(t_read.fd);
+    if(!is_ntfs) sysFsClose(t_read.fd); else ps3ntfs_close(fdr);
     sysFsClose(t_write.fd);
-    sysFsAioFinish(path1);
+    if(!is_ntfs) sysFsAioFinish(path1);
 	sysFsAioFinish(path2);
     free(mem);
    

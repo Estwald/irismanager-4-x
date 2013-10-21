@@ -183,7 +183,6 @@ int patch_bdvdemu(u32 flags);
 int move_origin_to_bdemubackup(char *path);
 int move_bdemubackup_to_origin(u32 flags);
 
-
 u8 * png_texture = NULL;
 PngDatas Png_datas[24];
 u32 Png_offset[24];
@@ -792,7 +791,7 @@ static int sys_ss_media_id(void * id)
     
 }
 
-static u64 syscall_40(u64 cmd, u64 arg)
+u64 syscall_40(u64 cmd, u64 arg)
 {
     lv2syscall2(40, cmd, arg);
 
@@ -987,9 +986,7 @@ void fun_exit()
     if(inited & INITED_SOUNDLIB) {
         if(inited & INITED_MODLIB)  
             MODPlay_Unload (&mod_track);
-        SND_End();
-
-        
+        SND_End();  
     }
 
     if(inited & INITED_SPU) {
@@ -997,6 +994,8 @@ void fun_exit()
         sysSpuRawDestroy(spu);
         sysSpuImageClose(&spu_image);
     }
+
+    NTFS_UnMountAll();
 
     if(inited & INITED_GCM_SYS) sysModuleUnload(SYSMODULE_GCM_SYS);
     if(inited & INITED_IO)      sysModuleUnload(SYSMODULE_IO);
@@ -2019,6 +2018,27 @@ s32 main(s32 argc, const char* argv[])
 
         if(tiny3d_MenuActive()) frame_count = 32; // to avoid the access to hdd when menu is active
 
+        if (1)
+        { // NTFS Automount
+        
+        int i;
+        for(i = 0; i < 8 ; i++) {
+            int r = NTFS_Event_Mount(i);
+
+            if(r == 1) { // mount device
+                NTFS_UnMount(i);
+
+                mounts[i] = NULL;
+                mountCount[i] = 0;
+                mountCount[i] = ntfsMountDevice (disc_ntfs[i], &mounts[i], NTFS_DEFAULT | NTFS_RECOVER);
+                
+            } else if(r == -1) { // unmount device
+               NTFS_UnMount(i);
+               
+            }
+        }
+
+        } // NTFS Automount
 
         if(forcedevices || (frame_count & 63)==0 || fdevices == 0)
 	    for(find_device = 0; find_device < 12; find_device++) {

@@ -27,13 +27,8 @@ u64 lv2peek(u64 addr);
 u64 lv2poke(u64 addr, u64 value);
 extern u64 syscall_base;
 
-static u64 syscall_40(u64 cmd, u64 arg)
-{
-    lv2syscall2(40, cmd, arg);
+u64 syscall_40(u64 cmd, u64 arg);
 
-    return_to_user_prog(u64);
-    
-}
 
 u8 in_51[8]= {
     0x51, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
