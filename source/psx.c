@@ -661,11 +661,9 @@ void draw_psx_options(float x, float y, int index)
 void draw_psx_options2(float x, float y, int index)
 {
 
-    int i, n;
+    int n;
 
     float y2, x2;
-
-    int selected = select_px + select_py * 4;
 
     SetCurrentFont(FONT_TTF);
 
@@ -760,8 +758,6 @@ void draw_psx_options2(float x, float y, int index)
     DrawBox(x, y + 3 * 150, 0, 200 * 4 - 8, 40, 0x00000028);
 
     SetFontColor(0xffffffff, 0x00000000);
-
-    i = selected;
 
     u32 str_color = 0xffffffff;
 
@@ -1608,7 +1604,7 @@ int psx_iso_prepare(char *path, char *name)
         int select_option = 0;
         while(1) {
             float x= 28, y = 0;
-            float y2, x2;
+            float y2;
 
             flash = (frame_count >> 5) & 1;
 
@@ -1651,7 +1647,6 @@ int psx_iso_prepare(char *path, char *name)
             DrawBox(x, y, 0, 200 * 4 - 8, 150 * 3 - 8, 0x00000028);
 
             
-            x2 = x;
             y2 = y + 32;
 
             for(n = 0; n < nfiles; n++) {
@@ -1993,7 +1988,7 @@ void load_psx_payload()
 
 void psx_launch(void) 
 {
-    u32 p[10];
+    u32 p[10] __attribute__((unused));
     char *arg[10];
     int k;
 
@@ -2189,7 +2184,10 @@ u8 get_psx_region_file(char *path)
 
     int indx = 0;
 	u8* read_buffer = (unsigned char *) memalign(16, 4096);
+
+#ifdef PSDEBUG
 	u64 disc_size=0;
+#endif
 	device_info_t disc_info;
 
 	FILE *fp;
@@ -2218,7 +2216,9 @@ u8 get_psx_region_file(char *path)
     
         if(disc_info.sector_size > 2048) indx = 24;
 
+#ifdef PSDEBUG
         disc_size = disc_info.sector_size * disc_info.total_sectors;
+#endif
 
         fseek(fp, disc_info.sector_size * 4, SEEK_SET); // read sector 4 for License message
         if(fread((void *) read_buffer, 1, disc_info.sector_size, fp)==disc_info.sector_size)
@@ -2417,9 +2417,9 @@ int get_toc_bdvd(void *buffer, u32 size)
 
 int load_unload_bdvd(int mode)
 {
-    int ret;    
+    int ret = -2;    
 
-    if(bdvd_id < 0) return -2;
+    if(bdvd_id < 0) return ret;
 
     memset(&atapi_cmd, 0, sizeof(struct lv2_atapi_cmnd_block));
 
@@ -2444,11 +2444,12 @@ int load_unload_bdvd(int mode)
 
 void Eject_BDVD(int mode)
 {
-    int ret;
-
     if(bdvd_id < 0 && sys_storage_open(BD_DEVICE, &bdvd_id) < 0) return;
 
-    ret=load_unload_bdvd(mode);
+#ifdef PSDEBUG
+    int ret=
+#endif
+    load_unload_bdvd(mode);
 
     close_bdvd();
 }

@@ -4656,7 +4656,7 @@ void draw_options(float x, float y, int index)
 
     int i, n;
 
-    float y2, x2;
+    float y2;
 
     int copy_flag = 1;
 
@@ -4760,7 +4760,6 @@ void draw_options(float x, float y, int index)
 
     SetFontColor(0xffffffff, 0x00000000);
 
-    x2 = x;
     y2 = y + 32;
     
     DrawButton1_UTF8(x + 32, y2, 320, language[DRAWGMOPT_CFGGAME], (directories[currentgamedir].title_id[0] == 0 ||
@@ -5393,7 +5392,7 @@ static char help1[]= {
 void draw_gbloptions(float x, float y)
 {
 
-    float y2, x2;
+    float y2;
     static float x3 = -1;
     static int help = 0;
     
@@ -5424,7 +5423,6 @@ void draw_gbloptions(float x, float y)
     DrawBox(x, y, 0, 200 * 4 - 8, 150 * 3 - 8, 0x00000028);
 
     
-    x2 = x;
     y2 = y + 32 - 24;
     
     DrawButton1_UTF8((848 - 520) / 2, y2, 520, language[DRAWGLOPT_SCRADJUST], (flash && select_option == 0));
@@ -5652,7 +5650,7 @@ void draw_toolsoptions(float x, float y)
 
     int n;
 
-    float y2, x2;
+    float y2;
 
     SetCurrentFont(FONT_TTF);
 
@@ -5672,8 +5670,6 @@ void draw_toolsoptions(float x, float y)
 
     DrawBox(x, y, 0, 200 * 4 - 8, 150 * 3 - 8, 0x00000028);
 
-
-    x2 = x;
     y2 = y + 32;
     
     DrawButton1_UTF8((848 - 520) / 2, y2, 520, language[DRAWTOOLS_DELCACHE], (flash && select_option == 0));
@@ -6036,8 +6032,11 @@ void unpatch_bdvdemu()
 {
 //LV2 Mount for 355 in his payload code
 
+#ifdef PSDEBUG
     int flag = 0;
-    flag = lv2_unpatch_bdvdemu();
+    flag =
+#endif 
+    lv2_unpatch_bdvdemu();
 }
 
 
@@ -6075,8 +6074,11 @@ int patch_bdvdemu(u32 flags)
     }
     */
 
+#ifdef PSDEBUG
     int flag = 0;
-    flag = lv2_patch_bdvdemu(flags);
+    flag =
+#endif 
+    lv2_patch_bdvdemu(flags);
 
     return 0;
 }
