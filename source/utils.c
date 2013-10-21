@@ -28,6 +28,7 @@ Credits:
 #include "utils.h"
 #include "language.h"
 #include <sys/file.h>
+#include "ntfs.h"
 
 #define FS_S_IFMT 0170000
 #define FS_S_IFDIR 0040000
@@ -3630,14 +3631,21 @@ void DeleteDirectory(const char* path)
 	int dfd;
 	u64 read;
 	sysFSDirent dir;
-	if (sysLv2FsOpenDir(path, &dfd))
+    DIR_ITER *pdir = NULL;
+    struct stat st;
+    
+    int is_ntfs = 0; if(!strncmp(path, "/ntfs", 5)) is_ntfs = 1;
+
+	if ((!is_ntfs && sysLv2FsOpenDir(path, &dfd)) || (is_ntfs && (pdir = ps3ntfs_diropen(path)) == NULL))
 		return;
-    sysFsChmod(path, FS_S_IFDIR | 0777);
+    
+    if (!is_ntfs) sysFsChmod(path, FS_S_IFDIR | 0777);
     
     read = sizeof(sysFSDirent);
-	while (!sysLv2FsReadDir(dfd, &dir, &read)) {
+	while ((!is_ntfs && !sysLv2FsReadDir(dfd, &dir, &read)) 
+        || (is_ntfs && ps3ntfs_dirnext(pdir, dir.d_name, &st) == 0)) {
 		char newpath[0x440];
-		if (!read)
+		if (!is_ntfs && !read)
 			break;
 		if (!strcmp(dir.d_name, ".") || !strcmp(dir.d_name, ".."))
 			continue;
@@ -3645,17 +3653,25 @@ void DeleteDirectory(const char* path)
 		strcpy(newpath, path);
 		strcat(newpath, "/");
 		strcat(newpath, dir.d_name);
-
-		if (dir.d_type & DT_DIR) {
-			DeleteDirectory(newpath);
-            sysLv2FsChmod(newpath, FS_S_IFDIR | 0777);
-            sysLv2FsRmdir(newpath);
-		} else {
-            sysLv2FsChmod(path, FS_S_IFMT | 0777);
-			sysLv2FsUnlink(newpath);
-		}
+        
+        if(!is_ntfs) {
+            if (dir.d_type & DT_DIR) {
+                DeleteDirectory(newpath);
+                sysLv2FsChmod(newpath, FS_S_IFDIR | 0777);
+                sysLv2FsRmdir(newpath);
+            } else {
+                sysLv2FsChmod(path, FS_S_IFMT | 0777);
+                sysLv2FsUnlink(newpath);
+            }
+        } else {
+            if (S_ISDIR(st.st_mode)) {
+                DeleteDirectory(newpath);
+            }
+            ps3ntfs_unlink(newpath);
+        }
 	}
-	sysLv2FsCloseDir(dfd);
+	
+    if(is_ntfs) ps3ntfs_dirclose(pdir); else sysLv2FsCloseDir(dfd);
 }
 
 void FixDirectory(const char* path)

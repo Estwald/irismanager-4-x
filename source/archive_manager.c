@@ -46,6 +46,8 @@
 #define FS_S_IFDIR 0040000
 #define DT_DIR 1
 
+u64 syscall_40(u64 cmd, u64 arg);
+
 extern char temp_buffer[8192];
 extern int firmware;
 extern char self_path[MAXPATHLEN];
@@ -161,6 +163,99 @@ char * getlv2error(s32 error)
 			return "Error Unknown";
 	}
 }
+
+/***********************************************************************************************************/
+/* NTFS                                                                                                    */
+/***********************************************************************************************************/
+
+const DISC_INTERFACE *disc_ntfs[8]= {
+    &__io_ntfs_usb000,
+    &__io_ntfs_usb001,
+    &__io_ntfs_usb002,
+    &__io_ntfs_usb003,
+    &__io_ntfs_usb004,
+    &__io_ntfs_usb005,
+    &__io_ntfs_usb006,
+    &__io_ntfs_usb007
+};
+
+// mounts from /dev_usb000 to 007
+ntfs_md *mounts[8] = {NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL};
+int mountCount[8] = {0, 0, 0, 0, 0, 0, 0, 0};
+int automountCount[8] = {0, 0, 0, 0, 0, 0, 0, 0};
+
+
+u32 ports_cnt = 0;
+u32 old_ports_cnt = 0;
+
+int NTFS_Event_Mount(int id) 
+{
+    int r = 0;
+
+    ports_cnt &= ~(1<<id);
+    if(PS3_NTFS_IsInserted(id)) ports_cnt |= 1<<id;
+
+    if( ((ports_cnt>>id) & 1) && !((old_ports_cnt>>id) & 1)) automountCount[id] = 300; // enable delay event
+
+    if(automountCount[id]>0) { // if delay counter ticks...
+        automountCount[id]--; if(automountCount[id]==0) r = 1; // mount device
+    }
+
+    if( !((ports_cnt>>id) & 1) && ((old_ports_cnt>>id) & 1)) { // unmount device
+        automountCount[id]=0; r = -1; 
+    }
+
+    old_ports_cnt = ports_cnt;
+
+    return r;
+}
+
+int NTFS_UnMount(int id)
+{
+    int ret = 0;
+
+    if (mounts[id]) {
+    int k;
+    for (k = 0; k < mountCount[id]; k++)
+        if((mounts[id]+k)->name[0]) 
+            {ret = 1; ntfsUnmount((mounts[id]+k)->name, true); (mounts[id]+k)->name[0] = 0;}
+
+    free(mounts[id]); 
+    mounts[id]= NULL;
+    mountCount[id] = 0;
+    }
+    
+    PS3_NTFS_Shutdown(id);
+
+    return ret;
+}
+
+void NTFS_UnMountAll(void)
+{ 
+    int i;
+
+    for(i = 0; i < 8; i++) {
+        NTFS_UnMount(i);
+    }
+}
+
+int NTFS_Test_Device(char *name)
+{
+    int k, i;
+
+    for(k = 0; k < 8; k++) {
+        for (i = 0; i < mountCount[k]; i++)
+        if(!strncmp((mounts[k]+i)->name, name, 5)) return ((mounts[k] + i)->interface->ioType & 0xff) - '0';
+    }
+
+    return -1;
+    
+}
+
+/***********************************************************************************************************/
+/* msgDialog                                                                                               */
+/***********************************************************************************************************/
+
 
 static msgType mdialogprogress =   MSG_DIALOG_SINGLE_PROGRESSBAR | MSG_DIALOG_MUTE_ON;
 static msgType mdialogprogress2 =   MSG_DIALOG_DOUBLE_PROGRESSBAR | MSG_DIALOG_MUTE_ON;
@@ -288,7 +383,19 @@ static int CountFiles(char* path, int *nfiles, u64 *size)
 	sysFSDirent dir;
     int ret = 0;
     int p1=strlen(path);
+    DIR_ITER *pdir = NULL;
+    struct stat st;
+    int is_ntfs = 0;
 
+    if(!strncmp(path, "/ntfs", 5)) {
+        is_ntfs = 1;
+        ret = ps3ntfs_stat(path, &st);
+        if (ret<0)
+		    return ret;
+        ret = 0;
+        (*size)+= st.st_size;
+    }
+    else
     {
         sysFSStat stat;
         ret= sysLv2FsStat(path, &stat);
@@ -299,14 +406,17 @@ static int CountFiles(char* path, int *nfiles, u64 *size)
     }
 
 
-    ret= sysLv2FsOpenDir(path, &dfd);
+    if(is_ntfs) {pdir = ps3ntfs_diropen(path); if(pdir) ret = 0; else ret = -1; }
+    else ret=sysLv2FsOpenDir(path, &dfd);
+
 	if (ret)
 		return ret;
     
     read = sizeof(sysFSDirent);
-	while (!sysLv2FsReadDir(dfd, &dir, &read)) {
+    while ((!is_ntfs && !sysLv2FsReadDir(dfd, &dir, &read)) 
+        || (is_ntfs && ps3ntfs_dirnext(pdir, dir.d_name, &st) == 0)) {
 		
-		if (!read)
+		if (!is_ntfs && !read)
 			break;
 		if (!strcmp(dir.d_name, ".") || !strcmp(dir.d_name, ".."))
 			continue;
@@ -316,30 +426,39 @@ static int CountFiles(char* path, int *nfiles, u64 *size)
 		strcat(path, "/");
 		strcat(path, dir.d_name);
   
+        if(!is_ntfs) {
+            if (dir.d_type & DT_DIR) {
+     
+                ret= CountFiles(path, nfiles, size);
+                if(ret) goto skip;
 
-		if (dir.d_type & DT_DIR) {
- 
-			ret= CountFiles(path, nfiles, size);
-            if(ret) goto skip;
-
-		} else {
-            sysFSStat stat;
-            ret= sysLv2FsStat(path, &stat);
-            if (ret<0)
-                goto skip;
-            (*size)+= stat.st_size;
-            (*nfiles) ++;
-    
-		}
-
-        
+            } else {
+                sysFSStat stat;
+                ret= sysLv2FsStat(path, &stat);
+                if (ret<0)
+                    goto skip;
+                (*size)+= stat.st_size;
+                (*nfiles) ++;
+            }
+        } else {
+            if (S_ISDIR(st.st_mode)) {
+                ret= CountFiles(path, nfiles, size);
+                if(ret) goto skip;
+            } else {
+                ret = ps3ntfs_stat(path, &st);
+                if (ret<0)
+                    goto skip;
+                (*size)+= st.st_size;
+                (*nfiles) ++;
+            }
+        }
 
 	}
 
 skip:
 
     path[p1]= 0;
-	sysLv2FsCloseDir(dfd);
+	if(is_ntfs) ps3ntfs_dirclose(pdir); else sysLv2FsCloseDir(dfd);
 
     return ret;
 
@@ -371,6 +490,8 @@ static int level_dump(char *path, int mode)
 
     float parts;
     float cpart;
+
+    int is_ntfs = 0; if(!strncmp(path, "/ntfs", 5)) is_ntfs = 1;
 
     time(&timer);
     timed = localtime(&timer);
@@ -409,9 +530,13 @@ static int level_dump(char *path, int mode)
         sprintf(temp_buffer, "%s/LV1-%XEX-%04i%02i%02i-%02i%02i%02i.bin", path, firmware,
             timed->tm_year+1900, timed->tm_mon+1,  timed->tm_mday, timed->tm_hour, timed->tm_min, timed->tm_sec);
 
-        ret = sysLv2FsOpen(temp_buffer, SYS_O_WRONLY | SYS_O_CREAT | SYS_O_TRUNC, &fd, 0777, NULL, 0);
+        if(is_ntfs) 
+            {fd = ps3ntfs_open(temp_buffer, O_WRONLY | O_CREAT | O_TRUNC, 0);if(fd < 0) ret = -1; else ret = 0;}
+        else
+            ret = sysLv2FsOpen(temp_buffer, SYS_O_WRONLY | SYS_O_CREAT | SYS_O_TRUNC, &fd, 0777, NULL, 0);
+
         if(ret < 0) goto skip;
-        sysLv2FsChmod(temp_buffer, FS_S_IFMT | 0777);
+        if(!is_ntfs) sysLv2FsChmod(temp_buffer, FS_S_IFMT | 0777);
 
     } else { // LV2
        
@@ -427,9 +552,12 @@ static int level_dump(char *path, int mode)
         sprintf(temp_buffer, "%s/LV2-%XEX-%04i%02i%02i-%02i%02i%02i.bin", path, firmware,
             timed->tm_year+1900, timed->tm_mon+1,  timed->tm_mday, timed->tm_hour, timed->tm_min, timed->tm_sec);
 
-        ret = sysLv2FsOpen(temp_buffer, SYS_O_WRONLY | SYS_O_CREAT | SYS_O_TRUNC, &fd, 0777, NULL, 0);
+        if(is_ntfs) 
+            {fd = ps3ntfs_open(temp_buffer, O_WRONLY | O_CREAT | O_TRUNC, 0);if(fd < 0) ret = -1; else ret = 0;}
+        else
+            ret = sysLv2FsOpen(temp_buffer, SYS_O_WRONLY | SYS_O_CREAT | SYS_O_TRUNC, &fd, 0777, NULL, 0);
         if(ret < 0) goto skip;
-        sysLv2FsChmod(temp_buffer, FS_S_IFMT | 0777);
+        if(!is_ntfs) sysLv2FsChmod(temp_buffer, FS_S_IFMT | 0777);
 
      
     }
@@ -446,7 +574,9 @@ static int level_dump(char *path, int mode)
     while(pos < lenght) {
         readed = lenght - pos; if(readed > 0x100000ULL) readed = 0x100000ULL;
 
-        ret=sysLv2FsWrite(fd, &mem[pos>>3], readed, &writed);
+        if(is_ntfs) {ret = ps3ntfs_write(fd, (void *) &mem[pos>>3], (int) readed); writed = (u64) ret; if(ret>0) ret = 0;}
+        else
+            ret=sysLv2FsWrite(fd, &mem[pos>>3], readed, &writed);
         if(ret<0) goto skip;
         if(readed != writed) {ret = 0x8001000C; goto skip;}
         
@@ -463,11 +593,11 @@ static int level_dump(char *path, int mode)
     }
 
 skip:
-    if(fd>=0) sysLv2FsClose(fd);
+    if(fd>=0) {if(is_ntfs) ps3ntfs_close(fd); else sysLv2FsClose(fd);}
     if(ret>0) ret = 0;
     if(mem) free(mem);
 
-    if(progress_action == 2) unlink_secure(temp_buffer);
+    if(progress_action == 2) {if(is_ntfs) ps3ntfs_unlink(temp_buffer); else unlink_secure(temp_buffer);}
 
     msgDialogAbort();
     return ret;
@@ -476,7 +606,57 @@ skip:
 static  float copy_parts;
 static float copy_cpart;
 
-static int CopyFd(s32 fd, s32 fd2, char *mem, u64 lenght)
+#include "event_threads.h"
+
+static int use_async_fd = 0;
+
+volatile struct f_async {
+    int flags;
+    int fd;
+    void * mem;
+    int size;
+    u64 readed;
+} my_f_async;
+
+#define ASYNC_ENABLE 128
+#define ASYNC_ERROR 16
+#define ASYNC_FCLOSE 2
+#define ASYNC_NTFS 1
+
+static void my_func_async(struct f_async * v)
+{
+    int ret = -1;
+    
+    if(v && v->flags & ASYNC_ENABLE) {
+        v->readed = 0;
+        int flags = v->flags;
+        if(v->mem) {
+            if(flags & ASYNC_NTFS) 
+                {ret = ps3ntfs_write(v->fd, v->mem, v->size); v->readed = (u64) ret; if(ret>0) ret = 0;}
+            else ret=sysLv2FsWrite(v->fd, v->mem, v->size, &v->readed);
+
+            free(v->mem); v->mem = 0;
+
+            if(ret == 0 && v->size != v->readed) ret = -1;
+        }
+
+        if(ret) flags|= ASYNC_ERROR;
+
+        if(flags & (ASYNC_ERROR | ASYNC_FCLOSE)) {
+            if(flags & ASYNC_NTFS) ps3ntfs_close(v->fd); else sysLv2FsClose(v->fd);
+        }
+
+        flags &= ~ASYNC_ENABLE;
+
+        v->flags = flags;
+    }
+}
+
+#define CPY_NOTCLOSE 256
+#define CPY_FILE1_IS_NTFS 1
+#define CPY_FILE2_IS_NTFS 2
+
+static int CopyFd(s32 flags, s32 fd, s32 fd2, char *mem, u64 lenght)
 {
     int ret = 0;
     int one = 0;
@@ -486,13 +666,57 @@ static int CopyFd(s32 fd, s32 fd2, char *mem, u64 lenght)
     while(pos < lenght) {
 
         readed = lenght - pos; if(readed > 0x100000ULL) readed = 0x100000ULL;
-        ret=sysLv2FsRead(fd, mem, readed, &writed);
-        if(ret<0) goto skip;
-        if(readed != writed) {ret = 0x8001000C; goto skip;}
+        
+        if(flags & CPY_FILE1_IS_NTFS) {ret = ps3ntfs_read(fd, mem, readed); writed = (u64) ret; if(ret>0) ret = 0;}
+        else ret=sysLv2FsRead(fd, mem, readed, &writed);
 
-        ret=sysLv2FsWrite(fd2, mem, readed, &writed);
         if(ret<0) goto skip;
         if(readed != writed) {ret = 0x8001000C; goto skip;}
+        
+        loop_write:
+
+        if(use_async_fd) {
+            if(use_async_fd == 128) {
+                use_async_fd = 1;
+                my_f_async.flags = 0;
+                my_f_async.fd = fd2;
+                my_f_async.mem = malloc(readed);
+                if(my_f_async.mem) memcpy(my_f_async.mem, mem, readed);
+                my_f_async.size = readed;
+                my_f_async.readed = 0;
+                my_f_async.flags = ASYNC_ENABLE | ((flags & CPY_FILE2_IS_NTFS)!=0) 
+                    | (ASYNC_FCLOSE * (pos + readed >= lenght  && !(flags & CPY_NOTCLOSE)));
+                event_thread_send(0x555ULL, (u64) my_func_async, (u64) &my_f_async);
+
+
+            } else {
+             
+                if(!(my_f_async.flags & ASYNC_ENABLE)) {
+
+                    if(my_f_async.flags & ASYNC_ERROR) {ret = 0x8001000C; goto skip;}
+                    my_f_async.flags = 0;
+                    my_f_async.fd = fd2;
+                    my_f_async.mem = malloc(readed);
+                    if(my_f_async.mem) memcpy(my_f_async.mem, mem, readed);
+                    my_f_async.size = readed;
+                    my_f_async.readed = 0;
+                    my_f_async.flags = ASYNC_ENABLE | ((flags & CPY_FILE2_IS_NTFS)!=0) 
+                        | (ASYNC_FCLOSE * (pos + readed >= lenght && !(flags & CPY_NOTCLOSE)));
+                    event_thread_send(0x555ULL, (u64) my_func_async, (u64) &my_f_async);
+                    
+                } else {
+                    //wait_event_thread();
+                    goto loop_write;
+                }
+            }
+            
+        } else {
+
+            if(flags & CPY_FILE2_IS_NTFS) {ret = ps3ntfs_write(fd2, mem, readed); writed = (u64) ret; if(ret>0) ret = 0;}
+            else ret=sysLv2FsWrite(fd2, mem, readed, &writed);
+            if(ret<0) goto skip;
+            if(readed != writed) {ret = 0x8001000C; goto skip;}
+        }
         
         pos += readed;
 
@@ -523,6 +747,12 @@ static int CopyFile(char* path, char* path2)
     char *mem = NULL;
     
     sysFSStat stat;
+    struct stat fstat;
+
+    s32 flags = 0;
+
+    if(!strncmp(path, "/ntfs", 5)) flags|= CPY_FILE1_IS_NTFS;
+    if(!strncmp(path2, "/ntfs", 5)) flags|= CPY_FILE2_IS_NTFS;
 
     
     if(Files_To_Copy == 0) Files_To_Copy = 1;
@@ -569,40 +799,65 @@ static int CopyFile(char* path, char* path2)
             msgDialogProgressBarReset(MSG_PROGRESSBAR_INDEX1);
             msgDialogProgressBarSetMsg(MSG_PROGRESSBAR_INDEX1, dyn_get_name(path2));
             
-            ret= sysLv2FsStat(path, &stat);
+            if(flags & CPY_FILE1_IS_NTFS) 
+                {ret = ps3ntfs_stat(path, &fstat);stat.st_size = fstat.st_size;}
+            else ret= sysLv2FsStat(path, &stat);
+
             if(ret < 0 || stat.st_size==0) {ret = 0;goto skip2;}
 
             lenght = stat.st_size;
-
-            ret = sysLv2FsOpen(path, 0, &fd, S_IRWXU | S_IRWXG | S_IRWXO, NULL, 0);
+            if(flags & CPY_FILE1_IS_NTFS) {fd = ps3ntfs_open(path, O_RDONLY, 0);if(fd < 0) ret = -1; else ret = 0;}
+            else
+                ret = sysLv2FsOpen(path, 0, &fd, S_IRWXU | S_IRWXG | S_IRWXO, NULL, 0);
             if(ret) goto skip2;
 
             if(n == 0) {
-                ret = sysLv2FsOpen(path2, SYS_O_WRONLY | SYS_O_CREAT | SYS_O_TRUNC, &fd2, 0777, NULL, 0);
-                if(ret) goto skip2;
-                sysLv2FsChmod(path2, FS_S_IFMT | 0777);
+
+                if(flags & CPY_FILE2_IS_NTFS) {
+                    fd2 = ps3ntfs_open(path2, O_WRONLY | O_CREAT | O_TRUNC, 0);if(fd2 < 0) ret = -1; else ret = 0;
+                    if(ret) goto skip2;
+                    }
+                else {
+                    ret = sysLv2FsOpen(path2, SYS_O_WRONLY | SYS_O_CREAT | SYS_O_TRUNC, &fd2, 0777, NULL, 0);
+                    if(ret) goto skip2;
+                    sysLv2FsChmod(path2, FS_S_IFMT | 0777);
+                }
             }
 
             copy_parts = (lenght == 0) ? 0.0f : 100.0f / ((double) lenght / (double) 0x100000);
             copy_cpart = 0;
 
-            ret = CopyFd( fd, fd2, mem, lenght);
+            ret = CopyFd(flags | CPY_NOTCLOSE, fd, fd2, mem, lenght);
             if(ret < 0) goto skip2;
 
-            sysLv2FsClose(fd); fd = -1;
+            if(flags & CPY_FILE1_IS_NTFS) ps3ntfs_close(fd); else sysLv2FsClose(fd); fd = -1;
         
+        }
+
+        loop_wait:
+
+        if(use_async_fd) {
+              
+            if(!(my_f_async.flags & ASYNC_ENABLE)) {
+                if(flags & CPY_FILE2_IS_NTFS) ps3ntfs_close(fd2); else sysLv2FsClose(fd2);
+                if(my_f_async.flags  & ASYNC_ERROR) {ret = 0x8001000C; goto skip2;}
+            } else goto loop_wait;
         }
     
     
     } else {
 
-        ret= sysLv2FsStat(path, &stat);
+        if(flags & CPY_FILE1_IS_NTFS) {ret = ps3ntfs_stat(path, &fstat);stat.st_size = fstat.st_size;}
+        else ret= sysLv2FsStat(path, &stat);
+
         if(ret) goto skip;
 
         lenght = stat.st_size;
 
-        if(lenght >= 0x100000000LL && strncmp(path2, "/dev_hdd0", 9)) { // split the file
-            ret = sysLv2FsOpen(path, 0, &fd, S_IRWXU | S_IRWXG | S_IRWXO, NULL, 0);
+        if(lenght >= 0x100000000LL && strncmp(path2, "/dev_hdd0", 9) && strncmp(path2, "/ntfs", 5) ) { // split the file
+            if(flags & CPY_FILE1_IS_NTFS) {fd = ps3ntfs_open(path, O_RDONLY, 0);if(fd < 0) ret = -1; else ret = 0;}
+            else
+                ret = sysLv2FsOpen(path, 0, &fd, S_IRWXU | S_IRWXG | S_IRWXO, NULL, 0);
             if(ret) goto skip2;
 
             mem = malloc(0x100000);
@@ -627,14 +882,20 @@ static int CopyFile(char* path, char* path2)
                 lenght = (stat.st_size - pos);
                 if(lenght > 0x40000000LL) lenght = 0x40000000LL;
                 
-                ret = sysLv2FsOpen(path2, SYS_O_WRONLY | SYS_O_CREAT | SYS_O_TRUNC, &fd2, 0777, NULL, 0);
+                if(flags & CPY_FILE2_IS_NTFS) {fd2 = ps3ntfs_open(path2, O_WRONLY | O_CREAT | O_TRUNC, 0);if(fd2 < 0) ret = -1; else ret = 0;}
+                else ret = sysLv2FsOpen(path2, SYS_O_WRONLY | SYS_O_CREAT | SYS_O_TRUNC, &fd2, 0777, NULL, 0);
                 if(ret) goto skip2;
-                sysLv2FsChmod(path2, FS_S_IFMT | 0777);
 
-                ret = CopyFd( fd, fd2, mem, lenght);
+                if(!(flags & CPY_FILE2_IS_NTFS)) sysLv2FsChmod(path2, FS_S_IFMT | 0777);
+
+                ret = CopyFd(flags, fd, fd2, mem, lenght);
                 if(ret < 0) goto skip2;
 
-                sysLv2FsClose(fd2); fd2 = -1;
+                if(!use_async_fd) {
+                    if(flags & CPY_FILE2_IS_NTFS) ps3ntfs_close(fd2); else sysLv2FsClose(fd2); 
+                }
+                
+                fd2 = -1;
 
                 pos+= lenght;
                 
@@ -644,13 +905,16 @@ static int CopyFile(char* path, char* path2)
         
         } else {
 
-            ret = sysLv2FsOpen(path, 0, &fd, S_IRWXU | S_IRWXG | S_IRWXO, NULL, 0);
+            if(flags & CPY_FILE1_IS_NTFS) {fd = ps3ntfs_open(path, O_RDONLY, 0);if(fd < 0) ret = -1; else ret = 0;}
+            else ret = sysLv2FsOpen(path, 0, &fd, S_IRWXU | S_IRWXG | S_IRWXO, NULL, 0);
             if(ret) goto skip;
 
 
-            ret = sysLv2FsOpen(path2, SYS_O_WRONLY | SYS_O_CREAT | SYS_O_TRUNC, &fd2, 0777, NULL, 0);
-            if(ret) {sysLv2FsClose(fd);goto skip;}
-            sysLv2FsChmod(path2, FS_S_IFMT | 0777);
+            if(flags & CPY_FILE2_IS_NTFS) {fd2 = ps3ntfs_open(path2, O_WRONLY | O_CREAT | O_TRUNC, 0);if(fd2 < 0) ret = -1; else ret = 0;}
+            else ret = sysLv2FsOpen(path2, SYS_O_WRONLY | SYS_O_CREAT | SYS_O_TRUNC, &fd2, 0777, NULL, 0);
+            
+            if(ret) {if(flags & CPY_FILE1_IS_NTFS) ps3ntfs_close(fd); else sysLv2FsClose(fd); goto skip;}
+            if(!(flags & CPY_FILE2_IS_NTFS)) sysLv2FsChmod(path2, FS_S_IFMT | 0777);
 
 
             mem = malloc(0x100000);
@@ -660,21 +924,30 @@ static int CopyFile(char* path, char* path2)
             copy_parts = (lenght == 0) ? 0.0f : 100.0f / ((double) lenght / (double) 0x100000);
             copy_cpart = 0;
 
-            ret = CopyFd( fd, fd2, mem, lenght);
+            ret = CopyFd(flags, fd, fd2, mem, lenght);
         }
     }
 
     
 skip2:
     
+    
     if(mem) free(mem);
-    if(fd>=0) sysLv2FsClose(fd);
-    if(fd2>=0) sysLv2FsClose(fd2);
+    if(fd>=0) {if(flags & CPY_FILE1_IS_NTFS) ps3ntfs_close(fd); else sysLv2FsClose(fd);}
+    if(!use_async_fd) {if(fd2>=0){if(flags & CPY_FILE2_IS_NTFS) ps3ntfs_close(fd2); else sysLv2FsClose(fd2);}}
     if(ret>0) ret = 0;
-
-    if(progress_action == 2) unlink_secure(path2);
-
 skip:
+    
+    
+    if(progress_action == 2) {
+        if(my_f_async.flags & ASYNC_ENABLE){
+            wait_event_thread();
+            if(my_f_async.flags  & ASYNC_ERROR) {ret = 0x8001000C;}
+        }
+
+        if(flags & CPY_FILE2_IS_NTFS) ps3ntfs_unlink(path2); else unlink_secure(path2);
+     }
+
     //msgDialogAbort();
     return ret;
 }
@@ -684,23 +957,37 @@ static int CopyDirectory(char* path, char* path2)
 	int dfd;
 	u64 read;
 	sysFSDirent dir;
+    DIR_ITER *pdir = NULL;
+    struct stat st;
     int ret = 0;
     int p1=strlen(path);
     int p2=strlen(path2);
 
-    ret= sysLv2FsOpenDir(path, &dfd);
+    s32 flags = 0;
+
+    if(!strncmp(path, "/ntfs", 5)) flags|= CPY_FILE1_IS_NTFS;
+    if(!strncmp(path2, "/ntfs", 5)) flags|= CPY_FILE2_IS_NTFS;
+
+    if(flags & CPY_FILE1_IS_NTFS){pdir = ps3ntfs_diropen(path); if(pdir) ret = 0; else ret = -1;}
+    else
+        ret= sysLv2FsOpenDir(path, &dfd);
+
 	if (ret)
 		return ret;
 
-    sysLv2FsMkdir(path2, 0777);
+    if(flags & CPY_FILE2_IS_NTFS) ps3ntfs_mkdir(path2, 0777); else sysLv2FsMkdir(path2, 0777);
     
     read = sizeof(sysFSDirent);
-	while (!sysLv2FsReadDir(dfd, &dir, &read)) {
+
+    while ((!(flags & CPY_FILE1_IS_NTFS) && !sysLv2FsReadDir(dfd, &dir, &read)) 
+        || ((flags & CPY_FILE1_IS_NTFS) && ps3ntfs_dirnext(pdir, dir.d_name, &st) == 0)) {
 		
-		if (!read)
+		if (!(flags & CPY_FILE1_IS_NTFS) && !read)
 			break;
 		if (!strcmp(dir.d_name, ".") || !strcmp(dir.d_name, ".."))
 			continue;
+
+        if(flags & CPY_FILE1_IS_NTFS) {dir.d_type= (S_ISDIR(st.st_mode)) ? DT_DIR : 0;}
 
         path[p1]= 0;
         path2[p2]= 0;
@@ -720,8 +1007,7 @@ static int CopyDirectory(char* path, char* path2)
             if(ret<0) goto skip;
     
 		}
-
-        
+   
 
 	}
 
@@ -729,11 +1015,14 @@ skip:
 
     path[p1]= 0;
     path2[p2]= 0;
-	sysLv2FsCloseDir(dfd);
+
+    if(flags & CPY_FILE1_IS_NTFS) ps3ntfs_dirclose(pdir); else sysLv2FsCloseDir(dfd);
 
     return ret;
 
 }
+
+void pause_music(int pause);
 
 static int copy_archive_manager(char *path1, char *path2, sysFSDirent *ent, int nent, int sel, u64 free)
 {
@@ -741,6 +1030,9 @@ static int copy_archive_manager(char *path1, char *path2, sysFSDirent *ent, int 
     int n;
 
     u64 size = 0;
+
+    use_async_fd = 128;
+    pause_music(1);
 
     reset_copy = 1;
     cpy_str= "Copy";
@@ -763,9 +1055,15 @@ static int copy_archive_manager(char *path1, char *path2, sysFSDirent *ent, int 
                 ret = CopyDirectory(temp_buffer, temp_buffer + 2048);
             }
             else {
-                sysFSStat stat;
-                ret= sysLv2FsStat(temp_buffer, &stat);
-                size+= stat.st_size;
+                if(!strncmp(temp_buffer, "/ntfs", 5)) {
+                    struct stat fstat;
+                    ret = ps3ntfs_stat(temp_buffer, &fstat);
+                    size+= fstat.st_size;
+                } else {
+                    sysFSStat stat;
+                    ret= sysLv2FsStat(temp_buffer, &stat);
+                    size+= stat.st_size;
+                }
                 if(ret<0) goto end;
                 if(size > free) goto end;
 
@@ -791,9 +1089,15 @@ static int copy_archive_manager(char *path1, char *path2, sysFSDirent *ent, int 
 
                 if(ent[n].d_type & 1) ret = CountFiles(temp_buffer, &Files_To_Copy, &size);
                 else {
-                    sysFSStat stat;
-                    ret= sysLv2FsStat(temp_buffer, &stat);
-                    size+= stat.st_size;
+                    if(!strncmp(temp_buffer, "/ntfs", 5)) {
+                        struct stat fstat;
+                        ret = ps3ntfs_stat(temp_buffer, &fstat);
+                        size+= fstat.st_size;
+                    } else {
+                        sysFSStat stat;
+                        ret= sysLv2FsStat(temp_buffer, &stat);
+                        size+= stat.st_size;
+                    }
 
                     Files_To_Copy++;
                 }
@@ -822,7 +1126,21 @@ static int copy_archive_manager(char *path1, char *path2, sysFSDirent *ent, int 
     }
 
  end:   
+
+    if(use_async_fd) {
+    
+        if(my_f_async.flags & ASYNC_ENABLE){
+            wait_event_thread();
+            if(my_f_async.flags  & ASYNC_ERROR) {ret = 0x8001000C;}
+        }
+
+        event_thread_send(0x555ULL, (u64) 0, 0);
+    }
+
+    use_async_fd = 0;
     pad_last_time = 0;
+
+    pause_music(0);
 
     if(ret<0) return ret;
     if(size > free) {
@@ -841,6 +1159,10 @@ static int move_archive_manager(char *path1, char *path2, sysFSDirent *ent, int 
     int flag = 0;
    
     u64 size = 0;
+
+    use_async_fd = 128;
+
+    pause_music(1);
 
     n=1;while(path1[n]!='/' && path1[n]!=0) n++;
 
@@ -861,8 +1183,12 @@ static int move_archive_manager(char *path1, char *path2, sysFSDirent *ent, int 
             sprintf(temp_buffer + 2048, "%s/%s", path2, ent[sel].d_name);
 
 
-            if(flag)
-                ret= sysLv2FsRename(temp_buffer, temp_buffer  + 2048);
+            if(flag) {
+                if(!strncmp(temp_buffer, "/ntfs", 5)) 
+                    ret = ps3ntfs_rename(temp_buffer, temp_buffer  + 2048);
+                else
+                    ret= sysLv2FsRename(temp_buffer, temp_buffer  + 2048);
+            }
             else if(ent[sel].d_type & 1) {
                 ret=CountFiles(temp_buffer, &Files_To_Copy, &size);
                 if(ret<0) goto end;
@@ -871,13 +1197,20 @@ static int move_archive_manager(char *path1, char *path2, sysFSDirent *ent, int 
                 ret = CopyDirectory(temp_buffer, temp_buffer + 2048);
                 if(ret==0) {
                     DeleteDirectory(temp_buffer);
-                    ret = rmdir_secure(temp_buffer);
+                    if(!strncmp(temp_buffer, "/ntfs", 5)) ret = ps3ntfs_unlink(temp_buffer);
+                    else ret = rmdir_secure(temp_buffer);
                 }
             }
             else {
-                sysFSStat stat;
-                ret= sysLv2FsStat(temp_buffer, &stat);
-                size+= stat.st_size;
+                if(!strncmp(temp_buffer, "/ntfs", 5)) {
+                    struct stat fstat;
+                    ret = ps3ntfs_stat(temp_buffer, &fstat);
+                    size+= fstat.st_size;
+                } else {
+                    sysFSStat stat;
+                    ret= sysLv2FsStat(temp_buffer, &stat);
+                    size+= stat.st_size;
+                }
 
                 if(ret<0) goto end;
                 if(size > free) goto end;
@@ -904,9 +1237,15 @@ static int move_archive_manager(char *path1, char *path2, sysFSDirent *ent, int 
 
                 if(ent[n].d_type & 1) ret= CountFiles(temp_buffer, &Files_To_Copy, &size);
                 else {
-                    sysFSStat stat;
-                    ret= sysLv2FsStat(temp_buffer, &stat);
-                    size+= stat.st_size;
+                    if(!strncmp(temp_buffer, "/ntfs", 5)) {
+                        struct stat fstat;
+                        ret = ps3ntfs_stat(temp_buffer, &fstat);
+                        size+= fstat.st_size;
+                    } else {
+                        sysFSStat stat;
+                        ret= sysLv2FsStat(temp_buffer, &stat);
+                        size+= stat.st_size;
+                    }
                   
                     Files_To_Copy++;
                 }
@@ -923,18 +1262,26 @@ static int move_archive_manager(char *path1, char *path2, sysFSDirent *ent, int 
                 sprintf(temp_buffer, "%s/%s", path1, ent[n].d_name);
                 sprintf(temp_buffer + 2048, "%s/%s", path2, ent[n].d_name);
 
-                if(flag)
-                    ret= sysLv2FsRename(temp_buffer, temp_buffer  + 2048);
+                if(flag) {
+                    if(!strncmp(temp_buffer, "/ntfs", 5)) 
+                        ret = ps3ntfs_rename(temp_buffer, temp_buffer  + 2048);
+                    else
+                        ret= sysLv2FsRename(temp_buffer, temp_buffer  + 2048);
+                }
                 else if(ent[n].d_type & 1) {
                     ret = CopyDirectory(temp_buffer, temp_buffer + 2048);
                     if(ret==0) {
                         DeleteDirectory(temp_buffer);
-                        ret = rmdir_secure(temp_buffer);
+                        if(!strncmp(temp_buffer, "/ntfs", 5)) ret = ps3ntfs_unlink(temp_buffer);
+                        else ret = rmdir_secure(temp_buffer);
                     }
                 }
                 else {
                     ret = CopyFile(temp_buffer, temp_buffer + 2048);
-                    if(ret==0) ret = unlink_secure(temp_buffer); 
+                    if(ret==0) {
+                        if(!strncmp(temp_buffer, "/ntfs", 5)) ret = ps3ntfs_unlink(temp_buffer);
+                        else ret = unlink_secure(temp_buffer); 
+                    }
                 }
 
                 if(ret <0) break;
@@ -946,7 +1293,20 @@ static int move_archive_manager(char *path1, char *path2, sysFSDirent *ent, int 
     }
 
  end:
+     if(use_async_fd) {
+    
+        if(my_f_async.flags & ASYNC_ENABLE){
+            wait_event_thread();
+            if(my_f_async.flags  & ASYNC_ERROR) {ret = 0x8001000C;}
+        }
+
+        event_thread_send(0x555ULL, (u64) 0, 0);
+    }
+
+    use_async_fd = 0;
     pad_last_time = 0;
+
+    pause_music(0);
 
     if(ret<0) return ret;
     if(size > free) {
@@ -1142,7 +1502,7 @@ int write_LV2(u64 pos, char *mem, int size)
 }
 
 
-static int load_hex(s32 fd, u64 pos, void *buffer, u64 readed)
+static int load_hex(s32 is_ntfs, s32 fd, u64 pos, void *buffer, u64 readed)
 {
     int ret;
     u64 temp = 0;
@@ -1169,8 +1529,9 @@ static int load_hex(s32 fd, u64 pos, void *buffer, u64 readed)
         
         return ret;
     }
-
-    ret= sysLv2FsLSeek64(fd, pos, 0, &temp);
+    
+    if(is_ntfs) {temp = ps3ntfs_seek64(fd, pos, 0); if(temp < 0) ret = -1; else ret = 0;}
+    else ret= sysLv2FsLSeek64(fd, pos, 0, &temp);
 
     if(ret < 0 || pos != temp) {
         if(ret == 0) ret = (int) 0x8001001E;
@@ -1180,7 +1541,10 @@ static int load_hex(s32 fd, u64 pos, void *buffer, u64 readed)
     } else {
 
         temp = 0;
-        ret = sysLv2FsRead(fd, buffer, readed, &temp);
+        if(is_ntfs)
+            {ret = ps3ntfs_read(fd, buffer, readed); temp = (u64) ret; if(ret>0) ret = 0;}
+        else
+            ret = sysLv2FsRead(fd, buffer, readed, &temp);
         if(ret < 0 || readed != temp) {
             if(ret == 0) ret = (int) 0x8001002B;
             sprintf(temp_buffer + 3072, "Read Error: 0x%08x\n\n%s", ret, getlv2error(ret));
@@ -1192,7 +1556,7 @@ static int load_hex(s32 fd, u64 pos, void *buffer, u64 readed)
     return ret;
 }
 
-static int save_hex(s32 fd, u64 pos, void *buffer, u64 readed)
+static int save_hex(s32 is_ntfs, s32 fd, u64 pos, void *buffer, u64 readed)
 {
     int ret;
     u64 temp = 0;
@@ -1220,7 +1584,8 @@ static int save_hex(s32 fd, u64 pos, void *buffer, u64 readed)
         return ret;
     } 
 
-    ret= sysLv2FsLSeek64(fd, pos, 0, &temp);
+    if(is_ntfs) {temp = ps3ntfs_seek64(fd, pos, 0); if(temp < 0) ret = -1; else ret = 0;}
+    else ret= sysLv2FsLSeek64(fd, pos, 0, &temp);
 
     if(ret < 0 || pos != temp) {
         if(ret == 0) ret = (int) 0x8001001E;
@@ -1230,7 +1595,10 @@ static int save_hex(s32 fd, u64 pos, void *buffer, u64 readed)
     } else {
 
         temp = 0;
-        ret = sysLv2FsWrite(fd, buffer, readed, &temp);
+        if(is_ntfs)
+            {ret = ps3ntfs_write(fd, buffer, readed); temp = (u64) ret; if(ret>0) ret = 0;}
+        else
+            ret = sysLv2FsWrite(fd, buffer, readed, &temp);
         if(ret < 0 || readed != temp) {
             if(ret == 0) ret = (int) 0x8001002B;
             sprintf(temp_buffer + 3072, "Write Error: 0x%08x\n\n%s", ret, getlv2error(ret));
@@ -1260,7 +1628,7 @@ char a, b;
 }
 static int find_mode = 0; 
 
-static int find_in_file(s32 fd, u64 pos, u64 size, u64 *finded, void * str, int len, int s)
+static int find_in_file(s32 is_ntfs, s32 fd, u64 pos, u64 size, u64 *finded, void * str, int len, int s)
 {
 
     u64 temp;
@@ -1292,8 +1660,10 @@ static int find_in_file(s32 fd, u64 pos, u64 size, u64 *finded, void * str, int 
             if(fd == FD_LV1) {if(begin_lv1 > pos) ret=(int) 0x8001001E; if(pos >= size_lv1) temp = 0; else  temp = pos;}
             if(fd == FD_LV2) {if(begin_lv2 > pos) ret=(int) 0x8001001E; if(pos >= size_lv2) temp = 0; else  temp = pos;}
    
-        } else
-            ret= sysLv2FsLSeek64(fd, pos, 0, &temp);
+        } else {
+            if(is_ntfs) {temp = ps3ntfs_seek64(fd, pos, 0); if(temp < 0) ret = -1; else ret = 0;}
+            else ret= sysLv2FsLSeek64(fd, pos, 0, &temp);
+        }
 
         if(ret < 0 || pos != temp) {
             if(ret == 0) ret = (int) 0x8001001E;
@@ -1315,9 +1685,12 @@ static int find_in_file(s32 fd, u64 pos, u64 size, u64 *finded, void * str, int 
            
             ret = read_LV2(pos, mem, (int) readed);
             temp = readed;
-        } else
-        
-            ret=sysLv2FsRead(fd, mem, readed, &temp);
+        } else {
+            if(is_ntfs)
+                {ret = ps3ntfs_read(fd, mem, readed); temp = (u64) ret; if(ret>0) ret = 0;}
+            else
+                ret=sysLv2FsRead(fd, mem, readed, &temp);
+        }
         
         if(ret < 0 || readed != temp) {
             if(ret == 0) ret = 0x8001000C; 
@@ -1483,24 +1856,37 @@ void hex_editor(char *path)
     static u8 find[512];
     int find_len = 4;
 
+    int is_ntfs = 0;
+
     mark_flag = 0;
     mark_ini = 0ULL;
     mark_len = 0x0;
 
     sysFSStat stat1;
+    struct stat st;
 
     memset((char *) find, 0, 512);
 
     if(hex_mode == 0) {
+
+        if(!strncmp(path, "/ntfs", 5)) is_ntfs = 1;
     
-        if(sysLv2FsStat(path, &stat1)<0) return;
+        if(!is_ntfs) {if(sysLv2FsStat(path, &stat1)<0) return;}
+        else if(ps3ntfs_stat(path, &st)<0) return;
+        else stat1.st_size = st.st_size;
 
         if(stat1.st_size == 0ULL) return; // ignore zero files
 
-        ret = sysLv2FsOpen(path, SYS_O_RDWR, &fd, S_IRWXU | S_IRWXG | S_IRWXO, NULL, 0);
-        if(ret < 0) {
-            read_only = 1;
-            ret = sysLv2FsOpen(path, 0, &fd, S_IRWXU | S_IRWXG | S_IRWXO, NULL, 0);
+        if(!is_ntfs) {
+            ret = sysLv2FsOpen(path, SYS_O_RDWR, &fd, S_IRWXU | S_IRWXG | S_IRWXO, NULL, 0);
+            if(ret < 0) {
+                read_only = 1;
+                ret = sysLv2FsOpen(path, 0, &fd, S_IRWXU | S_IRWXG | S_IRWXO, NULL, 0);
+            }
+        } else {
+            fd = ps3ntfs_open(path, O_RDWR, 0);
+            if(fd < 0) {fd = ps3ntfs_open(path, O_RDONLY, 0);read_only = 1;}
+            if(fd < 0) ret = -1; else ret = 0;
         }
 
         if(ret < 0) return;
@@ -1525,8 +1911,11 @@ read_file:
         if(fd == FD_LV1) {if(begin_lv1 > pos) ret=(int) 0x8001001E; if(pos >= size_lv1) temp = 0; else  temp = pos;}
         if(fd == FD_LV2) {if(begin_lv2 > pos) ret=(int) 0x8001001E; if(pos >= size_lv2) temp = 0; else  temp = pos;}
  
-    } else
-        ret= sysLv2FsLSeek64(fd, pos, 0, &temp);
+    } else {
+        if(is_ntfs) {temp = ps3ntfs_seek64(fd, pos, 0); if(temp < 0) ret = -1; else ret = 0; }
+        else
+            ret= sysLv2FsLSeek64(fd, pos, 0, &temp);
+    }
 
     if(ret < 0 || pos != temp) {
         if(ret == 0) ret = (int) 0x8001001E;
@@ -1548,8 +1937,12 @@ read_file:
            
             ret = read_LV2(pos, temp_buffer + 0x800, (int) readed);
             temp = readed;
-        } else
-            ret = sysLv2FsRead(fd, temp_buffer + 0x800, readed, &temp);
+        } else {
+            if(is_ntfs)
+                {ret = ps3ntfs_read(fd, temp_buffer + 0x800, readed); temp = (u64) ret; if(ret>0) ret = 0;}
+            else
+                ret = sysLv2FsRead(fd, temp_buffer + 0x800, readed, &temp);
+        }
         if(ret < 0 || readed != temp) {
             if(ret == 0) ret = (int) 0x8001002B;
             sprintf(temp_buffer + 3072, "Read Error: 0x%08x\n\n%s", ret, getlv2error(ret));
@@ -1670,7 +2063,6 @@ read_file:
 
             px= DrawFormatString(px, py, "%c", ch==0 ? '.' : (ch < 32 ? '?' : (char) ch));
        }
-
 
 
        py+= 16;
@@ -1805,7 +2197,7 @@ read_file:
     if(new_pad & BUTTON_TRIANGLE) {
 
         if(locked && DrawDialogYesNo("Save the changes?") == 1) {
-            save_hex(fd, pos, temp_buffer + 0x800, readed);
+            save_hex(is_ntfs, fd, pos, temp_buffer + 0x800, readed);
             memcpy(temp_buffer + 0xA00, temp_buffer + 0x800, 384);
             
         }
@@ -1837,7 +2229,7 @@ read_file:
     if((new_pad & BUTTON_R3) && find_len) {
 
         if(locked && DrawDialogYesNo("Save the changes?") == 1) {
-            save_hex(fd, pos, temp_buffer + 0x800, readed);
+            save_hex(is_ntfs, fd, pos, temp_buffer + 0x800, readed);
             memcpy(temp_buffer + 0xA00, temp_buffer + 0x800, 384);
             locked = 0;
         }
@@ -1846,7 +2238,7 @@ read_file:
 
             finded = pos + (u64) (e_y * 16 + (e_x>>1) + 1);
             if(finded >= stat1.st_size) finded = 0ULL;
-            find_in_file(fd, finded, stat1.st_size, &finded, find, find_len, 1);
+            find_in_file(is_ntfs, fd, finded, stat1.st_size, &finded, find, find_len, 1);
             
             function_menu = enable_menu = 0;
 
@@ -1866,7 +2258,7 @@ read_file:
     if((new_pad & BUTTON_L3) && find_len) {
 
         if(locked && DrawDialogYesNo("Save the changes?") == 1) {
-            save_hex(fd, pos, temp_buffer + 0x800, readed);
+            save_hex(is_ntfs, fd, pos, temp_buffer + 0x800, readed);
             memcpy(temp_buffer + 0xA00, temp_buffer + 0x800, 384);
             locked = 0;
         }
@@ -1875,7 +2267,7 @@ read_file:
            
             finded = pos + (u64) (e_y * 16 + (e_x>>1));
            
-            find_in_file(fd, finded, stat1.st_size, &finded, find, find_len, -1);
+            find_in_file(is_ntfs, fd, finded, stat1.st_size, &finded, find, find_len, -1);
             
             function_menu = enable_menu = 0;
 
@@ -1899,7 +2291,7 @@ read_file:
             e_y = 0;
 
             if(locked && DrawDialogYesNo("Save the changes?") == 1) {
-                save_hex(fd, pos, temp_buffer + 0x800, readed);
+                save_hex(is_ntfs, fd, pos, temp_buffer + 0x800, readed);
                 memcpy(temp_buffer + 0xA00, temp_buffer + 0x800, 384);
                 locked = 0;
             }
@@ -1924,7 +2316,7 @@ read_file:
             e_y = 23;
 
             if(locked && DrawDialogYesNo("Save the changes?") == 1) {
-                save_hex(fd, pos, temp_buffer + 0x800, readed);
+                save_hex(is_ntfs, fd, pos, temp_buffer + 0x800, readed);
                 memcpy(temp_buffer + 0xA00, temp_buffer + 0x800, 384);
                 locked = 0;
             }
@@ -1946,7 +2338,7 @@ read_file:
             if(e_y < 0) {
                 e_y = 0;
                 if(locked && DrawDialogYesNo("Save the changes?") == 1) {
-                    save_hex(fd, pos, temp_buffer + 0x800, readed);
+                    save_hex(is_ntfs, fd, pos, temp_buffer + 0x800, readed);
                     memcpy(temp_buffer + 0xA00, temp_buffer + 0x800, 384);
                     locked = 0;
                 }
@@ -1974,7 +2366,7 @@ read_file:
             if(e_y > 23) {
                 e_y = 23;
                 if(locked && DrawDialogYesNo("Save the changes?") == 1) {
-                    save_hex(fd, pos, temp_buffer + 0x800, readed);
+                    save_hex(is_ntfs, fd, pos, temp_buffer + 0x800, readed);
                     memcpy(temp_buffer + 0xA00, temp_buffer + 0x800, 384);
                     locked = 0;
                 }
@@ -1992,7 +2384,7 @@ read_file:
         u64 incre = 0x80ULL;
 
         if(locked && DrawDialogYesNo("Save the changes?") == 1) {
-            save_hex(fd, pos, temp_buffer + 0x800, readed);
+            save_hex(is_ntfs, fd, pos, temp_buffer + 0x800, readed);
             memcpy(temp_buffer + 0xA00, temp_buffer + 0x800, 384);
             locked = 0;
         }
@@ -2016,7 +2408,7 @@ read_file:
         u64 incre = 128ULL;
 
         if(locked && DrawDialogYesNo("Save the changes?") == 1) {
-            save_hex(fd, pos, temp_buffer + 0x800, readed);
+            save_hex(is_ntfs, fd, pos, temp_buffer + 0x800, readed);
             memcpy(temp_buffer + 0xA00, temp_buffer + 0x800, 384);
             locked = 0;
         }
@@ -2206,7 +2598,7 @@ read_file:
                 finded = pos + (u64) (e_y * 16 + (e_x>>1) + 1);
                 if(finded >= stat1.st_size) finded = 0ULL;
                 find_mode = 0;
-                find_in_file(fd, finded, stat1.st_size, &finded, find, find_len, 1);
+                find_in_file(is_ntfs, fd, finded, stat1.st_size, &finded, find, find_len, 1);
                 
                 function_menu = enable_menu = 0;
 
@@ -2260,7 +2652,7 @@ read_file:
                             finded = pos + (u64) (e_y * 16 + (e_x>>1) + 1);
                             if(finded >= stat1.st_size) finded = 0ULL;
                             find_mode = 1;
-                            find_in_file(fd, finded, stat1.st_size, &finded, find, find_len, 1);
+                            find_in_file(is_ntfs, fd, finded, stat1.st_size, &finded, find, find_len, 1);
                             
                             function_menu = enable_menu = 0;
 
@@ -2289,7 +2681,7 @@ read_file:
                             finded = pos + (u64) (e_y * 16 + (e_x>>1) + 1);
                             if(finded >= stat1.st_size) finded = 0ULL;
                             find_mode = 2;
-                            find_in_file(fd, finded, stat1.st_size, &finded, find, find_len, 1);
+                            find_in_file(is_ntfs, fd, finded, stat1.st_size, &finded, find, find_len, 1);
                             
                             function_menu = enable_menu = 0;
 
@@ -2318,7 +2710,7 @@ read_file:
                             finded = pos + (u64) (e_y * 16 + (e_x>>1) + 1);
                             if(finded >= stat1.st_size) finded = 0ULL;
                             find_mode = 0;
-                            find_in_file(fd, finded, stat1.st_size, &finded, find, find_len, 1);
+                            find_in_file(is_ntfs, fd, finded, stat1.st_size, &finded, find, find_len, 1);
                             
                             function_menu = enable_menu = 0;
 
@@ -2374,7 +2766,7 @@ read_file:
                         if(!copy_mem) DrawDialogOKTimer("Out of memory from copy function", 2000.0f);
                         else {copy_len = mark_len;
 
-                            if(load_hex(fd, mark_ini, copy_mem, mark_len)==0) {
+                            if(load_hex(is_ntfs, fd, mark_ini, copy_mem, mark_len)==0) {
                                 sprintf(temp_buffer + 3072, "Copied %d bytes", copy_len);
                                 DrawDialogOKTimer(temp_buffer + 3072, 2000.0f);
                             }
@@ -2408,7 +2800,7 @@ read_file:
                         if(DrawDialogYesNo(temp_buffer + 3072) == 1) {
                             int ret = 0;
                             
-                            ret = save_hex(fd, my_pos, copy_mem, my_len);
+                            ret = save_hex(is_ntfs, fd, my_pos, copy_mem, my_len);
 
                             if(ret == 0)
                                 sprintf(temp_buffer + 3072, "Writed %d bytes to the current position", my_len);
@@ -2449,7 +2841,7 @@ read_file:
         f_len = (find_len > 8) ? 16 : find_len * 2;
 
         if(enable_menu && locked && DrawDialogYesNo("Save the changes?") == 1) {
-            save_hex(fd, pos, temp_buffer + 0x800, readed);
+            save_hex(is_ntfs, fd, pos, temp_buffer + 0x800, readed);
             memcpy(temp_buffer + 0xA00, temp_buffer + 0x800, 384);
             locked = 0;
 
@@ -2463,7 +2855,12 @@ read_file:
 
     }
 
-    if(fd >=0) sysLv2FsClose(fd); fd = -1;
+    if(fd >=0) {
+        if(is_ntfs) ps3ntfs_close(fd); else  sysLv2FsClose(fd);
+    }
+    
+    fd = -1;
+
 }
 
 static char help1[]= {
@@ -2512,14 +2909,59 @@ void archive_manager()
 
     int dev_rewrite = 0;
 
+    int is_ntfs = 0;
+
     if(sysLv2FsStat("/dev_rewrite", &stat1)==0) dev_rewrite = 1;
 
+    int update_device1 = 0;
+    int update_device2 = 0;
 
     int n;
     while(1) {
 
     frame++;
 
+    // NTFS Automount
+    int i;
+    for(i = 0; i < 8 ; i++) {
+ 
+        int r = NTFS_Event_Mount(i);
+
+        if(r == 1) { // mount device
+            
+            if(mounts[i]) { // change to root if unmount the device
+                int k;
+                for (k = 0; k < mountCount[i]; k++) {
+                    if((mounts[i]+k)->name[0]) {
+                        if(!strncmp(&path1[1], (mounts[i]+k)->name, 5)) path1[1] = 0;
+                        if(!strncmp(&path2[1], (mounts[i]+k)->name, 5)) path2[1] = 0;
+                    }
+                }     
+            }
+
+            NTFS_UnMount(i);
+
+            mounts[i] = NULL;
+            mountCount[i] = 0;
+            mountCount[i] = ntfsMountDevice (disc_ntfs[i], &mounts[i], NTFS_DEFAULT | NTFS_RECOVER);
+        
+            
+        } else if(r == -1) { // unmount device
+            if(mounts[i]) { // change to root if unmount the device
+                int k;
+                for (k = 0; k < mountCount[i]; k++) {
+                    if((mounts[i]+k)->name[0]) {
+                        if(!strncmp(&path1[1], (mounts[i]+k)->name, 5)) path1[1] = 0;
+                        if(!strncmp(&path2[1], (mounts[i]+k)->name, 5)) path2[1] = 0;
+                    }
+                }     
+
+                NTFS_UnMount(i);
+            }  
+        }
+    }
+
+    // END NTFS Automount
 
     s32 fd;
 
@@ -2528,29 +2970,59 @@ void archive_manager()
 
     if(nentries1 && path1[1]!=0 && strcmp(entries1[sel1].d_name, "..")!=0) {
         sprintf(temp_buffer, "%s/%s", path1, entries1[sel1].d_name);
-        if(sysLv2FsStat(temp_buffer, &stat1)<0) stat1.st_mode = 0xffffffff;
+
+        if(!strncmp(temp_buffer, "/ntfs", 5)) {
+            struct stat fstat;
+            if(!ps3ntfs_stat(temp_buffer, &fstat)) 
+                {stat1.st_size = fstat.st_size;stat1.st_mode = (S_ISDIR(fstat.st_mode)) ? DT_DIR : 0;} 
+            else stat1.st_mode = 0xffffffff;
+        } else
+            if(sysLv2FsStat(temp_buffer, &stat1)<0) stat1.st_mode = 0xffffffff;
     }
 
     if(nentries2 && path2[1]!=0 && strcmp(entries2[sel2].d_name, "..")!=0) {
         sprintf(temp_buffer, "%s/%s", path2, entries2[sel2].d_name);
-        if(sysLv2FsStat(temp_buffer, &stat2)<0) stat2.st_mode = 0xffffffff;
+
+        if(!strncmp(temp_buffer, "/ntfs", 5)) {
+            struct stat fstat;
+            if(!ps3ntfs_stat(temp_buffer, &fstat)) 
+                {stat2.st_size = fstat.st_size;stat2.st_mode = (S_ISDIR(fstat.st_mode)) ? DT_DIR : 0;} 
+            else stat2.st_mode = 0xffffffff;
+        } else
+            if(sysLv2FsStat(temp_buffer, &stat2)<0) stat2.st_mode = 0xffffffff;
     }
 
     if(stat1.st_mode == 0xffffffff) free_device1 = 0ULL;
     if(stat2.st_mode == 0xffffffff) free_device2 = 0ULL;
 
-    if((!nentries1 || path1[1]==0) && sysLv2FsOpenDir(path1, &fd) == 0) {
+    is_ntfs = 0;
+
+    if(!strncmp(path1, "/ntfs", 5)) is_ntfs = 1;
+
+    DIR_ITER *pdir = NULL;
+    struct stat st;
+    int have_dot = 0;
+
+    if((!nentries1 || path1[1]==0) && ((!is_ntfs && sysLv2FsOpenDir(path1, &fd) == 0) 
+        || (is_ntfs && (pdir = ps3ntfs_diropen(path1)) != NULL))) {
 
         u64 read;
 
         int old_entries = nentries1;
         nentries1 = 0;
   
-        while(sysLv2FsReadDir(fd, &entries1[nentries1], &read) == 0 && read > 0) {
+        while((!is_ntfs && sysLv2FsReadDir(fd, &entries1[nentries1], &read) == 0 && read > 0)
+            || (is_ntfs && ps3ntfs_dirnext(pdir, entries1[nentries1].d_name, &st) == 0)) {
             
-
             if(nentries1 >= 2048) break;
+
+            if(is_ntfs) {
+                entries1[nentries1].d_type = (S_ISDIR(st.st_mode)) ? DT_DIR : 0;
+            }
+
             if(entries1[nentries1].d_name[0]=='.' && entries1[nentries1].d_name[1]==0) continue;
+
+            if(!strcmp(entries1[nentries1].d_name, "..")) have_dot = 1;
 
             if(entries1[nentries1].d_type & DT_DIR) {
                 entries1[nentries1].d_type = 1;
@@ -2569,26 +3041,63 @@ void archive_manager()
 
         }
 
-        sysLv2FsCloseDir(fd);
+        if(is_ntfs) ps3ntfs_dirclose(pdir); else sysLv2FsCloseDir(fd);
+
+        if(path1[1]==0) {  // NTFS devices
+            int k;
+
+            for(k = 0; k < 8; k++) {
+                for (i = 0; i < mountCount[k]; i++) {
+                    if(nentries1 >= 2048) break;
+                    if((mounts[k]+i)->name[0]) {
+                        entries1[nentries1].d_type = 1;
+                        sprintf(entries1[nentries1].d_name, "%s:", (mounts[k]+i)->name);
+                       
+                        nentries1++;
+                    }
+
+                }
+            }
+        }
+
+        if(path1[1]!=0 && !have_dot) {
+            entries1[nentries1].d_type = 1;
+            sprintf(entries1[nentries1].d_name, "..");
+            nentries1++;
+        }
 
         if(old_entries > nentries1) pos1 = sel1 = 0;
 
         qsort(entries1, nentries1, sizeof(sysFSDirent), entry_compare);
+        update_device1 = 1;
     }
 
+    
 
-    if((!nentries2 || path2[1]==0) && sysLv2FsOpenDir(path2, &fd) == 0) {
+    is_ntfs = 0;if(!strncmp(path2, "/ntfs", 5)) is_ntfs = 1;
+
+    have_dot = 0;
+
+    if((!nentries2 || path2[1]==0) && ((!is_ntfs && sysLv2FsOpenDir(path2, &fd) == 0) 
+        || (is_ntfs && (pdir = ps3ntfs_diropen(path2)) != NULL))) {
 
         u64 read;
 
         int old_entries = nentries2;
         nentries2 = 0;
-  
-        while(sysLv2FsReadDir(fd, &entries2[nentries2], &read) == 0 && read > 0) {
-            
 
+        while((!is_ntfs && sysLv2FsReadDir(fd, &entries2[nentries2], &read) == 0 && read > 0)
+            || (is_ntfs && ps3ntfs_dirnext(pdir, entries2[nentries2].d_name, &st) == 0)) {
+  
             if(nentries2 >= 2048) break;
+
+            if(is_ntfs) {
+                entries2[nentries2].d_type = (S_ISDIR(st.st_mode)) ? DT_DIR : 0;
+            }
+
             if(entries2[nentries2].d_name[0]=='.' && entries2[nentries2].d_name[1]==0) continue;
+
+            if(!strcmp(entries2[nentries2].d_name, "..")) have_dot = 1;
 
             if(entries2[nentries2].d_type & DT_DIR) {
                 entries2[nentries2].d_type = 1;
@@ -2607,11 +3116,35 @@ void archive_manager()
 
         }
 
-        sysLv2FsCloseDir(fd);
+        if(is_ntfs) ps3ntfs_dirclose(pdir); else sysLv2FsCloseDir(fd);
+
+        if(path2[1]==0) { // NTFS devices
+            int k;
+
+            for(k = 0; k < 8; k++) {
+                for (i = 0; i < mountCount[k]; i++) {
+                    if(nentries2 >= 2048) break;
+                    if((mounts[k]+i)->name[0]) {
+                        entries2[nentries2].d_type = 1;
+                        sprintf(entries2[nentries2].d_name, "%s:", (mounts[k]+i)->name);
+                       
+                        nentries2++;
+                    }
+                }
+            }
+        }
+
+        if(path2[1]!=0 && !have_dot) {
+            entries2[nentries2].d_type = 1;
+            sprintf(entries2[nentries2].d_name, "..");
+            nentries2++;
+        }
+
 
         if(old_entries > nentries2) pos2 = sel2 = 0;
 
         qsort(entries2, nentries2, sizeof(sysFSDirent), entry_compare);
+        update_device2 = 1;
     }
 
 
@@ -2624,36 +3157,72 @@ void archive_manager()
     
     if(nentries1 && path1[1]!=0) {
         u32 blockSize;
-        u64 freeSize;
+        static u64 freeSize = 0;
         int n;
 
-        n=1;while(path1[n]!='/' && path1[n]!=0) n++;
+        if(!update_device1) {
+            free_device1 = freeSize;
+        } else {
 
-        memcpy(temp_buffer, path1, n);
-        temp_buffer[n]='/';
-        temp_buffer[n + 1]=0;
+            n=1;while(path1[n]!='/' && path1[n]!=0) n++;
 
-        
-        sysFsGetFreeSize(temp_buffer, &blockSize, &freeSize);
-        free_device1 = ( ((u64)blockSize * freeSize));
+            memcpy(temp_buffer, path1, n);
+            temp_buffer[n]='/';
+            temp_buffer[n + 1]=0;
+
+            is_ntfs = 0; if(!strncmp(temp_buffer, "/ntfs", 5)) is_ntfs = 1;
+
+            if(!is_ntfs) {
+                sysFsGetFreeSize(temp_buffer, &blockSize, &freeSize);
+                free_device1 = ( ((u64)blockSize * freeSize));
+            } else {
+                struct statvfs vfs;
+                ps3ntfs_statvfs(temp_buffer, &vfs);
+
+                free_device1 = ( ((u64)vfs.f_bsize * vfs.f_bfree));
+                
+            }
+
+           freeSize =free_device1;
+
+        }
+
+        update_device1 = 0;
          
     }
 
     if(nentries2 && path2[1]!=0) {
         u32 blockSize;
-        u64 freeSize;
+        static u64 freeSize = 0;
         int n;
 
-        n=1;while(path2[n]!='/' && path2[n]!=0) n++;
+        if(!update_device2) {
+            free_device2 = freeSize;
+        } else {
 
-        memcpy(temp_buffer, path2, n);
-        temp_buffer[n]='/';
-        temp_buffer[n + 1]=0;
+            n=1;while(path2[n]!='/' && path2[n]!=0) n++;
 
+            memcpy(temp_buffer, path2, n);
+            temp_buffer[n]='/';
+            temp_buffer[n + 1]=0;
+
+            is_ntfs = 0; if(!strncmp(temp_buffer, "/ntfs", 5)) is_ntfs = 1;
+
+            if(!is_ntfs) {
+                sysFsGetFreeSize(temp_buffer, &blockSize, &freeSize);
+                free_device2 = ( ((u64)blockSize * freeSize));
+            } else {
+                struct statvfs vfs;
+                ps3ntfs_statvfs(temp_buffer, &vfs);
+
+                free_device2 = ( ((u64)vfs.f_bsize * vfs.f_bfree));
+                
+            }
+
+            freeSize = free_device2;
+        }
         
-        sysFsGetFreeSize(temp_buffer, &blockSize, &freeSize);
-        free_device2 = ( ((u64)blockSize * freeSize));
-         
+        update_device2 = 0;
     }
 
     DrawBox(0, 0, 0, 816, 32,0x20a0a8ff);
@@ -2746,12 +3315,18 @@ void archive_manager()
 
             set_ttf_window(24, 32, 848 - (dx + 24), 256 - 32, 0);
 
-            display_ttf_string(0, py, (char *) entries1[pos1 + n].d_name, color, 0, 16, 24);
+            int dxx = display_ttf_string(0, py, (char *) entries1[pos1 + n].d_name, color, 0, 16, 24);
+            if(path1[1]== 0 && !strncmp( (char *) entries1[pos1 + n].d_name, "ntfs", 4)) {
+                sprintf(temp_buffer + 1024, " (USB_00%i) Press SQUARE to Unmount USB device",
+                    NTFS_Test_Device((char *) entries1[pos1 + n].d_name));
+                display_ttf_string(dxx, py, temp_buffer + 1024, 0x8f8f00ff, 0, 16, 24);
+            }
 
             if(sel1 == (pos1 + n) && stat1.st_mode != 0xffffffff) {
 
                 set_ttf_window(848 - dx, 32, dx, 256 - 32, 0);
                 display_ttf_string(0, py, (char *) temp_buffer, 0xffffffff, 0, 8, 24);
+                
             }
 
             py+= 24;
@@ -2814,7 +3389,13 @@ void archive_manager()
 
             set_ttf_window(24, 256 + 32, 848 - (dx + 24), 256 - 32, 0);
 
-            display_ttf_string(0, py, (char *) entries2[pos2 + n].d_name, color, 0, 16, 24);
+            int dxx = display_ttf_string(0, py, (char *) entries2[pos2 + n].d_name, color, 0, 16, 24);
+            
+            if(path2[1]== 0 && !strncmp( (char *) entries2[pos2 + n].d_name, "ntfs", 4)) {
+                 sprintf(temp_buffer + 1024, " (USB_00%i) Press SQUARE to Unmount USB device",
+                    NTFS_Test_Device((char *) entries2[pos2 + n].d_name));
+                display_ttf_string(dxx, py, temp_buffer + 1024, 0x8f8f00ff, 0, 16, 24);
+            }
 
             if(sel2 == (pos2 + n) && stat2.st_mode != 0xffffffff) {
 
@@ -2831,9 +3412,9 @@ void archive_manager()
     if(set_menu2) {
         int py = 0;
         
-        DrawBox((848 - 224)/2, (512 - 296)/2, 0, 224, 296, 0x602060ff);
-        DrawBox((848 - 216)/2, (512 - 288)/2, 0, 216, 288, 0x802080ff);
-        set_ttf_window((848 - 200)/2, (512 - 288)/2, 200, 288, 0);
+        DrawBox((848 - 224)/2, (512 - 320)/2, 0, 224, 320, 0x602060ff);
+        DrawBox((848 - 216)/2, (512 - 312)/2, 0, 216, 312, 0x802080ff);
+        set_ttf_window((848 - 200)/2, (512 - 312)/2, 200, 312, 0);
 
         display_ttf_string(0, py, "New Folder", (set_menu2==1  && (frame & 16)) ? 0 : 0xffffffff, 0, 16, 24); py+= 24;
 
@@ -2857,7 +3438,9 @@ void archive_manager()
 
         display_ttf_string(0, py, "Paste to New File", (set_menu2==11  && (frame & 16)) ? 0 : 0xffffffff, 0, 16, 24); py+= 24;
 
-        display_ttf_string(0, py, "Exit", (set_menu2==12  && (frame & 16)) ? 0 : 0xffffffff, 0, 16, 24); py+= 24;
+        display_ttf_string(0, py, "Get file/folder Info", (set_menu2==12  && (frame & 16)) ? 0 : 0xffffffff, 0, 16, 24); py+= 24;
+
+        display_ttf_string(0, py, "Exit", (set_menu2==13  && (frame & 16)) ? 0 : 0xffffffff, 0, 16, 24); py+= 24;
 
     
     }
@@ -2896,11 +3479,11 @@ void archive_manager()
         if(new_pad & BUTTON_UP) {
 
         
-            if(set_menu2 > 1) set_menu2--;  else {set_menu2 = 12;} 
+            if(set_menu2 > 1) set_menu2--;  else {set_menu2 = 13;} 
         }
     
         if(new_pad & BUTTON_DOWN) {
-            if(set_menu2 < 12) set_menu2++;  else {set_menu2 = 1;}
+            if(set_menu2 < 13) set_menu2++;  else {set_menu2 = 1;}
         }
 
 
@@ -2925,7 +3508,13 @@ void archive_manager()
                         sprintf(temp_buffer, "%s/%s", path2, buffer1);
                      }
 
-                     int ret= sysLv2FsMkdir(temp_buffer, 0777);
+                     int ret;
+
+                     if(!strncmp(temp_buffer, "/ntfs", 5)) 
+                         ret= ps3ntfs_mkdir(temp_buffer, 0777);
+                     else
+                         ret= sysLv2FsMkdir(temp_buffer, 0777);
+
                      if(ret<0) {
                         sprintf(temp_buffer, "New folder error: 0x%08x\n\n%s", ret, getlv2error(ret));
                         DrawDialogOK(temp_buffer);
@@ -2965,7 +3554,12 @@ void archive_manager()
                         sprintf(temp_buffer + 2048, "%s/%s", path2, buffer1);
                      }
 
-                     int ret= sysLv2FsRename(temp_buffer, temp_buffer  + 2048);
+                     int ret;
+
+                     if(!strncmp(temp_buffer, "/ntfs", 5))
+                         ret = ps3ntfs_rename(temp_buffer, temp_buffer  + 2048);
+                     else ret = sysLv2FsRename(temp_buffer, temp_buffer  + 2048);
+
                      if(ret<0) {
                         sprintf(temp_buffer, "Rename error: 0x%08x\n\n%s", ret, getlv2error(ret));
                         DrawDialogOK(temp_buffer);
@@ -3030,10 +3624,12 @@ void archive_manager()
 
                         if(entries[n].d_type & 1) {
                             DeleteDirectory(temp_buffer);
-                            ret = rmdir_secure(temp_buffer);
+                            if(!strncmp(temp_buffer, "/ntfs", 5)) ret = ps3ntfs_unlink(temp_buffer);
+                            else ret = rmdir_secure(temp_buffer);
        
                         } else {
-                            ret = unlink_secure(temp_buffer); 
+                            if(!strncmp(temp_buffer, "/ntfs", 5)) ret = ps3ntfs_unlink(temp_buffer);
+                            else ret = unlink_secure(temp_buffer); 
                         }
 
                         if(ret<0) break;
@@ -3060,10 +3656,12 @@ void archive_manager()
 
                     if(entries[sel].d_type & 1) {
                         DeleteDirectory(temp_buffer);
-                        ret = rmdir_secure(temp_buffer);
+                        if(!strncmp(temp_buffer, "/ntfs", 5)) ret = ps3ntfs_unlink(temp_buffer);
+                            else ret = rmdir_secure(temp_buffer);
 
                     } else {
-                        ret = unlink_secure(temp_buffer);
+                        if(!strncmp(temp_buffer, "/ntfs", 5)) ret = ps3ntfs_unlink(temp_buffer);
+                            else ret = unlink_secure(temp_buffer); 
                     }
 
 
@@ -3262,11 +3860,20 @@ void archive_manager()
                      }
                      
                      s32 fd = -1;
-                     int ret = sysLv2FsOpen(temp_buffer, SYS_O_WRONLY | SYS_O_CREAT | SYS_O_TRUNC, &fd, 0777, NULL, 0);
+
+                     int ret;
+
+                     is_ntfs = 0; if(!strncmp(temp_buffer, "/ntfs", 5)) is_ntfs = 1;
+
+                     if(is_ntfs) {fd = ps3ntfs_open(temp_buffer, O_WRONLY | O_CREAT | O_TRUNC, 0);if(fd < 0) ret = -1; else ret = 0;}
+                     else
+                        ret = sysLv2FsOpen(temp_buffer, SYS_O_WRONLY | SYS_O_CREAT | SYS_O_TRUNC, &fd, 0777, NULL, 0);
 
                      if(ret == 0 && fd>=0) {
-                        sysLv2FsChmod(temp_buffer, FS_S_IFMT | 0777);
-                        ret = save_hex(fd, 0LL, copy_mem, copy_len);
+                        if(!is_ntfs) sysLv2FsChmod(temp_buffer, FS_S_IFMT | 0777);
+                        ret = save_hex(is_ntfs, fd, 0LL, copy_mem, copy_len);
+                        if(fd>=0) {if(is_ntfs) ps3ntfs_close(fd); else sysLv2FsClose(fd);}
+
                      }
 
                      if(ret<0) {
@@ -3287,6 +3894,39 @@ void archive_manager()
 
             set_menu2 = 0;
         }// Paste to New File
+        else if(set_menu2==12) { // Getfile / folder info
+                int nfiles = 0;
+                u64 size = 0ULL;
+
+                set_menu2 = 0;
+                
+                if(!archive_manager) {
+                    sprintf(temp_buffer, "%s/%s", path1, entries1[sel1].d_name);
+                } else {
+                    sprintf(temp_buffer, "%s/%s", path2, entries2[sel2].d_name);
+                }
+
+                if(((!archive_manager && path1[1]!=0 && strcmp(entries1[sel1].d_name, "..")) ||
+                     (archive_manager && path2[1]!=0 && strcmp(entries2[sel2].d_name, "..")))
+                    ) {
+
+                    CountFiles(temp_buffer, &nfiles, &size);
+
+                    if(!((!archive_manager && (entries1[sel1].d_type & 1)) || (archive_manager && (entries2[sel2].d_type & 1)))) nfiles = 1;
+
+                    if(size < 1024LL) {
+                        sprintf(temp_buffer, "Number of Files %i\nTotal Size: %i Bytes", nfiles, (int) size);
+                        }
+                    else
+                        if(size < 0x100000LL) {
+                            sprintf(temp_buffer, "Number of Files %i\nTotal Size: %i KB", nfiles, (int) (size  / 1024LL));
+                        } else if(size < 0x40000000LL){
+                            sprintf(temp_buffer, "Number of Files %i\nTotal Size: %i MiB", nfiles, (int) (size / 0x100000LL));
+                        } else sprintf(temp_buffer, "Number of Files %i\nTotal Size: %1.2f GiB", nfiles, ((double) size) / (1024.0 * 1024. * 1024.0));
+
+                    DrawDialogOK(temp_buffer);
+                }
+        } // Getfile / folder info
         else set_menu2 = 0;
     } 
     skip_menu2:
@@ -3337,8 +3977,12 @@ void archive_manager()
 
                     if(n==0) {path1[n] = '/';path1[n+1] = 0;} else path1[n] = 0;
 
-                    if(sysLv2FsOpenDir(path1, &fd) == 0) {
+                    is_ntfs = 0; if(!strncmp(path1, "/ntfs", 5)) is_ntfs = 1;
+
+                    if(!is_ntfs && sysLv2FsOpenDir(path1, &fd) == 0) {
                         sysLv2FsCloseDir(fd);
+                    } else if(is_ntfs && (pdir = ps3ntfs_diropen(path1))!=NULL) {
+                        ps3ntfs_dirclose(pdir);
                     } else path1[1] = 0; // to root
 
                     nentries1 = 0;
@@ -3349,9 +3993,14 @@ void archive_manager()
                         strcat(path1, "/");
                     strcat(path1, entries1[sel1].d_name);
 
-                    if(sysLv2FsOpenDir(path1, &fd) == 0) {
+                    is_ntfs = 0; if(!strncmp(path1, "/ntfs", 5)) is_ntfs = 1;
+
+                    if(!is_ntfs && sysLv2FsOpenDir(path1, &fd) == 0) {
                         nentries1 = 0;
                         sysLv2FsCloseDir(fd);
+                    } else if(is_ntfs && (pdir = ps3ntfs_diropen(path1))!=NULL) {
+                        nentries1 = 0;
+                        ps3ntfs_dirclose(pdir);   
                     } else path1[n] = 0;
                     
 
@@ -3363,9 +4012,9 @@ void archive_manager()
                 char *ext =get_extension(entries1[sel1].d_name);
 
                 if(!(entries1[sel1].d_type & 2) && (!strcmp(ext, ".pkg") || !strcmp(ext, ".PKG"))) {
-            
+
                     install_pkg(path1, entries1[sel1].d_name);
-                } else if(!(entries1[sel1].d_type & 2) && (!strcmp(ext, ".self") || !strcmp(ext, ".SELF"))) {
+                } else if(!(entries1[sel1].d_type & 2) && (!strcmp(ext, ".self") || !strcmp(ext, ".SELF")) && strncmp(path1, "/ntfs", 5)) {
 
                     void fun_exit();
 
@@ -3383,7 +4032,7 @@ void archive_manager()
 
         if(new_pad & BUTTON_CIRCLE) { // select one file/folder
 
-            if(path1[1]!=0 && strcmp(entries1[sel1].d_name,"..")) entries1[sel1].d_type^=2;
+            if(path1[1]!=0 && strcmp(entries1[sel1].d_name,"..")) entries1[sel1].d_type^=2;   
             
         } // circle
 
@@ -3394,6 +4043,24 @@ void archive_manager()
             if(path1[1]!=0) { // select all files/folders
                 for(n = 0; n< nentries1; n++)
                     if(strcmp(entries1[n].d_name,"..")) entries1[n].d_type = (entries1[n].d_type & ~2) | flag;
+            } else {
+                if(!strncmp((char *) entries1[sel1].d_name, "ntfs", 4)) {
+                    sprintf(temp_buffer, "Unmount USB00%i devices?", NTFS_Test_Device(entries1[sel1].d_name));
+                    if(DrawDialogYesNo(temp_buffer) == 1) {
+                            int i = NTFS_Test_Device(entries1[sel1].d_name);
+                            if(mounts[i]) { // change to root if unmount the device
+                                int k;
+                                for (k = 0; k < mountCount[i]; k++) {
+                                    if((mounts[i]+k)->name[0]) {
+                                        if(!strncmp(&path1[1], (mounts[i]+k)->name, 5)) path1[1] = 0;
+                                        if(!strncmp(&path2[1], (mounts[i]+k)->name, 5)) path2[1] = 0;
+                                    }
+                                }     
+                            }
+                        
+                            NTFS_UnMount(i);
+                    }
+                }
             }
             
         } // square
@@ -3447,8 +4114,12 @@ void archive_manager()
 
                     if(n==0) {path2[n] = '/';path2[n+1] = 0;} else path2[n] = 0;
 
-                    if(sysLv2FsOpenDir(path2, &fd) == 0) {
+                    is_ntfs = 0; if(!strncmp(path2, "/ntfs", 5)) is_ntfs = 1;
+
+                    if(!is_ntfs && sysLv2FsOpenDir(path2, &fd) == 0) {
                         sysLv2FsCloseDir(fd);
+                    } else if(is_ntfs && (pdir = ps3ntfs_diropen(path2))!=NULL) {
+                        ps3ntfs_dirclose(pdir);
                     } else path2[1] = 0; // to root
 
                     nentries2 = 0;
@@ -3459,12 +4130,16 @@ void archive_manager()
                         strcat(path2, "/");
                     strcat(path2, entries2[sel2].d_name);
 
-                    if(sysLv2FsOpenDir(path2, &fd) == 0) {
+                    is_ntfs = 0; if(!strncmp(path2, "/ntfs", 5)) is_ntfs = 1;
+
+                    if(!is_ntfs && sysLv2FsOpenDir(path2, &fd) == 0) {
                         nentries2 = 0;
                         sysLv2FsCloseDir(fd);
+                    } else if(is_ntfs && (pdir = ps3ntfs_diropen(path2))!=NULL) {
+                        nentries2 = 0;
+                        ps3ntfs_dirclose(pdir);
                     } else path2[n] = 0;
                     
-
 
                 }
                 pos2 = sel2 = 0;
@@ -3475,7 +4150,7 @@ void archive_manager()
                 if(!(entries2[sel2].d_type & 2) && (!strcmp(ext, ".pkg") || !strcmp(ext, ".PKG"))) {
             
                     install_pkg(path2, entries2[sel2].d_name);
-                } else if(!(entries2[sel2].d_type & 2) && (!strcmp(ext, ".self") || !strcmp(ext, ".SELF"))) {
+                } else if(!(entries2[sel2].d_type & 2) && (!strcmp(ext, ".self") || !strcmp(ext, ".SELF"))  && strncmp(path2, "/ntfs", 5)) {
 
                     void fun_exit();
 
@@ -3505,6 +4180,25 @@ void archive_manager()
             if(path2[1]!=0) { // select all files/folders
                 for(n = 0; n< nentries2; n++)
                     if(strcmp(entries2[n].d_name,"..")) entries2[n].d_type = (entries2[n].d_type & ~2) | flag;
+            } else {
+                if(!strncmp((char *) entries2[sel2].d_name, "ntfs", 4)) {
+                    sprintf(temp_buffer, "Unmount USB00%i devices?", NTFS_Test_Device(entries2[sel2].d_name));
+                    if(DrawDialogYesNo(temp_buffer) == 1) {
+                                int i = NTFS_Test_Device(entries2[sel2].d_name);
+                                if(mounts[i]) { // change to root if unmount the device
+                                    int k;
+                                    for (k = 0; k < mountCount[i]; k++) {
+                                        if((mounts[i]+k)->name[0]) {
+                                            if(!strncmp(&path1[1], (mounts[i]+k)->name, 5)) path1[1] = 0;
+                                            if(!strncmp(&path2[1], (mounts[i]+k)->name, 5)) path2[1] = 0;
+                                        }
+                                    }     
+                                }
+                            
+                                NTFS_UnMount(i);
+                        }
+               
+                }
             }
             
         } // square

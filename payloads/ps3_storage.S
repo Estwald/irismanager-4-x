@@ -690,6 +690,13 @@ sys609:  //  sys_storage_get_device_info
     mr      %r26, %r3
     mr      %r27, %r4
 
+    lhz     %r0, 16(%r4) // hack to use from Iris Manager
+    cmplwi  %r0, 0x1234          
+    bne     1f
+    lhz     %r0, 18(%r4) 
+    cmplwi  %r0, 0x5678          
+    beq     sys609_call
+1:
     lwz     %r0, enable_mode@l(%r31) 
     cmpldi  %r0, 2                   // only works with mode 2
     bne     sys609_call
