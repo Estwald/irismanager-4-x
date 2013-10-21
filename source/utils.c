@@ -3840,7 +3840,7 @@ void reverse_strings(u8 *str)
                 }
             } else {
 
-                // donŽt reverse words with symbols from 32 to 127 UTF8
+                // dont reverse words with symbols from 32 to 127 UTF8
                 int s;
                 m= 0;
                 while((m+n) < (len2 + 1) && (string_buffer[len2 - n - m] & 0xff) > 32
