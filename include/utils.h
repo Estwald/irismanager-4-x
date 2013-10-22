@@ -61,6 +61,8 @@ typedef struct {
 #define GAMEBASE_MODE 0
 #define HOMEBREW_MODE 2
 
+//#define PSDEBUG 1
+
 extern int ndirectories;
 extern t_directories directories[MAX_DIRECTORIES];
 

@@ -54,11 +54,20 @@ void event_threads_init()
 
     init = 1;
 
-    int ret= sysEventQueueCreate(&evQ_sd, &evQAttr_sd, 0xAAAA4242, 16);
+#ifdef PSDEBUG
+    int ret= 
+#endif
+    sysEventQueueCreate(&evQ_sd, &evQAttr_sd, 0xAAAA4242, 16);
 
-    ret = sysEventPortCreate(&portId, 1, 0xAAAA4242);
+#ifdef PSDEBUG
+    ret = 
+#endif
+    sysEventPortCreate(&portId, 1, 0xAAAA4242);
 
-    ret = sysEventPortConnectLocal(portId, evQ_sd);
+#ifdef PSDEBUG
+    ret = 
+#endif
+    sysEventPortConnectLocal(portId, evQ_sd);
 
     sysThreadCreate(&thread_id, Event_thread, NULL, 992, 0x100000/4, THREAD_JOINABLE, "Event_thread");
 

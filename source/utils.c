@@ -2108,8 +2108,6 @@ static int my_game_test(char *path)
 					
             s64 size = 0LL;
 
-            int is_split = 0;
-
             if(!f) {DPrintf("malloc() Error!!!\n\n");abort_copy=2;closedir (dir);return -1;}
             sprintf(f,"%s/%s", path, entry->d_name);
 
@@ -2136,7 +2134,6 @@ static int my_game_test(char *path)
                 {
                     DPrintf("%s %lli MB %s\n\n", language[GLUTIL_SPLITFILE], size/0x100000LL, f);
                     num_files_split++;
-                    is_split = 1;
 
                     if(copy_split_to_cache && p[4] == '0' && p[5] == '0') 
                     {
@@ -2171,7 +2168,6 @@ static int my_game_test(char *path)
                 {
                     DPrintf("%s %lli MB %s\n\n", language[GLUTIL_SPLITFILE], size/0x100000LL, f);
                     num_files_split++;
-                    is_split = 1;
 
                     if(copy_split_to_cache && p[0] == '.' && p[1] == '1') 
                     {   num_files_split++;
@@ -2600,7 +2596,10 @@ void copy_from_selection(int game_sel)
 
     if(directories[game_sel].flags & 2048)  {copy_from_bluray();return;}
 
-    int n, ret;
+#ifdef PSDEBUG
+    int ret;
+#endif
+    int n;
     int curr_device = 0;
     char name[0x420];
     int dest = 0;
@@ -2633,7 +2632,7 @@ void copy_from_selection(int game_sel)
                     sprintf(filename, "%s\n\n%s HDD0 %s USB00%c?", directories[game_sel].title, language[GLUTIL_WANTCPYFROM], language[GLUTIL_WTO], 47 + n); 
                 }
 
-                ret = msgDialogOpen2( mdialogyesno, filename, my_dialog, (void*) 0x0000aaaa, NULL );
+                msgDialogOpen2( mdialogyesno, filename, my_dialog, (void*) 0x0000aaaa, NULL );
                 
                 wait_dialog();
                 
@@ -2664,7 +2663,7 @@ void copy_from_selection(int game_sel)
                
                 dialog_action = 0;
                 
-                ret = msgDialogOpen2( mdialogyesno2, filename, my_dialog, (void*) 0x0000aaaa, NULL);
+                msgDialogOpen2( mdialogyesno2, filename, my_dialog, (void*) 0x0000aaaa, NULL);
 
                 wait_dialog();
 
@@ -2718,7 +2717,7 @@ void copy_from_selection(int game_sel)
                         ((double) copy_total_size)/(1024.0*1024.*1024.0)); 
 
         dialog_action = 0;
-        ret = msgDialogOpen2( mdialogyesno, filename, my_dialog, (void*)0x0000aaaa, NULL );
+        msgDialogOpen2( mdialogyesno, filename, my_dialog, (void*)0x0000aaaa, NULL );
             
         wait_dialog();
 
@@ -2830,8 +2829,12 @@ void copy_from_selection(int game_sel)
             //DrawDialogOK(filename);
 
             // try rename
-            if(copy_is_split)
-            ret = sysLv2FsRename(name, filename);
+            if(copy_is_split) {
+            #ifdef PSDEBUG
+                ret = 
+            #endif
+                sysLv2FsRename(name, filename);
+            }
 
            
             if(dest != 0 && copy_is_split) {
@@ -2839,7 +2842,7 @@ void copy_from_selection(int game_sel)
             
                 dialog_action = 0;
 
-                ret = msgDialogOpen2( mdialogok, filename, my_dialog2, (void*) 0x0000aaab, NULL );
+                msgDialogOpen2( mdialogok, filename, my_dialog2, (void*) 0x0000aaab, NULL );
             
                 wait_dialog();
             }
@@ -2891,7 +2894,7 @@ void copy_from_selection(int game_sel)
 
             dialog_action = 0;
             
-            ret = msgDialogOpen2( mdialogyesno, filename, my_dialog, (void*) 0x0000aaaa, NULL );
+            msgDialogOpen2( mdialogyesno, filename, my_dialog, (void*) 0x0000aaaa, NULL );
                     
             wait_dialog();
 
@@ -2935,7 +2938,10 @@ void copy_from_selection(int game_sel)
                     sprintf(filename, "/dev_usb00%c/" __MKDEF_GAMES_DIR "/_%s", 47 + dest, p);
                 }
                     
-                ret = sysLv2FsRename(name, filename);
+                #ifdef PSDEBUG
+                ret = 
+                #endif
+                sysLv2FsRename(name, filename);
                 
             }
         }
@@ -2955,7 +2961,10 @@ void copy_from_bluray()
 
     char id[16];
     
-    int n, ret;
+    int n;
+#ifdef PSDEBUG
+    int ret;
+#endif
 
     dialog_action = 0;
     abort_copy = 0;
@@ -2971,7 +2980,7 @@ void copy_from_bluray()
             else sprintf(filename, "%s\n\n%s BDVD %s USB00%c?\nVol: %1.2f GB",  bluray_game, 
                             language[GLUTIL_WANTCPYFROM], language[GLUTIL_WTO], 47 + n, ((double) copy_total_size)/(1024.0*1024.*1024.0));
 
-            ret = msgDialogOpen2( mdialogyesno, filename, my_dialog, (void*) 0x0000aaaa, NULL);
+            msgDialogOpen2( mdialogyesno, filename, my_dialog, (void*) 0x0000aaaa, NULL);
             
             wait_dialog();
 
@@ -3021,7 +3030,7 @@ void copy_from_bluray()
 
                     dialog_action = 0;
 
-                    ret = msgDialogOpen2( mdialogyesno2, filename, my_dialog, (void*) 0x0000aaaa, NULL);
+                    msgDialogOpen2( mdialogyesno2, filename, my_dialog, (void*) 0x0000aaaa, NULL);
             
                     wait_dialog();
 
@@ -3102,7 +3111,10 @@ void copy_from_bluray()
                             sprintf(filename, "/dev_usb00%c/" __MKDEF_GAMES_DIR "/_%s", 47 + curr_device, id);
                     }
                         
-            ret = sysLv2FsRename(name, filename);
+            #ifdef PSDEBUG
+            ret = 
+            #endif
+            sysLv2FsRename(name, filename);
 
             if(curr_device == 0) 
                 sprintf(filename, language[GAMECPYSL_SPLITEDHDDNFO], id);
@@ -3110,7 +3122,7 @@ void copy_from_bluray()
                 sprintf(filename, language[GAMECPYSL_SPLITEDUSBNFO], id, 47 + curr_device);
 
             dialog_action = 0;
-            ret = msgDialogOpen2( mdialogok, filename, my_dialog2, (void*) 0x0000aaab, NULL );
+            msgDialogOpen2( mdialogok, filename, my_dialog2, (void*) 0x0000aaab, NULL );
             wait_dialog();
             
         }
@@ -3159,7 +3171,7 @@ void copy_from_bluray()
                 else sprintf(filename, "%s\n\n%s USB00%c?", id, language[GAMECPYSL_FAILDELDUMP], 47 + curr_device);
 
             dialog_action = 0;
-            ret = msgDialogOpen2(mdialogyesno, filename, my_dialog, (void*) 0x0000aaaa, NULL );
+            msgDialogOpen2(mdialogyesno, filename, my_dialog, (void*) 0x0000aaaa, NULL );
                     
             wait_dialog();
         
@@ -3185,7 +3197,10 @@ void copy_from_bluray()
                         sprintf(filename, "/dev_usb00%c/" __MKDEF_GAMES_DIR "/_%s", 47 + curr_device, id);
                     }
                     
-                ret = sysLv2FsRename(name, filename);
+                #ifdef PSDEBUG
+                ret = 
+                #endif
+                sysLv2FsRename(name, filename);
                 
                 }
             }
@@ -3203,7 +3218,7 @@ void copy_to_cache(int game_sel, char * hmanager_path)
     if(directories[game_sel].flags & 2048)  {return;}
     if(directories[game_sel].flags & 1)  {return;}
 
-    int n, ret;
+    int n;
 
     char name[0x420];
     char name2[0x420];
@@ -3224,7 +3239,7 @@ void copy_to_cache(int game_sel, char * hmanager_path)
     sprintf(filename, "%s\n\n%s USB00%c %s HDD0 CACHE?", directories[game_sel].title, language[GLUTIL_WANTCPYFROM], 47 + dest, language[GLUTIL_WTO]);
         
     dialog_action = 0;
-    ret = msgDialogOpen2( mdialogyesno, filename, my_dialog, (void*)0x0000aaaa, NULL );
+    msgDialogOpen2( mdialogyesno, filename, my_dialog, (void*)0x0000aaaa, NULL );
             
     wait_dialog();
 
@@ -3401,7 +3416,7 @@ void copy_to_cache(int game_sel, char * hmanager_path)
 
             dialog_action = 0;
             
-            ret = msgDialogOpen2( mdialogyesno, filename, my_dialog, (void*) 0x0000aaaa, NULL );
+            msgDialogOpen2( mdialogyesno, filename, my_dialog, (void*) 0x0000aaaa, NULL );
                     
             wait_dialog();
 
@@ -3433,7 +3448,7 @@ void copy_to_cache(int game_sel, char * hmanager_path)
 void delete_game(int game_sel)
 {
    
-    int n, ret;
+    int n;
 
     copy_split_to_cache = 0;
     
@@ -3450,7 +3465,7 @@ void delete_game(int game_sel)
 
     dialog_action = 0;
         
-    ret = msgDialogOpen2( mdialogyesno, filename, my_dialog, (void*) 0x0000aaaa, NULL );
+    msgDialogOpen2( mdialogyesno, filename, my_dialog, (void*) 0x0000aaaa, NULL );
          
     wait_dialog();
             
@@ -3825,7 +3840,7 @@ void reverse_strings(u8 *str)
                 }
             } else {
 
-                // don´t reverse words with symbols from 32 to 127 UTF8
+                // dont reverse words with symbols from 32 to 127 UTF8
                 int s;
                 m= 0;
                 while((m+n) < (len2 + 1) && (string_buffer[len2 - n - m] & 0xff) > 32
@@ -4555,14 +4570,8 @@ void copy_usb_to_iris(char * path)
         }
     } 
 
-    int ret;
- 
-    int dest = 0;
-
     dialog_action = 0;
     abort_copy = 0;
-
-    dest = 0;
 
     sprintf(filename, "/dev_usb/iris %s Iris Manager?\nVol: %1.2f MB", 
                         language[GLUTIL_WTO], 
@@ -4570,7 +4579,7 @@ void copy_usb_to_iris(char * path)
 
     dialog_action = 0;
     
-    ret = msgDialogOpen2( mdialogyesno, filename, my_dialog, (void*)0x0000aaaa, NULL );
+    msgDialogOpen2( mdialogyesno, filename, my_dialog, (void*)0x0000aaaa, NULL );
             
     wait_dialog();
 
