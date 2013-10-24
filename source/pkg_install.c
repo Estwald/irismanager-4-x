@@ -322,7 +322,7 @@ void install_pkg(char *path, char *filename)
     char string1[] = "80000000";
     int free_slot = -1;
 
-    int is_ntfs = 0; if(!strncmp(path, "/ntfs", 5)) is_ntfs = 1;
+    int is_ntfs = 0; if(!strncmp(path, "/ntfs", 5) || !strncmp(path, "/ext", 4)) is_ntfs = 1;
     
     if(firmware == 0x341C || firmware == 0x355C || firmware == 0x355D) use_folder =1;
 
@@ -695,7 +695,7 @@ int copy_async(char *path1, char *path2, u64 size, char *progress_string1, char 
     u64 pos = 0ULL;
     u64 pos2 = 0ULL;
 
-    int is_ntfs = 0; if(!strncmp(path1, "/ntfs", 5)) is_ntfs = 1;
+    int is_ntfs = 0; if(!strncmp(path1, "/ntfs", 5) || !strncmp(path1, "/ext", 4)) is_ntfs = 1;
     
     int alternate = 0;
     char *mem= malloc(0x20000);

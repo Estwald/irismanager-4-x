@@ -79,8 +79,8 @@ typedef struct DISC_INTERFACE_STRUCT DISC_INTERFACE;
 #define EHIBERNATED                     3003 /* Volume is hibernated and NTFS_IGNORE_HIBERFILE was not specified during mount */
 
 /* NTFS cache options */
-#define CACHE_DEFAULT_PAGE_COUNT        8   /* The default number of pages in the cache */
-#define CACHE_DEFAULT_PAGE_SIZE         128 /* The default number of sectors per cache page */
+#define CACHE_DEFAULT_PAGE_COUNT        128  /* The default number of pages in the cache */
+#define CACHE_DEFAULT_PAGE_SIZE         8    /* The default number of sectors per cache page */
 
 /* NTFS mount flags */
 #define NTFS_DEFAULT                    0x00000000 /* Standard mount, expects a clean, non-hibernated volume */

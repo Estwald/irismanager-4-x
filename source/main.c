@@ -6085,8 +6085,6 @@ int patch_bdvdemu(u32 flags)
 
 int move_origin_to_bdemubackup(char *path)
 {
-
-    
     if(strncmp(path, "/dev_usb00", 10) && strncmp(path, "/dev_hdd0", 9)) return 1;
     
     sprintf(temp_buffer, "%s/PS3_GAME/PS3PATH.BUP", path);
@@ -6115,7 +6113,50 @@ int move_origin_to_bdemubackup(char *path)
 
         return -1;
      }
+
+    // PS3_GM01
+
+    sprintf(temp_buffer, "%s/PS3_GM01/PS3PATH2.BUP", path);
+    sprintf(temp_buffer + 1024, "%s/PS3_GM01", path);
+
+    sysFSStat dstat;
+    if(sysLv2FsStat(temp_buffer + 1024, &dstat) != 0) {
+        
+        sprintf(temp_buffer, "%s/PS3_GAME/PS3PATH.BUP", path);
+
+        if(!strncmp(temp_buffer, "/dev_hdd0", 9)) strncpy(temp_buffer + 9, "/PS3_GAME", 16);
+        else
+            strncpy(temp_buffer + 11, "/PS3_GAME", 16);
+
+        goto skip1;
+    }
+
+    if(SaveFile(temp_buffer, temp_buffer + 1024, strlen(temp_buffer + 1024))!=0) {
+        
+        sprintf(temp_buffer + 1024, language[MOVEOBEMU_ERRSAVE], temp_buffer);
+        DrawDialogOK(temp_buffer + 1024);
+        
+        return -1;
+    }
     
+    if(!strncmp(temp_buffer, "/dev_hdd0", 9)) strncpy(temp_buffer + 9, "/PS3_GM01", 16);
+        else
+            strncpy(temp_buffer + 11, "/PS3_GM01", 16);
+
+    // sys8_perm_mode(1);
+    n= sysLv2FsRename(temp_buffer  + 1024, temp_buffer);
+    // sys8_perm_mode(0);
+
+    if(n != 0)  {
+        
+        sprintf(temp_buffer + 256, language[MOVEOBEMU_ERRMOVE], temp_buffer);
+        DrawDialogOK(temp_buffer + 256);
+
+        return -1;
+     }
+
+ skip1:
+     
     if(autolaunch < LAUCHMODE_STARTED) {
         sprintf(temp_buffer + 256, language[MOVEOBEMU_MOUNTOK], temp_buffer);
         DrawDialogOKTimer(temp_buffer + 256, 2000.0f);
@@ -6130,6 +6171,7 @@ int move_bdemubackup_to_origin(u32 flags)
     int usb = -1;
 
     static u32 olderrflags = 0;
+    static u32 olderrflags2 = 0;
 
     flags&= GAMELIST_FILTER;
   
@@ -6151,9 +6193,67 @@ int move_bdemubackup_to_origin(u32 flags)
 
     int file_size;
     char *file;
+    int ret = 0;
 
     sysFSStat dstat;
-    if(sysLv2FsStat(temp_buffer, &dstat) != 0) return -1;
+    if(sysLv2FsStat(temp_buffer, &dstat) != 0) {ret = -1;goto PS3_GM01;}
+
+    file = LoadFile(temp_buffer + 256, &file_size);
+    
+    if(!file) {ret = -1;goto PS3_GM01;}
+
+    memset(temp_buffer + 1024, 0, 0x420);
+    
+    if(file_size > 0x400) file_size = 0x400;
+
+    memcpy(temp_buffer + 1024, file, file_size);
+
+    free(file);
+
+    for(n=0; n< 0x400; n++) {
+        if(temp_buffer[1024 + n] == 0) break;
+        if(((u8)temp_buffer[1024 + n]) < 32) {temp_buffer[1024 + n] = 0; break;}
+    }
+    
+    
+    if(strncmp(temp_buffer, temp_buffer + 1024, 10))  {ret = -1;goto PS3_GM01;} // if not /dev_usb00x return
+
+    if(!strncmp(temp_buffer, "/dev_hdd0", 9)) {
+    } else
+        memcpy(temp_buffer + 1024, temp_buffer, 11); 
+
+    // sys8_perm_mode(1);
+    n= sysLv2FsRename(temp_buffer, temp_buffer + 1024);
+    // sys8_perm_mode(0);
+
+    if(n != 0)  {
+        
+        if(!(olderrflags & flags)) {
+            sprintf(temp_buffer, language[MOVETBEMU_ERRMOVE], temp_buffer + 1024);
+            DrawDialogOK(temp_buffer);
+            olderrflags |= flags;
+        }
+        ret= -1; goto PS3_GM01;
+        
+    }
+
+    // PS3_GM01
+
+    PS3_GM01:
+
+    if(usb < 0) {
+        sprintf(temp_buffer, "/dev_hdd0/PS3_GM01");
+
+        sprintf(temp_buffer + 256, "/dev_hdd0/PS3_GM01/PS3PATH2.BUP");
+     
+    } else {
+
+        sprintf(temp_buffer, "/dev_usb00%c/PS3_GM01", 48 + usb);
+
+        sprintf(temp_buffer + 256, "/dev_usb00%c/PS3_GM01/PS3PATH2.BUP", 48 + usb);
+    }
+
+    if(sysLv2FsStat(temp_buffer, &dstat) != 0) return -1;;
 
     file = LoadFile(temp_buffer + 256, &file_size);
     
@@ -6172,8 +6272,7 @@ int move_bdemubackup_to_origin(u32 flags)
         if(((u8)temp_buffer[1024 + n]) < 32) {temp_buffer[1024 + n] = 0; break;}
     }
     
-    
-    if(strncmp(temp_buffer, temp_buffer + 1024, 10))  return -1; // if not /dev_usb00x return
+    if(strncmp(temp_buffer, temp_buffer + 1024, 10)) return -1; // if not /dev_usb00x return
 
     if(!strncmp(temp_buffer, "/dev_hdd0", 9)) {
     } else
@@ -6184,14 +6283,14 @@ int move_bdemubackup_to_origin(u32 flags)
     // sys8_perm_mode(0);
 
     if(n != 0)  {
-        if(!(olderrflags & flags)) {
+        if(!(olderrflags2 & flags)) {
             sprintf(temp_buffer, language[MOVETBEMU_ERRMOVE], temp_buffer + 1024);
             DrawDialogOK(temp_buffer);
-            olderrflags |= flags;
+            olderrflags2 |= flags;
         }
         return -1;
     }
 
-    return 0;
+    return ret;
 }
 

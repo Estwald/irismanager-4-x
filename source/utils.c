@@ -3649,7 +3649,7 @@ void DeleteDirectory(const char* path)
     DIR_ITER *pdir = NULL;
     struct stat st;
     
-    int is_ntfs = 0; if(!strncmp(path, "/ntfs", 5)) is_ntfs = 1;
+    int is_ntfs = 0; if(!strncmp(path, "/ntfs", 5) || !strncmp(path, "/ext", 4)) is_ntfs = 1;
 
 	if ((!is_ntfs && sysLv2FsOpenDir(path, &dfd)) || (is_ntfs && (pdir = ps3ntfs_diropen(path)) == NULL))
 		return;
