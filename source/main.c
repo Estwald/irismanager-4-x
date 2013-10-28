@@ -91,6 +91,7 @@
 #include "file_png_bin.h"
 #include "pkg_png_bin.h"
 #include "self_png_bin.h"
+#include "img_png_bin.h"
 #include "space_jpg_bin.h"
 
 #include "music1_mod_bin.h"
@@ -203,7 +204,20 @@ int LoadPNG(PngDatas *png, const char *filename)
     int ret;
     pngData png2;
 
-    if(filename) ret = pngLoadFromFile(filename, &png2);
+    if(filename) {
+        if(!strncmp(filename, "/ntfs", 5) || !strncmp(filename, "/ext:", 4)) {
+            int file_size = 0;
+            char *buff = LoadFile((char *) filename, &file_size);
+
+            if(!buff) return -1;
+
+            ret= pngLoadFromBuffer((const void *) buff, file_size, &png2);
+
+            free(buff);
+
+        } else
+            ret = pngLoadFromFile(filename, &png2);
+    }
     else ret= pngLoadFromBuffer((const void *) png->png_in, png->png_size, &png2);
 
     png->bmp_out = png2.bmp_out;
@@ -220,7 +234,20 @@ int LoadJPG(JpgDatas *jpg, char *filename)
 
     jpgData jpg2;
 
-    if(filename) ret = jpgLoadFromFile(filename, &jpg2);
+    if(filename) {
+        if(!strncmp(filename, "/ntfs", 5) || !strncmp(filename, "/ext", 4)) {
+            int file_size = 0;
+            char *buff = LoadFile((char *) filename, &file_size);
+            
+            if(!buff) return -1;
+
+            ret= jpgLoadFromBuffer((const void *) buff, file_size, &jpg2);
+            
+            free(buff);
+
+        } else
+            ret = jpgLoadFromFile(filename, &jpg2);
+    }
     else ret= jpgLoadFromBuffer((const void *) jpg->jpg_in, jpg->jpg_size, &jpg2);
 
     jpg->bmp_out = jpg2.bmp_out;
@@ -272,6 +299,9 @@ void Load_PNG_resources()
 
     Png_res[10].png_in   = (void *) self_png_bin;
     Png_res[10].png_size = self_png_bin_size;
+
+    Png_res[11].png_in   = (void *) img_png_bin;
+    Png_res[11].png_size = img_png_bin_size;
 
   
     // load PNG from memory
@@ -1448,6 +1478,8 @@ s32 main(s32 argc, const char* argv[])
     sysSpuSegment * segments;
 
     if(lv2peek(0x80000000000004E8ULL)) syscall_40(1, 0); // disables PS3 Disc-less 
+    
+    NTFS_init_system_io();
 
     event_threads_init();
 
@@ -5759,6 +5791,7 @@ void draw_toolsoptions(float x, float y)
                 break;
 
             case 2:
+                DrawDialogOKTimer("For NTFS and EXT2/3/4 devices use Archive Manager\n\nPara dispositivos NTFS y EXT2/3/4 usa el Manejador Archivos", 2000.0f);
                 draw_pkginstall(x, y);
                 break;
 

@@ -42,9 +42,14 @@
 #include "utils.h"
 #include "osk_input.h"
 
+#include <matrix.h>
+
 #define FS_S_IFMT 0170000
 #define FS_S_IFDIR 0040000
 #define DT_DIR 1
+
+int LoadTexturePNG(char * filename, int index);
+int LoadTextureJPG(char * filename, int index);
 
 u64 syscall_40(u64 cmd, u64 arg);
 
@@ -954,7 +959,7 @@ skip:
     return ret;
 }
 
-static int CopyDirectory(char* path, char* path2)
+static int CopyDirectory(char* path, char* path2, char* path3)
 {
 	int dfd;
 	u64 read;
@@ -966,6 +971,9 @@ static int CopyDirectory(char* path, char* path2)
     int p2=strlen(path2);
 
     s32 flags = 0;
+
+    // avoid recursive-infinite copy
+    if(!strncmp(path, path3, strlen(path3))) return 0;
 
     if(!strncmp(path, "/ntfs", 5) || !strncmp(path, "/ext", 4)) flags|= CPY_FILE1_IS_NTFS;
     if(!strncmp(path2, "/ntfs", 5) || !strncmp(path2, "/ext", 4)) flags|= CPY_FILE2_IS_NTFS;
@@ -999,9 +1007,14 @@ static int CopyDirectory(char* path, char* path2)
 		strcat(path2, dir.d_name);
 
 		if (dir.d_type & DT_DIR) {
+
+            // avoid recursive-infinite copy
+            if(!strncmp(path, path3, strlen(path3))) {ret = 0;} 
+            else {
  
-			ret= CopyDirectory(path, path2);
-            if(ret) goto skip;
+			    ret= CopyDirectory(path, path2, path3);
+                if(ret) goto skip;
+            }
 
 		} else {
             
@@ -1047,6 +1060,7 @@ static int copy_archive_manager(char *path1, char *path2, sysFSDirent *ent, int 
             
             sprintf(temp_buffer, "%s/%s", path1, ent[sel].d_name);
             sprintf(temp_buffer + 2048, "%s/%s", path2, ent[sel].d_name);
+            sprintf(temp_buffer + 3072, "%s/%s", path2, ent[sel].d_name);
 
             if(ent[sel].d_type & 1) {
                 
@@ -1054,7 +1068,7 @@ static int copy_archive_manager(char *path1, char *path2, sysFSDirent *ent, int 
                 if(ret<0) goto end;
                 if(size > free) goto end;
                 sprintf(temp_buffer, "%s/%s", path1, ent[sel].d_name);
-                ret = CopyDirectory(temp_buffer, temp_buffer + 2048);
+                ret = CopyDirectory(temp_buffer, temp_buffer + 2048, temp_buffer + 3072);
             }
             else {
                 if(!strncmp(temp_buffer, "/ntfs", 5) || !strncmp(temp_buffer, "/ext", 4)) {
@@ -1115,8 +1129,9 @@ static int copy_archive_manager(char *path1, char *path2, sysFSDirent *ent, int 
 
                 sprintf(temp_buffer, "%s/%s", path1, ent[n].d_name);
                 sprintf(temp_buffer + 2048, "%s/%s", path2, ent[n].d_name);
+                sprintf(temp_buffer + 3072, "%s/%s", path2, ent[n].d_name);
 
-                if(ent[n].d_type & 1) ret = CopyDirectory(temp_buffer, temp_buffer + 2048);
+                if(ent[n].d_type & 1) ret = CopyDirectory(temp_buffer, temp_buffer + 2048, temp_buffer + 3072);
                 else ret = CopyFile(temp_buffer, temp_buffer + 2048);
                 if(ret <0) break;
             }
@@ -1183,6 +1198,7 @@ static int move_archive_manager(char *path1, char *path2, sysFSDirent *ent, int 
             
             sprintf(temp_buffer, "%s/%s", path1, ent[sel].d_name);
             sprintf(temp_buffer + 2048, "%s/%s", path2, ent[sel].d_name);
+            sprintf(temp_buffer + 3072, "%s/%s", path2, ent[sel].d_name);
 
 
             if(flag) {
@@ -1196,7 +1212,7 @@ static int move_archive_manager(char *path1, char *path2, sysFSDirent *ent, int 
                 if(ret<0) goto end;
                 if(size > free) goto end;
                 sprintf(temp_buffer, "%s/%s", path1, ent[sel].d_name);
-                ret = CopyDirectory(temp_buffer, temp_buffer + 2048);
+                ret = CopyDirectory(temp_buffer, temp_buffer + 2048, temp_buffer + 3072);
                 if(ret==0) {
                     DeleteDirectory(temp_buffer);
                     if(!strncmp(temp_buffer, "/ntfs", 5) || !strncmp(temp_buffer, "/ext", 4)) ret = ps3ntfs_unlink(temp_buffer);
@@ -1263,6 +1279,7 @@ static int move_archive_manager(char *path1, char *path2, sysFSDirent *ent, int 
 
                 sprintf(temp_buffer, "%s/%s", path1, ent[n].d_name);
                 sprintf(temp_buffer + 2048, "%s/%s", path2, ent[n].d_name);
+                sprintf(temp_buffer + 3072, "%s/%s", path2, ent[n].d_name);
 
                 if(flag) {
                     if(!strncmp(temp_buffer, "/ntfs", 5) || !strncmp(temp_buffer, "/ext", 4)) 
@@ -1271,7 +1288,7 @@ static int move_archive_manager(char *path1, char *path2, sysFSDirent *ent, int 
                         ret= sysLv2FsRename(temp_buffer, temp_buffer  + 2048);
                 }
                 else if(ent[n].d_type & 1) {
-                    ret = CopyDirectory(temp_buffer, temp_buffer + 2048);
+                    ret = CopyDirectory(temp_buffer, temp_buffer + 2048, temp_buffer + 3072);
                     if(ret==0) {
                         DeleteDirectory(temp_buffer);
                         if(!strncmp(temp_buffer, "/ntfs", 5) || !strncmp(temp_buffer, "/ext", 4)) ret = ps3ntfs_unlink(temp_buffer);
@@ -2874,6 +2891,7 @@ static char help1[]= {
     "START - Open/close this help window\n"
     "UP/DOWN - Move the cursor\n"
     "L1/R1 - Changes the window source\n"
+    "L2/R2 - Changes the window split (Vertical/Horizontal)\n"
     "L3/R3 - Changes to different paths (Iris folder, other window folder,  list of devices)\n"
     "\n"
     "Special Combo: Press CIRCLE to select and CROSS to access to    the Hex Editor in .SELF or .PKG files\n"
@@ -2918,7 +2936,22 @@ void archive_manager()
     int update_device1 = 0;
     int update_device2 = 0;
 
+    MATRIX mat_unit, mat_win1, mat_win2;
+
+    static int use_split = 1;
+
+    int is_vsplit = Video_Resolution.width >= 1280 && use_split != 0;
+
+    mat_unit = MatrixIdentity();
+    mat_win1 = MatrixMultiply(MatrixTranslation(0.0f, 0.0f, 0.0f), MatrixScale(0.5f, 0.75f, 1.0f));
+    mat_win2 = MatrixMultiply(MatrixTranslation(848.0f, -256.0f, 0.0f), MatrixScale(0.5f, 0.75f, 1.0f));
+
     int n;
+
+    int png_signal = 0;
+    int tick1_move = 0; 
+    int tick2_move = 0; 
+
     while(1) {
 
     frame++;
@@ -3153,6 +3186,7 @@ void archive_manager()
 
 
     tiny3d_Flip();
+
     ps3pad_read();
 
     tiny3d_Project2D();
@@ -3229,28 +3263,37 @@ void archive_manager()
         update_device2 = 0;
     }
 
-    DrawBox(0, 0, 0, 816, 32,0x20a0a8ff);
-    DrawBox(816, 0, 0, 48, 32, (!archive_manager && (frame & 32)) ? 0xc0c000ff : 0x000000ff);
-    set_ttf_window(8, 0, 752, 32, WIN_AUTO_LF);
-    display_ttf_string(0, 0, (char *) path1, 0x2000ffff, 0, 8, 16);
+   
+    tiny3d_SetMatrixModelView(is_vsplit ? &mat_win1 : &mat_unit);
+    DrawBox(0, 0, 0, 816, is_vsplit ? 48 : 32,0x20a0a8ff);
+    DrawBox(816, 0, 0, 32, is_vsplit ? 48 : 32, (!archive_manager && (frame & 32)) ? 0xc0c000ff : 0x000000ff);
+    set_ttf_window(8, 0, is_vsplit ? 740 : 752, is_vsplit ? 48 : 32, WIN_AUTO_LF);
+    display_ttf_string(0, 0, (char *) path1, 0x2000ffff, 0, is_vsplit ? 14 : 8, 16);
 
     set_ttf_window(752, 0, 88, 32, WIN_AUTO_LF);
     if(free_device1 < 0x40000000LL)
         sprintf(temp_buffer, "FREE:\n%i MB", (int) (free_device1 / 0x100000LL));
     else
         sprintf(temp_buffer, "FREE:\n%1.2f GB", ((double) free_device1) / (1024.0 * 1024. * 1024.0));
-    display_ttf_string(0, 0, (char *) temp_buffer, 0x000000ff, 0, 8, 16);
-
+    display_ttf_string(0, 0, (char *) temp_buffer, 0x000000ff, 0, is_vsplit ? 12 : 8, 16);
 
     set_ttf_window(816, 0, 36, 32, WIN_AUTO_LF);
     display_ttf_string(4, 0, (char *) "A", 0xff0000ff, 0, 32, 32);
 
-    DrawBox2(0, 32, 0, 848, 256 - 32 /*, 0x2080c0ff*/);
+    DrawBox2(0, is_vsplit ? 48 : 32, 0, 848, is_vsplit ? (512 - 48) * 3/2: 256 - 32 /*, 0x2080c0ff*/);
 
-    DrawBox(0, 256, 0, 816, 32, 0x20a0a8ff);
-    DrawBox(816, 256, 0, 48, 32, (archive_manager && (frame & 32)) ? 0xc0c000ff : 0x000000ff);
-    set_ttf_window(8, 256, 752, 32, WIN_AUTO_LF);
-    display_ttf_string(0, 0, (char *) path2, 0x2000ffff, 0, 8, 16);
+    if(is_vsplit) {
+
+        DrawLineBox(0, 0, 0, 848, 48, 0x2000ffff);
+
+        DrawLineBox(-1, 48, 0, 848, 24 * 24 + 16, 0x2000ffff);
+    }
+
+    tiny3d_SetMatrixModelView(is_vsplit ? &mat_win2 : &mat_unit);
+    DrawBox(0, 256, 0, 816, is_vsplit ? 48 : 32, 0x20a0a8ff);
+    DrawBox(816, 256, 0, 32, is_vsplit ? 48 : 32, (archive_manager && (frame & 32)) ? 0xc0c000ff : 0x000000ff);
+    set_ttf_window(8, 256, is_vsplit ? 740 : 752, is_vsplit ? 48 : 32, WIN_AUTO_LF);
+    display_ttf_string(0, 0, (char *) path2, 0x2000ffff, 0, is_vsplit ? 14 : 8, 16);
 
     set_ttf_window(752, 256, 88, 32, WIN_AUTO_LF);
 
@@ -3258,24 +3301,34 @@ void archive_manager()
         sprintf(temp_buffer, "FREE:\n%i MB", (int) (free_device2 / 0x100000LL));
     else
         sprintf(temp_buffer, "FREE:\n%1.2f GB", ((double) free_device2) / (1024.0 * 1024. * 1024.0));
-    display_ttf_string(0, 0, (char *) temp_buffer, 0x000000ff, 0, 8, 16);
+    display_ttf_string(0, 0, (char *) temp_buffer, 0x000000ff, 0, is_vsplit ? 12 : 8, 16);
 
     set_ttf_window(816, 256, 36, 32, WIN_AUTO_LF);
     display_ttf_string(4, 0, (char *) "B", 0xff0000ff, 0, 32, 32);
 
-    DrawBox2(0, 32 + 256 , 0, 848, 256 - 32/*, 0x2080c0ff*/);
+    DrawBox2(0, (is_vsplit ? 48 : 32) + 256 , 0, 848, is_vsplit? (512 - 48) * 3/2 : 256 - 32/*, 0x2080c0ff*/);
+
+     if(is_vsplit) {
+
+        DrawLineBox(0, 256, 0, 848, 48, 0x2000ffff);
+
+        DrawLineBox(-1, 48 + 256, 0, 848, 24 * 24 + 16, 0x2000ffff);
+        
+     }
     
-    set_ttf_window(24, 32, 848-24, 256 - 32, 0);
+    tiny3d_SetMatrixModelView(is_vsplit ? &mat_win1 : &mat_unit);
+
+    set_ttf_window(24, is_vsplit ? 48 : 32, 848-24, is_vsplit ? 656 - 48 : 256 - 32, 0);
 
     if(nentries1) {
         int py = 0;
 
         if((sel1 >= pos1) && (frame & 16) && !archive_manager) {
                 
-            DrawBox(0, py + 32 + 24 * (sel1-pos1), 0, 848, 24, 0x40c04080);
-        } else DrawBox(0, py + 32 + 24 * (sel1-pos1), 0, 848, 24, 0x0);
+            DrawBox(0, py + (is_vsplit ? 48 : 32) + 24 * (sel1-pos1), 0, 848, 24, 0x40c04080);
+        } else DrawBox(0, py + (is_vsplit ? 48 : 32) + 24 * (sel1-pos1), 0, 848, 24, 0x0);
 
-        for(n = 0; n < 9; n++) {
+        for(n = 0; n < (is_vsplit? 24 : 9); n++) {
             if(pos1 + n >= nentries1) break;
             
 
@@ -3284,21 +3337,22 @@ void archive_manager()
             if(entries1[pos1 + n].d_type & 1) {
                 if(entries1[pos1 + n].d_type & 128) color = 0x8f8f00ff;
                 else color = 0xffff00ff;
-                display_icon(0, py + 34, 0, 0);
+                display_icon(0, py + (is_vsplit ? 50 : 34), 0, 0);
             } else {
                 char *ext =get_extension(entries1[pos1 + n].d_name);
                 int type = 1;
 
                 if(!strcmp(ext, ".pkg") || !strcmp(ext, ".PKG")) type = 2; else
-                if(!strcmp(ext, ".self") || !strcmp(ext, ".SELF")) type = 3;
-
-                display_icon(0, py + 34, 0, type);
+                if(!strcmp(ext, ".self") || !strcmp(ext, ".SELF")) type = 3; else
+                if(!strcmp(ext, ".png") || !strcmp(ext, ".PNG") || !strcmp(ext, ".jpg") || !strcmp(ext, ".JPG")) type = 4;
+                
+                display_icon(0, py + (is_vsplit ? 50 : 34), 0, type);
 
             }
 
 
             if(entries1[pos1 + n].d_type & 2)
-                DrawBox(0, py + 36, 0, 848, 16, 0x800080a0);
+                DrawBox(0, py + (is_vsplit ? 52 : 36), 0, 848, 16, 0x800080a0);
 
             int dx= 0;
             if(sel1 == (pos1 + n) && stat1.st_mode != 0xffffffff) {
@@ -3313,11 +3367,12 @@ void archive_manager()
                         sprintf(temp_buffer, "%i MB", (int) (stat1.st_size / 0x100000LL));
                     } else sprintf(temp_buffer, "%1.2f GB", ((double) stat1.st_size) / (1024.0 * 1024. * 1024.0));
 
-                dx= display_ttf_string(0, py, (char *) temp_buffer, 0, 0, 8, 24);
+                dx= display_ttf_string(0, py, (char *) temp_buffer, 0, 0, is_vsplit ? 12 : 8, 24);
             
             }
 
-            set_ttf_window(24, 32, 848 - (dx + 24), 256 - 32, 0);
+            //set_ttf_window(24, is_vsplit ? 48 : 32, 848 - (dx + 24), 256 - 32, 0);
+            set_ttf_window(24, is_vsplit ? 48 : 32, 848 - (dx + 24), is_vsplit ? 656 - 48 : 256 - 32, 0);
 
             int dxx = display_ttf_string(0, py, (char *) entries1[pos1 + n].d_name, color, 0, 16, 24);
             if(path1[1]== 0 && !strncmp( (char *) entries1[pos1 + n].d_name, "ntfs", 4)) {
@@ -3334,8 +3389,9 @@ void archive_manager()
 
             if(sel1 == (pos1 + n) && stat1.st_mode != 0xffffffff) {
 
-                set_ttf_window(848 - dx, 32, dx, 256 - 32, 0);
-                display_ttf_string(0, py, (char *) temp_buffer, 0xffffffff, 0, 8, 24);
+               // set_ttf_window(848 - dx, 32, dx, 256 - 32, 0);
+                set_ttf_window(848 - dx, is_vsplit ? 48 : 32, dx, is_vsplit ? 656 - 48 : 256 - 32, 0);
+                display_ttf_string(0, py, (char *) temp_buffer, 0xffffffff, 0, is_vsplit ? 12 : 8, 24);
                 
             }
 
@@ -3344,17 +3400,19 @@ void archive_manager()
         }
     }
 
-    set_ttf_window(24, 256 + 32, 848-24, 256 - 32, 0);
+    tiny3d_SetMatrixModelView(is_vsplit ? &mat_win2 : &mat_unit);
+
+    set_ttf_window(24, (is_vsplit ? 48 : 32 ) + 256, 848-24, is_vsplit ? 656 - 48 : 256 - 32, 0);
 
     if(nentries2) {
         int py = 0;
 
         if((sel2 >= pos2) && (frame & 16) && archive_manager) {
                 
-            DrawBox(0, py + 32 + 256 + 24 * (sel2-pos2), 0, 848, 24, 0x40c04080);
-        } else DrawBox(0, py + 32 + 256 + 24 * (sel2-pos2), 0, 848, 24, 0x0);
+            DrawBox(0, py + (is_vsplit ? 48 : 32) + 256 + 24 * (sel2-pos2), 0, 848, 24, 0x40c04080);
+        } else DrawBox(0, py + (is_vsplit ? 48 : 32) + 256 + 24 * (sel2-pos2), 0, 848, 24, 0x0);
 
-        for(n = 0; n < 9; n++) {
+        for(n = 0; n < (is_vsplit? 24 : 9); n++) {
             if(pos2 + n >= nentries2) break;
             
             u32 color = 0xffffffff;
@@ -3363,21 +3421,22 @@ void archive_manager()
                 if(entries2[pos2 + n].d_type & 128) color = 0x8f8f00ff;
                 else color = 0xffff00ff;
 
-                display_icon(0, py  + 34 + 256 , 0, 0);
+                display_icon(0, py  + (is_vsplit ? 50 : 34) + 256 , 0, 0);
 
             } else {
                 char *ext =get_extension(entries2[pos2 + n].d_name);
                 int type = 1;
 
                 if(!strcmp(ext, ".pkg") || !strcmp(ext, ".PKG")) type = 2; else
-                if(!strcmp(ext, ".self") || !strcmp(ext, ".SELF")) type = 3;
+                if(!strcmp(ext, ".self") || !strcmp(ext, ".SELF")) type = 3;else
+                if(!strcmp(ext, ".png") || !strcmp(ext, ".PNG") || !strcmp(ext, ".jpg") || !strcmp(ext, ".JPG")) type = 4;
 
-                display_icon(0, py + 34 + 256, 0, type);
+                display_icon(0, py + (is_vsplit ? 50 : 34) + 256, 0, type);
 
             }
              
             if(entries2[pos2 + n].d_type & 2)
-                DrawBox(0, py + 36 + 256, 0, 848, 16, 0x800080a0);
+                DrawBox(0, py + (is_vsplit ? 52 : 36) + 256, 0, 848, 16, 0x800080a0);
 
             int dx= 0;
 
@@ -3393,11 +3452,12 @@ void archive_manager()
                         sprintf(temp_buffer, "%i MB", (int) (stat2.st_size / 0x100000LL));
                     } else sprintf(temp_buffer, "%1.2f GB", ((double) stat2.st_size) / (1024.0 * 1024. * 1024.0));
 
-                dx= display_ttf_string(0, py, (char *) temp_buffer, 0, 0, 8, 24);
+                dx= display_ttf_string(0, py, (char *) temp_buffer, 0, 0, is_vsplit ? 12 : 8, 24);
             
             }
 
-            set_ttf_window(24, 256 + 32, 848 - (dx + 24), 256 - 32, 0);
+            //set_ttf_window(24, 256 + 32, 848 - (dx + 24), 256 - 32, 0);
+            set_ttf_window(24, (is_vsplit ? 48 : 32) + 256, 848 - (dx + 24), is_vsplit ? 656 - 48 : 256 - 32, 0);
 
             int dxx = display_ttf_string(0, py, (char *) entries2[pos2 + n].d_name, color, 0, 16, 24);
             
@@ -3415,14 +3475,76 @@ void archive_manager()
 
             if(sel2 == (pos2 + n) && stat2.st_mode != 0xffffffff) {
 
-                set_ttf_window(848 - dx, 256 + 32, dx, 256 - 32, 0);
-                display_ttf_string(0, py, (char *) temp_buffer, 0xffffffff, 0, 8, 24);
+                // set_ttf_window(848 - dx, 256 + 32, dx, 256 - 32, 0);
+                set_ttf_window(848 - dx, (is_vsplit ? 48 : 32) + 256, dx, is_vsplit ? 656 - 48 : 256 - 32, 0);
+                display_ttf_string(0, py, (char *) temp_buffer, 0xffffffff, 0, is_vsplit ? 12 : 8, 24);
             }
 
             py+= 24;
 
         }
     } 
+
+    tiny3d_SetMatrixModelView(&mat_unit);
+
+    if(is_vsplit) {
+        
+        DrawBox(0, 512 - 32, 0, 848, 32, 0x20a0a8ff);
+
+        DrawLineBox(0, 512 - 32, 0, 848, 32, 0x2000ffff);
+
+        set_ttf_window(848 - 312, 512 - 32, 480, 32, WIN_AUTO_LF);
+        display_ttf_string(0, 0, (char *) "- Archive Manager", 0x208098cf, 0, 32, 32);
+    }
+
+    // auto PNG
+    if(tick1_move && (entries1[sel1].d_type & 1) && path1[1]!=0 && entries1[sel1].d_name[0]!='.' && !archive_manager && png_signal < 110) {
+        struct stat st;         
+        sprintf(temp_buffer, "%s/%s/PS3_GAME/ICON0.PNG", path1, entries1[sel1].d_name);
+
+        tick1_move = 0; 
+   
+        if(!stat(temp_buffer, &st) && !LoadTexturePNG(temp_buffer, 12)) {
+            
+            png_signal = 120;
+            
+        }
+
+    }
+
+    if(tick2_move && (entries2[sel2].d_type & 1) && path2[1]!=0 && entries2[sel2].d_name[0]!='.' &&  archive_manager && png_signal < 110) {
+        struct stat st;         
+        sprintf(temp_buffer, "%s/%s/PS3_GAME/ICON0.PNG", path2, entries2[sel2].d_name);
+
+        tick2_move = 0; 
+   
+        if(!stat(temp_buffer, &st) && !LoadTexturePNG(temp_buffer, 12)) {
+            
+            png_signal = 120;
+        }
+
+    }
+
+    if(png_signal) {
+        int h;
+        
+        if(Png_offset[12]) {
+            tiny3d_SetTextureWrap(0, Png_offset[12], Png_datas[12].width, 
+             Png_datas[12].height, Png_datas[12].wpitch, 
+             TINY3D_TEX_FORMAT_A8R8G8B8,  TEXTWRAP_CLAMP, TEXTWRAP_CLAMP,1);
+
+            h = 150 * Png_datas[12].height / Png_datas[12].width  * 512/480;
+            DrawBox((!archive_manager || !use_split) ? 848 - 150 : 0, use_split ? 512 - h - 32 :
+                (archive_manager ? 256 - h : 512 - h), 0, 150, h, 0xffffff40);
+
+            DrawTextBox((!archive_manager || !use_split) ? 848 - 150 : 0, use_split ? 512 - h - 32 :
+                (archive_manager ? 256 - h : 512 - h), 0, 150, h, 0xffffffff);
+        }
+     
+        png_signal--;
+    }
+
+    // end auto PNG
 
    
     if(set_menu2) {
@@ -3494,11 +3616,11 @@ void archive_manager()
 
         if(new_pad & BUTTON_UP) {
 
-        
             if(set_menu2 > 1) set_menu2--;  else {set_menu2 = 13;} 
         }
     
         if(new_pad & BUTTON_DOWN) {
+
             if(set_menu2 < 13) set_menu2++;  else {set_menu2 = 1;}
         }
 
@@ -3958,22 +4080,29 @@ void archive_manager()
     if(new_pad & BUTTON_UP) {
 
         if(!archive_manager) {
-            auto_up = 1;if(sel1 > 0) sel1--;  else {sel1 = (nentries1 - 1); pos1 = sel1 - 8;} if(sel1 < pos1 + 4) pos1--; if(pos1 < 0) pos1 = 0;
+            auto_up = 1;if(sel1 > 0) sel1--; else {sel1 = (nentries1 - 1); pos1 = sel1 - (is_vsplit ? 23 : 8);}
+            if(sel1 < pos1 + (is_vsplit ? 12 : 4)) pos1--; if(pos1 < 0) pos1 = 0; tick1_move = 1; 
         } else {
-             auto_up = 1;if(sel2 > 0) sel2--;  else {sel2 = (nentries2 - 1); pos2 = sel2 - 8;} if(sel2 < pos2 + 4) pos2--; if(pos2 < 0) pos2 = 0;
+             auto_up = 1;if(sel2 > 0) sel2--;  else {sel2 = (nentries2 - 1); pos2 = sel2 - (is_vsplit ? 23 : 8);} 
+            if(sel2 < pos2 + (is_vsplit ? 12 : 4)) pos2--; if(pos2 < 0) pos2 = 0; tick2_move = 1; 
         }
     }
     
     if(new_pad & BUTTON_DOWN) {
         if(!archive_manager) {
-            auto_down = 1;if(sel1 < (nentries1-1)) sel1++; else {sel1 = 0; pos1 = 0;} if(sel1 > (pos1 + 4)) pos1++; if(pos1 > (nentries1 - 1)) {pos1 = 0;sel1 = 0;}
+            auto_down = 1;if(sel1 < (nentries1-1)) sel1++; else {sel1 = 0; pos1 = 0;} 
+            if(sel1 > (pos1 + (is_vsplit ? 12 : 4))) pos1++; if(pos1 > (nentries1 - 1)) {pos1 = 0;sel1 = 0;}
+            tick1_move = 1;
         } else {
-            auto_down = 1;if(sel2 < (nentries2-1)) sel2++; else {sel2 = 0; pos2 = 0;} if(sel2 > (pos2 + 4)) pos2++; if(pos2 > (nentries2 - 1)) {pos2 = 0;sel2 = 0;}
+            auto_down = 1;if(sel2 < (nentries2-1)) sel2++; else {sel2 = 0; pos2 = 0;} 
+            if(sel2 > (pos2 + (is_vsplit ? 12 : 4))) pos2++; if(pos2 > (nentries2 - 1)) {pos2 = 0;sel2 = 0;}
+            tick2_move = 1;
         }
     }
     
-    if(new_pad & (BUTTON_L1 | BUTTON_R1)) archive_manager^=1;
+    if(new_pad & (BUTTON_L1 | BUTTON_R1)) {archive_manager^=1; png_signal = 0;}
 
+    if(new_pad & (BUTTON_L2 | BUTTON_R2)) {use_split^= 1; is_vsplit = Video_Resolution.width >= 1280 && use_split != 0; sel1 = pos1; sel2 = pos2; }
 
     if(new_pad & BUTTON_TRIANGLE) {
         if(DrawDialogYesNo("Exit from Archive Manager?") == 1) {
@@ -4027,7 +4156,25 @@ void archive_manager()
             } else {
                 char *ext =get_extension(entries1[sel1].d_name);
 
-                if(!(entries1[sel1].d_type & 2) && (!strcmp(ext, ".pkg") || !strcmp(ext, ".PKG"))) {
+                if(!(entries1[sel1].d_type & 2) && (!strcmp(ext, ".jpg") || !strcmp(ext, ".JPG"))) {
+                    
+                    sprintf(temp_buffer, "%s/%s", path1, entries1[sel1].d_name);
+               
+                    if(!LoadTextureJPG(temp_buffer, 12)) {
+                       
+                        png_signal = 120;
+                    }
+
+                } else if(!(entries1[sel1].d_type & 2) && (!strcmp(ext, ".png") || !strcmp(ext, ".PNG"))) {
+                    
+                    sprintf(temp_buffer, "%s/%s", path1, entries1[sel1].d_name);
+               
+                    if(!LoadTexturePNG(temp_buffer, 12)) {
+                       
+                        png_signal = 120;
+                    }
+
+                } else if(!(entries1[sel1].d_type & 2) && (!strcmp(ext, ".pkg") || !strcmp(ext, ".PKG"))) {
 
                     install_pkg(path1, entries1[sel1].d_name);
                 } else if(!(entries1[sel1].d_type & 2) && (!strcmp(ext, ".self") || !strcmp(ext, ".SELF")) && strncmp(path1, "/ntfs", 5) && strncmp(path1, "/ext", 4)) {
@@ -4163,7 +4310,25 @@ void archive_manager()
             } else {
                 char *ext =get_extension(entries2[sel2].d_name);
 
-                if(!(entries2[sel2].d_type & 2) && (!strcmp(ext, ".pkg") || !strcmp(ext, ".PKG"))) {
+                if(!(entries2[sel2].d_type & 2) && (!strcmp(ext, ".jpg") || !strcmp(ext, ".JPG"))) {
+                    
+                    sprintf(temp_buffer, "%s/%s", path2, entries2[sel2].d_name);
+               
+                    if(!LoadTextureJPG(temp_buffer, 12)) {
+                       
+                        png_signal = 120;
+                    }
+
+                } else if(!(entries2[sel2].d_type & 2) && (!strcmp(ext, ".png") || !strcmp(ext, ".PNG"))) {
+                    
+                    sprintf(temp_buffer, "%s/%s", path2, entries2[sel2].d_name);
+               
+                    if(!LoadTexturePNG(temp_buffer, 12)) {             
+                    
+                        png_signal = 120;
+                    }
+
+                } else if(!(entries2[sel2].d_type & 2) && (!strcmp(ext, ".pkg") || !strcmp(ext, ".PKG"))) {
             
                     install_pkg(path2, entries2[sel2].d_name);
                 } else if(!(entries2[sel2].d_type & 2) && (!strcmp(ext, ".self") || !strcmp(ext, ".SELF")) &&

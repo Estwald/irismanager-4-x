@@ -209,6 +209,10 @@ int ps3ntfs_dirreset(DIR_ITER *dirState);
 int ps3ntfs_dirnext(DIR_ITER *dirState, char *filename, struct stat *filestat);
 int ps3ntfs_dirclose(DIR_ITER *dirState);
 
+// map file functions to libc open, fopen, ...
+void NTFS_init_system_io(void);
+void NTFS_deinit_system_io(void);
+
 
 #ifndef _SYS_STATVFS_H
 #define _SYS_STATVFS_H

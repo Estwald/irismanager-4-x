@@ -12,6 +12,7 @@ void DrawBoxLine(float x, float y, float z, float w, float h, u32 rgba, u32 rgba
 void DrawTextBoxLine(float x, float y, float z, float w, float h, u32 rgba, u32 rgba2);
 void DrawBoxShadow(float x, float y, float z, float w, float h, u32 rgba);
 void DrawTextBoxShadow(float x, float y, float z, float w, float h, u32 rgba);
+void DrawLineBox(float x, float y, float z, float w, float h, u32 rgba);
 
 float DrawButton1(float x, float y, float w, char * t, int select);
 float DrawButton2(float x, float y, float w, char * t, int select);
