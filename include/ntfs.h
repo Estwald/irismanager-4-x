@@ -31,6 +31,7 @@ extern "C" {
 #include <stdint.h>
 #include <stdbool.h>
 #include <ppu-lv2.h>
+#include <stdio.h>
 
 #include <fcntl.h> // file flags
 #include <sys/syslimits.h>
@@ -198,6 +199,8 @@ int ps3ntfs_unlink(const char *name);
 int ps3ntfs_chdir(const char *name);
 int ps3ntfs_rename(const char *oldName, const char *newName);
 int ps3ntfs_mkdir(const char *path, int mode);
+int ps3ntfs_file_to_sectors(const char *path, uint32_t *sec_out, uint32_t *size_out, int max, int phys);
+int ps3ntfs_get_fd_from_FILE(FILE *fp);
 
 typedef struct {
     int device;

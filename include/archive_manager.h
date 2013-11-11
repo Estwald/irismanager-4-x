@@ -21,5 +21,7 @@ int NTFS_UnMount_dev(int id, char * name);
 void NTFS_UnMountAll(void);
 int NTFS_Test_Device(char *name);
 
+int launch_iso_game(char *path);
+
 
 #endif

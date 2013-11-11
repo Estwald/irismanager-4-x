@@ -70,6 +70,9 @@ extern u32 fdevices;
 extern u32 fdevices_old;
 extern u32 forcedevices;
 
+extern int noBDVD;
+extern int use_cobra;
+
 extern char hdd_folder[64];
 extern char bluray_game[64];
 extern float cache_need_free;
@@ -101,8 +104,9 @@ void utf8_truncate(char *utf8, char *utf8_trunc, int len);
 void sort_entries(t_directories *list, int *max);
 void sort_entries2(t_directories *list, int *max, u32 mode);
 
-void delete_entries(t_directories *list, int *max, u32 flag);
+int delete_entries(t_directories *list, int *max, u32 flag);
 void fill_entries_from_device(char *path, t_directories *list, int *max, u32 flag, int sel);
+void fill_iso_entries_from_device(char *path, u32 flag, t_directories *list, int *max);
 
 void copy_from_selection(int game_sel);
 void copy_from_bluray();

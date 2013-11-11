@@ -760,9 +760,10 @@ void sort_entries2(t_directories *list, int *max, u32 mode)
 			}
 }
 
-void delete_entries(t_directories *list, int *max, u32 flag)
+int delete_entries(t_directories *list, int *max, u32 flag)
 {
     int n;
+    int deleted = 0;
 
     n=0;
     flag &= GAMELIST_FILTER; // filter entries
@@ -770,6 +771,8 @@ void delete_entries(t_directories *list, int *max, u32 flag)
     {
         if(list[n].flags & flag)
         {
+            deleted++;
+
             if((*max) >1)
             {
                 list[n].flags=0;
@@ -783,6 +786,110 @@ void delete_entries(t_directories *list, int *max, u32 flag)
         } else
             n++;
     }
+
+    return deleted;
+}
+
+static int strcmpext(char *path, char *ext) 
+{
+    int pos1 = strlen(path);
+    int pos2 = strlen(ext);
+
+    if(pos2 > pos1) return -1;
+
+    return strcmp(path + pos1 - pos2, ext);
+}
+
+void fill_iso_entries_from_device(char *path, u32 flag, t_directories *list, int *max)
+{
+    DIR  *dir;
+    char *mem = malloc(1024);
+
+    if(!mem) return;
+
+    dir = opendir (path);
+    if(dir) {
+        while(1) {
+        
+        struct dirent *entry=readdir (dir);
+
+        if(*max >= MAX_DIRECTORIES)
+            break;
+        
+            
+        if(!entry) break;
+        if(entry->d_name[0]=='.') continue;
+
+        if(entry->d_type & DT_DIR) {
+            int len = strlen(path);
+            strcat(path,"/");
+            strcat(path, entry->d_name);
+            fill_iso_entries_from_device(path, flag, list, max);
+            path[len] = 0;
+            
+        }
+
+        if(strcmpext(entry->d_name, ".iso") && strcmpext(entry->d_name, ".ISO") && strcmpext(entry->d_name, ".iso.0")) continue;
+
+        sprintf(list[*max ].path_name, "%s/%s", path, entry->d_name);
+
+        char name[0x420];
+
+        FILE *fp = fopen(list[*max ].path_name, "rb");
+
+        if(fp) {
+            fseek(fp, 0x810, SEEK_SET);
+            fread((void *) mem + 256, 1, 10, fp); // read PS3 disc iD
+            mem[256 + 10] = 0;
+            fseek(fp, 0x8000, SEEK_SET);
+            fread((void *) mem, 1, 256, fp);
+
+            fseek(fp, 0x9320, SEEK_SET);
+
+            fread((void *) mem + 512, 1, 256, fp);
+
+            if(!memcmp((void *) &mem[0x28], "PS3VOLUME", 9)) list[*max ].flags = flag | (1<<24);
+            else if(!memcmp((void *) &mem[8], "PLAYSTATION", 11) || !memcmp((void *) &mem[512], "PLAYSTATION", 11)) {
+                list[*max ].flags = flag | (1<<24) | (1<<23);
+                if(!memcmp((void *) &mem[8], "PLAYSTATION", 11)) memcpy((void *) mem + 256, (void *) &mem[0x28], 10); 
+                else memcpy((void *) mem + 256, (void *) &mem[0x220], 10); 
+                mem[266] = 0;
+            }
+            else continue;
+
+        } else continue;
+
+        strcpy(name, entry->d_name);
+
+        if(!strcmpext(name, ".iso.0")) name[strlen(name) - 6] = 0; else name[strlen(name) - 4] = 0;
+
+        strncpy(list[*max ].title, name, 63);
+        list[*max ].title[63]=0;
+
+        if(list[*max ].flags &  (1<<23)) {
+            if(mem[256]== ' ')
+                strncpy(list[*max ].title_id, name, 63);
+            else
+                strncpy(list[*max ].title_id, mem + 256, 63);
+        }
+        else 
+            strncpy(list[*max ].title_id, mem + 256, 63);
+
+        list[*max ].title_id[63]=0;
+
+        
+        list[*max ].splitted = 0;
+
+        (*max) ++;
+        if(*max >= MAX_DIRECTORIES)
+            break;
+
+        }
+
+        closedir (dir);
+        }
+
+   free(mem);
 }
 
 void fill_entries_from_device(char *path, t_directories *list, int *max, u32 flag, int sel)
@@ -803,13 +910,32 @@ void fill_entries_from_device(char *path, t_directories *list, int *max, u32 fla
     if(*max >= MAX_DIRECTORIES)
                 return;
 
+    if(sel== GAMEBASE_MODE && use_cobra && noBDVD == 2) { // isos
+        int n;
+        strncpy(file, path, 0x420);
+        n=1;while(file[n]!='/' && file[n]!=0)  n++;
+        
+        file[n]=0; strcat(file, "/PS3ISO");
+        mkdir_secure(file);
+        if(game_list_category != 2)
+            fill_iso_entries_from_device(file, flag, list, max);
+
+        file[n]=0; strcat(file, "/PS2ISO");
+        if(!strncmp(file, "/dev_hdd0", 9)) {
+            mkdir_secure(file);
+            if(game_list_category != 1)
+                fill_iso_entries_from_device(file, flag, list, max);
+        }
+    }
+
     // add PSX Games
     if(sel == GAMEBASE_MODE && game_list_category != 1) {
         int n;
         strncpy(file, path, 0x420);
         n=1;while(file[n]!='/' && file[n]!=0)  n++;
         
-        file[n]=0; strcat(&file[n], "/PSXGAMES");
+        file[n]=0; strcat(file, "/PSXGAMES");
+        mkdir_secure(file);
 
         dir = opendir (file);
         if(dir) {
@@ -4082,8 +4208,11 @@ void UpdateFavourites(t_directories *list, int nlist)
 
         for(n = 0; n < nlist; n++) {
             if(favourites.list[m].title_id[0] !=0 && !strncmp(list[n].title_id, favourites.list[m].title_id, 64)) {
-                if((favourites.list[m].index < 0) || 
-                   (favourites.list[m].flags & GAMELIST_FILTER) > (list[n].flags & GAMELIST_FILTER)) {
+                if((/*1*/ favourites.list[m].index < 0) || 
+                    /*2*/((favourites.list[m].flags & (1<<15)) != (1<<15) && 
+                    ((favourites.list[m].flags & GAMELIST_FILTER) > (list[n].flags & GAMELIST_FILTER) 
+                    || (list[n].flags & (1<<15)) == (1<<15))) ||
+                    /*3*/((favourites.list[m].flags & (1<<15)) == (1<<15) && (list[n].flags & 1)==1)) {
                     //strncpy(favourites.list[m].title_id, list[n].title_id, 64);
                     //strncpy(favourites.list[m].title, list[n].title, 64);
                     favourites.list[m].index = n;
