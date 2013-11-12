@@ -308,7 +308,7 @@ int get_iso_file_pos(FILE *fp, char *path, u32 *flba, u64 *size)
     
     *flba = file_lba;
 
-    if(file_lba == 0xffffffff) return -2;
+    if(file_lba == 0xffffffff) goto err;
 
     #ifdef USE_64BITS_LSEEK
     if(ps3ntfs_seek64(fd, ((s64) file_lba) * 2048LL, SEEK_SET)<0) goto err; 
@@ -433,6 +433,7 @@ int create_fake_file_iso(char *path, char *filename, u64 size)
     }
 
     free(mem);
+    free(string);
 
     return 0;
 }
@@ -524,6 +525,7 @@ char * create_fake_file_iso_mem(char *filename, u64 size, u32 *nsize)
     last_lba += (size + 2047)/2048;
     set733(ipd->volume_space_size, last_lba);
     set733(ipd2->volume_space_size, last_lba);
-
+    
+    free(string);
     return (char *) mem;
 }

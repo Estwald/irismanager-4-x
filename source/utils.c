@@ -847,6 +847,7 @@ void fill_iso_entries_from_device(char *path, u32 flag, t_directories *list, int
             fseek(fp, 0x9320, SEEK_SET);
 
             fread((void *) mem + 512, 1, 256, fp);
+            fclose(fp);
 
             if(!memcmp((void *) &mem[0x28], "PS3VOLUME", 9)) list[*max ].flags = flag | (1<<24);
             else if(!memcmp((void *) &mem[8], "PLAYSTATION", 11) || !memcmp((void *) &mem[512], "PLAYSTATION", 11)) {
