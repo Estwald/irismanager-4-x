@@ -371,6 +371,9 @@ void DrawBox2(float x, float y, float z, float w, float h)
 sysFSDirent entries1[2048];
 sysFSDirent entries2[2048];
 
+s64 entries1_size[2048];
+s64 entries2_size[2048];
+
 int nentries1, nentries2;
 
 static int entry_compare(const void *va, const void *vb)
@@ -774,6 +777,8 @@ skip:
     return ret;
 }
 
+static int use_iso_splits = 0;
+
 static int CopyFile(char* path, char* path2)
 {
     int ret = 0;
@@ -814,8 +819,87 @@ static int CopyFile(char* path, char* path2)
     }
      
     char *ext =get_extension(path);
+    char *ext0 = path;
 
-    if(!strncmp(ext, ".666", 4)) {// split files
+    while(use_iso_splits) {
+        char *e = strstr(ext0, ".iso.");
+        if(!e) e = strstr(ext0, ".ISO.");
+        if(!e) break;
+        ext0 = e + 4;
+    }
+
+    if(use_iso_splits && strlen(path) > 6 && (!strncmp(ext0 - 4, ".iso.", 5) || !strncmp(ext0 - 4, ".ISO.", 5))) {// split files
+
+        if(strcmp(ext0, ".0")) goto skip;
+
+        int n;
+
+        fd = fd2 = -1;
+
+        mem = malloc(0x100000);
+        if(!mem) {ret= (int) 0x80010004; goto skip2;}
+
+        char *ext2 =get_extension(path2);
+
+        if(!strncmp(ext2, ".0", 2)) ext2[0]=0;
+
+        for(n = 0; n < 99; n++) {
+
+            fd = -1; 
+
+            sprintf(ext0, ".%i", n);
+            
+
+            msgDialogProgressBarReset(MSG_PROGRESSBAR_INDEX1);
+            msgDialogProgressBarSetMsg(MSG_PROGRESSBAR_INDEX1, dyn_get_name(path2));
+            
+            if(flags & CPY_FILE1_IS_NTFS) 
+                {ret = ps3ntfs_stat(path, &fstat);stat.st_size = fstat.st_size;}
+            else ret= sysLv2FsStat(path, &stat);
+
+            if(ret < 0 || stat.st_size==0) {ret = 0;goto skip2;}
+
+            lenght = stat.st_size;
+            if(flags & CPY_FILE1_IS_NTFS) {fd = ps3ntfs_open(path, O_RDONLY, 0);if(fd < 0) ret = -1; else ret = 0;}
+            else
+                ret = sysLv2FsOpen(path, 0, &fd, S_IRWXU | S_IRWXG | S_IRWXO, NULL, 0);
+            if(ret) goto skip2;
+
+            if(n == 0) {
+
+                if(flags & CPY_FILE2_IS_NTFS) {
+                    fd2 = ps3ntfs_open(path2, O_WRONLY | O_CREAT | O_TRUNC, 0);if(fd2 < 0) ret = -1; else ret = 0;
+                    if(ret) goto skip2;
+                    }
+                else {
+                    ret = sysLv2FsOpen(path2, SYS_O_WRONLY | SYS_O_CREAT | SYS_O_TRUNC, &fd2, 0777, NULL, 0);
+                    if(ret) goto skip2;
+                    sysLv2FsChmod(path2, FS_S_IFMT | 0777);
+                }
+            }
+
+            copy_parts = (lenght == 0) ? 0.0f : 100.0f / ((double) lenght / (double) 0x100000);
+            copy_cpart = 0;
+
+            ret = CopyFd(flags | CPY_NOTCLOSE, fd, fd2, mem, lenght);
+            if(ret < 0) goto skip2;
+
+            if(flags & CPY_FILE1_IS_NTFS) ps3ntfs_close(fd); else sysLv2FsClose(fd); fd = -1;
+        
+        }
+
+        loop_wait0:
+
+        if(use_async_fd) {
+              
+            if(!(my_f_async.flags & ASYNC_ENABLE)) {
+                if(flags & CPY_FILE2_IS_NTFS) ps3ntfs_close(fd2); else sysLv2FsClose(fd2);
+                if(my_f_async.flags  & ASYNC_ERROR) {ret = 0x8001000C; goto skip2;}
+            } else goto loop_wait0;
+        }
+    
+    
+    } else if(!strncmp(ext, ".666", 4)) {// split files
         if(strcmp(ext, ".66600")) goto skip;
 
         int n;
@@ -891,7 +975,7 @@ static int CopyFile(char* path, char* path2)
 
         lenght = stat.st_size;
 
-        if(lenght >= 0x100000000LL && strncmp(path2, "/dev_hdd0", 9) 
+        if(lenght >= 0xFFFF0001LL && strncmp(path2, "/dev_hdd0", 9) 
             && strncmp(path2, "/ntfs", 5) && strncmp(path2, "/ext", 4)) { // split the file
             if(flags & CPY_FILE1_IS_NTFS) {fd = ps3ntfs_open(path, O_RDONLY, 0);if(fd < 0) ret = -1; else ret = 0;}
             else
@@ -909,16 +993,28 @@ static int CopyFile(char* path, char* path2)
             
             char *ext2 =&path2[strlen(path2)];
 
+            int is_iso = strlen(path2) > 4 && (!strcmp(ext2 - 4, ".iso") || !strcmp(ext2 - 4, ".ISO"));
+
+            msgDialogProgressBarReset(MSG_PROGRESSBAR_INDEX1);
+
             while(pos < stat.st_size) {
                 
                 ext2[0]=0;
-                sprintf(ext2,".666%2.2i", n);
+                if(is_iso) sprintf(ext2,".%i", n);
+                else sprintf(ext2,".666%2.2i", n);
 
-                msgDialogProgressBarReset(MSG_PROGRESSBAR_INDEX1);
                 msgDialogProgressBarSetMsg(MSG_PROGRESSBAR_INDEX1, dyn_get_name(path2));
 
                 lenght = (stat.st_size - pos);
-                if(lenght > 0x40000000LL) lenght = 0x40000000LL;
+
+                if(is_iso) {
+
+                    if(lenght > 0xFFFF0000LL) lenght = 0xFFFF0000LL;
+
+                } else {
+
+                    if(lenght > 0x40000000LL) lenght = 0x40000000LL;
+                }
                 
                 if(flags & CPY_FILE2_IS_NTFS) {fd2 = ps3ntfs_open(path2, O_WRONLY | O_CREAT | O_TRUNC, 0);if(fd2 < 0) ret = -1; else ret = 0;}
                 else ret = sysLv2FsOpen(path2, SYS_O_WRONLY | SYS_O_CREAT | SYS_O_TRUNC, &fd2, 0777, NULL, 0);
@@ -1084,10 +1180,16 @@ static int copy_archive_manager(char *path1, char *path2, sysFSDirent *ent, int 
     cpy_str= "Copy";
     Files_To_Copy = 0;
 
+    int msg_en = 0;
+
+    use_iso_splits = 0;
+    if(!strncmp(path2, "/dev_hdd0", 9)) use_iso_splits = 1;
+
     if(sel>=0) {
         sprintf(temp_buffer, "Copy %s\n\nfrom %s\n\nto %s?", ent[sel].d_name, path1, path2);
         if(DrawDialogYesNo(temp_buffer) == 1) {
             double_bar(cpy_str);
+            msg_en = 1;
             
             sprintf(temp_buffer, "%s/%s", path1, ent[sel].d_name);
             sprintf(temp_buffer + 2048, "%s/%s", path2, ent[sel].d_name);
@@ -1121,12 +1223,14 @@ static int copy_archive_manager(char *path1, char *path2, sysFSDirent *ent, int 
             
             msgDialogAbort();
             usleep(100000);
+            msg_en = 0;
         }
     } else { // multiple
 
         sprintf(temp_buffer, "Copy selected Files and Folders\n\nfrom %s\n\nto %s?", path1, path2);
         if(DrawDialogYesNo(temp_buffer) == 1) {
             double_bar(cpy_str);
+            msg_en = 1;
 
             for(n = 0; n < nent; n++) {
                 if(!(ent[n].d_type & 2)) continue; // skip no marked
@@ -1170,10 +1274,18 @@ static int copy_archive_manager(char *path1, char *path2, sysFSDirent *ent, int 
 
         msgDialogAbort();
         usleep(100000);
+        msg_en = 0;
     
     }
 
  end:   
+
+    use_iso_splits = 0;
+    
+    if(msg_en) {
+        msgDialogAbort();
+        usleep(100000);
+    }
 
     if(use_async_fd) {
     
@@ -1192,8 +1304,137 @@ static int copy_archive_manager(char *path1, char *path2, sysFSDirent *ent, int 
 
     if(ret<0) return ret;
     if(size > free) {
+        
+        DrawDialogOK("No space to Copy Files/Folders");
+    }
+
+    return ret;
+}
+
+int copy_archive_file(char *path1, char *path2, char *file, u64 free)
+{
+    int ret = 0;
+    u64 size = 0;
+    int n, len;
+    int nfiles = 0;
+    int multi = 0;
+    struct stat s;
+    int msg_en = 0;
+
+    use_async_fd = 128;
+    pause_music(1);
+
+    reset_copy = 1;
+    cpy_str= "Copy";
+
+    Files_To_Copy = 0;
+
+    use_iso_splits = 0;
+    if(!strncmp(path2, "/dev_hdd0", 9)) use_iso_splits = 1;
+    
+    len = strlen(file);
+    if(len > 6 && (!strcmp(file + len - 6, ".iso.0") || !strcmp(file + len - 6, ".ISO.0"))) {
+        
+        file[len - 2] = 0;
+        multi = 1;
+
+        for(n = 0; n < 64; n++) {
+            sprintf(temp_buffer, "%s/%s.%i", path1, file, n);
+            if(!stat(temp_buffer, &s)) {
+                Files_To_Copy++;
+                nfiles++;
+                size += s.st_size;
+            } else break;
+        }
+
+        if(use_iso_splits) {
+            multi = 0;
+            Files_To_Copy = 1;
+            nfiles = 1;
+            file[len - 2] = '.';
+        }
+
+  
+    } else {
+        Files_To_Copy = 1;
+        nfiles = 1;
+
+        sprintf(temp_buffer, "%s/%s", path1, file);
+        if(!stat(temp_buffer, &s)) {
+            
+            size += s.st_size;
+        }
+    }
+
+    
+    sprintf(temp_buffer, "Copy %s\n\nfrom %s\n\nto %s?", file, path1, path2);
+    if(DrawDialogYesNo(temp_buffer) == 1) {
+        
+        
+        double_bar(cpy_str);
+        msg_en = 1;
+        
+        if(size > free || size == 0) {
+             goto end;
+        }
+        
+        for(n = 0; n < nfiles; n++) {
+
+            if(multi) {
+                sprintf(temp_buffer, "%s/%s.%i", path1, file, n);
+                sprintf(temp_buffer + 2048, "%s/%s.%i", path2, file, n);
+                sprintf(temp_buffer + 3072, "%s/%s.%i", path2, file, n);
+            
+            }else {
+                sprintf(temp_buffer, "%s/%s", path1, file);
+                sprintf(temp_buffer + 2048, "%s/%s", path2, file);
+                sprintf(temp_buffer + 3072, "%s/%s", path2, file);
+            }
+  
+
+            ret = CopyFile(temp_buffer, temp_buffer + 2048);
+            if(ret<0) goto end;
+        }
+        
+        
         msgDialogAbort();
         usleep(100000);
+        msg_en = 0;
+    }
+    
+
+
+ end:
+
+    use_iso_splits = 0;
+    
+    if(msg_en) {
+        msgDialogAbort();
+        usleep(100000);
+    }
+
+    if(use_async_fd) {
+    
+        if(my_f_async.flags & ASYNC_ENABLE){
+            wait_event_thread();
+            if(my_f_async.flags  & ASYNC_ERROR) {ret = 0x8001000C;}
+        }
+
+        event_thread_send(0x555ULL, (u64) 0, 0);
+    }
+
+    use_async_fd = 0;
+    pad_last_time = 0;
+
+    pause_music(0);
+
+    if(ret<0) {
+        sprintf(temp_buffer, "Copy error: 0x%08x\n\n%s", ret, getlv2error(ret));
+        DrawDialogOK(temp_buffer);
+        return ret;
+    }
+
+    if(size > free) {
         DrawDialogOK("No space to Copy Files/Folders");
     }
 
@@ -2920,7 +3161,7 @@ int launch_iso_game(char *path)
 {
     int type = EMU_DVD;
                     
-    char *files[32];
+    //char *files[32];
 
     uint8_t *plugin_args = malloc(0x20000);
 
@@ -2957,6 +3198,10 @@ int launch_iso_game(char *path)
             }
 
         }
+
+        if(type == EMU_PS2_DVD) {
+            if(strstr(path, "/BDISO/")) type = EMU_BD;
+        }
    
         if(!strncmp(path, "/ntfs", 5) || !strncmp(path, "/ext", 4)) {
 
@@ -2975,11 +3220,11 @@ int launch_iso_game(char *path)
 
                 int parts = ps3ntfs_file_to_sectors(path, sections, sections_size, MAX_SECTIONS, 1);
 
-                if(!strcmpext(path, ".iso.0")) {
+                if(!strcmpext(path, ".iso.0") || !strcmpext(path, ".ISO.0")) {
                 
                     int o;
 
-                    for (o = 1; o < 60; o++) {
+                    for (o = 1; o < 64; o++) {
                         struct stat s;
 
                         sprintf(temp_buffer + 3072, "%s", path);
@@ -3014,7 +3259,6 @@ int launch_iso_game(char *path)
 
                     sprintf(temp_buffer + 2048, "%s/sprx_iso", self_path);
 
-
                     if (cobra_load_vsh_plugin(0, temp_buffer + 2048, plugin_args, 0x10000) == 0)
                         {use_cobra = 2; exit(0);}
                
@@ -3022,7 +3266,7 @@ int launch_iso_game(char *path)
                     if(parts >= MAX_SECTIONS) DrawDialogOKTimer(".ISO is very fragmented", 2000.0f);
                 }
 
-                if(plugin_args) free(plugin_args);
+                if(plugin_args) free(plugin_args); plugin_args = NULL;
                 if(sections) free(sections);
                 if(sections_size) free(sections_size);
             }
@@ -3030,7 +3274,8 @@ int launch_iso_game(char *path)
         } else if(type == EMU_PS3 || (type == EMU_PS2_DVD && strncmp(path, "/dev_usb", 8)) 
             || type == EMU_DVD || type == EMU_BD) {    
 
-            if(plugin_args) free(plugin_args);
+            #if 0
+            if(plugin_args) free(plugin_args); plugin_args = NULL;
 
             int ret;
 
@@ -3039,11 +3284,11 @@ int launch_iso_game(char *path)
             files[0] = path;
             files[1] = NULL;
 
-            if(!strcmpext(path, ".iso.0")) {
+            if(!strcmpext(path, ".iso.0") || !strcmpext(path, ".ISO.0")) {
                 
                 int o;
 
-                for (o = 1; o < 60; o++) {
+                for (o = 1; o < 64; o++) {
                     struct stat s;
 
                     files[o] = malloc(1024);
@@ -3060,8 +3305,7 @@ int launch_iso_game(char *path)
                     
                 }
             }
-
-            
+      
             if(type == EMU_DVD) 
                 ret = cobra_mount_dvd_disc_image(files, nfiles);
             else if(type == EMU_BD) 
@@ -3081,8 +3325,78 @@ int launch_iso_game(char *path)
                 exit(0);
               
             }
+            #else
+
+            char *sections = malloc(64 * 0x200);
+            uint32_t *sections_size = malloc(64 * sizeof(uint32_t));
+
+            if(plugin_args && sections && sections_size) {
+
+                rawseciso_args *p_args;
+         
+                memset(sections, 0, 64 * 0x200);
+                memset(sections_size, 0, 64 * sizeof(uint32_t));
+
+                memset(plugin_args, 0, 0x10000);
+
+                int parts = 0;
+
+                if(!strcmpext(path, ".iso.0") || !strcmpext(path, ".ISO.0")) {
+                
+                    int o;
+
+                    for (o = 0; o < 64; o++) {
+                        struct stat s;
+
+                        sprintf(temp_buffer + 3072, "%s", path);
+                        temp_buffer[3072 + strlen(temp_buffer + 3072) - 1] = 0;
+
+                        sprintf(&sections[0x200 * o], "%s%i", temp_buffer + 3072, o);   
+
+                        if(stat(&sections[0x200 * o], &s)!=0) {memset(&sections[0x200 * o], 0, 0x200); break;}
+                        sections_size[o] = s.st_size/2048;
+
+                        parts++;
+                        
+                    }
+                } else {
+                    parts = 1;
+
+                    strncpy(&sections[0], path, 0x200);
+
+                    if(stat(&sections[0], &s)!=0) goto skip_load;
+                    sections_size[0] = s.st_size/2048;
+
+                }
+
+                p_args = (rawseciso_args *)plugin_args;
+                p_args->device = USB_MASS_STORAGE(NTFS_Test_Device(&path[1]));
+                p_args->emu_mode = type | 1024;
+                p_args->num_sections = parts;
+                p_args->num_tracks = 0;
+
+                
+                memcpy(plugin_args+sizeof(rawseciso_args), sections, parts * 0x200);
+                memcpy(plugin_args+sizeof(rawseciso_args)+(parts* 0x200), sections_size, parts*sizeof(uint32_t)); 
+
+                cobra_unload_vsh_plugin(0);
+
+                sprintf(temp_buffer + 2048, "%s/sprx_iso", self_path);
+
+                if (cobra_load_vsh_plugin(0, temp_buffer + 2048, plugin_args, 0x10000) == 0)
+                    {use_cobra = 2; exit(0);}
+            }
+        
+        skip_load:
+
+            if(plugin_args) free(plugin_args); plugin_args = NULL;
+            if(sections) free(sections);
+            if(sections_size) free(sections_size);
+            #endif
         }
     }
+
+    if(plugin_args) free(plugin_args); plugin_args = NULL;
                         
 return -1;
 
@@ -3114,7 +3428,7 @@ int launch_iso_build(char *path, char *path2, int sel)
 
         if(stat(path, &s)<0) return -1;
        
-        if(!strncmp(path2, "/ntfs", 5) /*|| !strncmp(path2, "/ext", 4)*/) {
+        if(!strncmp(path2, "/ntfs", 5) || !strncmp(path2, "/ext", 4)) {
             
             uint32_t *sections = malloc(MAX_SECTIONS * sizeof(uint32_t));
             uint32_t *sections_size = malloc(MAX_SECTIONS * sizeof(uint32_t));
@@ -3128,22 +3442,28 @@ int launch_iso_build(char *path, char *path2, int sel)
 
                 memset(plugin_args, 0, 0x10000);
 
-                int parts = ps3ntfs_file_to_sectors(path, sections, sections_size, MAX_SECTIONS, 1);
+                //int parts = ps3ntfs_file_to_sectors(path, sections, sections_size, MAX_SECTIONS, 1);
+                
+                // create file section
+                strncpy((char *) sections, path, 0x200);
+                sections[0x200/4] = 0;
+                sections_size[0] = s.st_size / 2048ULL;
+                int parts = 1;
 
                 if(parts < MAX_SECTIONS)
-                    parts += ps3ntfs_file_to_sectors(path2, sections + parts, sections_size + parts, MAX_SECTIONS - parts, 1);
+                    parts += ps3ntfs_file_to_sectors(path2, sections + 0x200/4 + parts, sections_size + parts, MAX_SECTIONS - parts - 0x200/4, 1);
                
-                if (parts>0 && parts < MAX_SECTIONS) {
+                if (parts>0 && parts < (MAX_SECTIONS - 0x200/4)) {
 
                     p_args = (rawseciso_args *)plugin_args;
-                    p_args->device = USB_MASS_STORAGE(NTFS_Test_Device(&path[1]));
-                    p_args->emu_mode = type;
+                    p_args->device = USB_MASS_STORAGE(NTFS_Test_Device(&path2[1]));
+                    p_args->emu_mode = type | 2048;
                     p_args->num_sections = parts;
                     p_args->num_tracks = 0;
 
                     
-                    memcpy(plugin_args+sizeof(rawseciso_args), sections, parts*sizeof(uint32_t));
-                    memcpy(plugin_args+sizeof(rawseciso_args)+(parts*sizeof(uint32_t)), sections_size, parts*sizeof(uint32_t)); 
+                    memcpy(plugin_args+sizeof(rawseciso_args), sections, parts*sizeof(uint32_t) + 0x200);
+                    memcpy(plugin_args+sizeof(rawseciso_args)+(parts*sizeof(uint32_t) + 0x200), sections_size, parts*sizeof(uint32_t)); 
                    
                     cobra_unload_vsh_plugin(0);
 
@@ -3154,6 +3474,12 @@ int launch_iso_build(char *path, char *path2, int sel)
                         use_cobra = 2; 
                         
                         if(sel) {
+                            reset_sys8_path_table();
+                            sprintf(temp_buffer, "%s/USRDIR/iris_manager.self", self_path);
+
+                            // why launch showtime Multiman from exit program? ¬ ¬
+                            add_sys8_path_table("/dev_hdd0/game/BLES80608/USRDIR/RELOAD.SELF", temp_buffer);
+                            build_sys8_path_table();
                             fun_exit(0);
                             sysProcessExitSpawn2("/dev_hdd0/game/HTSS00003/USRDIR/showtime.self", NULL, NULL, NULL, 0, 3071, SYS_PROCESS_SPAWN_STACK_SIZE_1M);
                         }
@@ -3162,7 +3488,7 @@ int launch_iso_build(char *path, char *path2, int sel)
                     }
                
                 } else {
-                    if(parts >= MAX_SECTIONS) DrawDialogOKTimer(".ISO is very fragmented", 2000.0f);
+                    if(parts >= (MAX_SECTIONS - 512/4)) DrawDialogOKTimer(".ISO is very fragmented", 2000.0f);
                 }
               //end:
                 if(plugin_args) free(plugin_args);
@@ -3170,6 +3496,67 @@ int launch_iso_build(char *path, char *path2, int sel)
                 if(sections_size) free(sections_size);
             }
 
+        } else {
+            char *sections = malloc(64 * 0x200);
+            uint32_t *sections_size = malloc(64 * sizeof(uint32_t));
+
+            if(plugin_args && sections && sections_size) {
+
+                rawseciso_args *p_args;
+         
+                memset(sections, 0, 64 * 0x200);
+                memset(sections_size, 0, 64 * sizeof(uint32_t));
+
+                memset(plugin_args, 0, 0x10000);
+
+                int parts = 2;
+
+                strncpy(&sections[0], path, 0x200);
+
+                if(stat(&sections[0], &s)!=0) goto skip_load;
+                sections_size[0] = s.st_size/2048;
+
+                if(stat(path2, &s)!=0) goto skip_load;
+                strncpy(&sections[0x200], path2, 0x200);
+                sections_size[1] = (s.st_size + 2047)/2048;
+ 
+                p_args = (rawseciso_args *)plugin_args;
+                p_args->device = USB_MASS_STORAGE(NTFS_Test_Device(&path[1]));
+                p_args->emu_mode = type | 1024;
+                p_args->num_sections = parts;
+                p_args->num_tracks = 0;
+
+                
+                memcpy(plugin_args+sizeof(rawseciso_args), sections, parts * 0x200);
+                memcpy(plugin_args+sizeof(rawseciso_args)+(parts* 0x200), sections_size, parts*sizeof(uint32_t)); 
+
+                cobra_unload_vsh_plugin(0);
+
+                sprintf(temp_buffer + 2048, "%s/sprx_iso", self_path);
+
+                if (cobra_load_vsh_plugin(0, temp_buffer + 2048, plugin_args, 0x10000) == 0) {
+                    
+                    use_cobra = 2; 
+                        
+                        if(sel) {
+                            reset_sys8_path_table();
+                            sprintf(temp_buffer, "%s/USRDIR/iris_manager.self", self_path);
+
+                            // why launch showtime Multiman from exit program? ¬ ¬
+                            add_sys8_path_table("/dev_hdd0/game/BLES80608/USRDIR/RELOAD.SELF", temp_buffer);
+                            build_sys8_path_table();
+                            fun_exit(0);
+                            sysProcessExitSpawn2("/dev_hdd0/game/HTSS00003/USRDIR/showtime.self", NULL, NULL, NULL, 0, 3071, SYS_PROCESS_SPAWN_STACK_SIZE_1M);
+                        } 
+                    exit(0);
+                }
+            }
+        
+        skip_load:
+
+            if(plugin_args) free(plugin_args); plugin_args = NULL;
+            if(sections) free(sections);
+            if(sections_size) free(sections_size);
         }
                    
     }
@@ -3192,6 +3579,9 @@ static char help1[]= {
     "\n"
     "Special Combo: Press CIRCLE to select and CROSS to access to    the Hex Editor in .SELF or .PKG files\n"
 };
+
+static char cur_path1[0x420];
+static char cur_path2[0x420];
 
 void archive_manager()
 {
@@ -3216,6 +3606,9 @@ void archive_manager()
 
     char path1[0x420]="/";
     char path2[0x420]="/";
+
+    cur_path1[0] = 0;
+    cur_path2[0] = 0;
 
     u64 free_device1 = 0ULL;
     u64 free_device2 = 0ULL;
@@ -3301,6 +3694,10 @@ void archive_manager()
     stat1.st_mode = 0xffffffff;
     stat2.st_mode = 0xffffffff;
 
+    /*
+    stat1.st_mode = 0xffffffff;
+    stat2.st_mode = 0xffffffff;
+
     if(nentries1 && path1[1]!=0 && strcmp(entries1[sel1].d_name, "..")!=0) {
         sprintf(temp_buffer, "%s/%s", path1, entries1[sel1].d_name);
 
@@ -3327,6 +3724,19 @@ void archive_manager()
 
     if(stat1.st_mode == 0xffffffff) free_device1 = 0ULL;
     if(stat2.st_mode == 0xffffffff) free_device2 = 0ULL;
+    */
+
+    if(!nentries1 || path1[1]==0) {stat1.st_size = 0; free_device1 = 0ULL;}
+    else {
+        stat1.st_mode = (entries1[nentries1].d_type & 1) ? DT_DIR : 0;
+        stat1.st_size = entries1_size[sel1];
+    }
+
+    if(!nentries2 || path2[1]==0) {stat2.st_size = 0; free_device2 = 0ULL;}
+    else {
+        stat2.st_mode = (entries2[nentries2].d_type & 1) ? DT_DIR : 0;
+        stat2.st_size = entries2_size[sel2];
+    }
 
     is_ntfs = 0;
 
@@ -3356,6 +3766,8 @@ void archive_manager()
             if(entries1[nentries1].d_name[0]=='.' && entries1[nentries1].d_name[1]==0) continue;
 
             if(!strcmp(entries1[nentries1].d_name, "..")) have_dot = 1;
+            
+            entries1_size[nentries1] = 0;
 
             if(entries1[nentries1].d_type & DT_DIR) {
                 entries1[nentries1].d_type = 1;
@@ -3363,10 +3775,18 @@ void archive_manager()
                     sysFSStat stat;
                     sprintf(temp_buffer, "%s/%s", path1, entries1[nentries1].d_name);
                     if(sysLv2FsStat(temp_buffer, &stat)<0) entries1[nentries1].d_type |= 128;
+                } else if(strcmp(entries1[nentries1].d_name, "..")) {
+                     struct stat s;
+                     sprintf(temp_buffer, "%s/%s", path1, entries1[nentries1].d_name);
+                     if(!stat(temp_buffer, &s)) entries1_size[nentries1] = s.st_size;
                 }
             }
-            else
+            else {
+                struct stat s;
                 entries1[nentries1].d_type = 0;
+                sprintf(temp_buffer, "%s/%s", path1, entries1[nentries1].d_name);
+                if(!stat(temp_buffer, &s)) entries1_size[nentries1] = s.st_size;
+            }
 
 
             nentries1++;
@@ -3385,6 +3805,7 @@ void archive_manager()
                     if((mounts[k]+i)->name[0]) {
                         entries1[nentries1].d_type = 1;
                         sprintf(entries1[nentries1].d_name, "%s:", (mounts[k]+i)->name);
+                        entries1_size[nentries1] = 0;
                        
                         nentries1++;
                     }
@@ -3432,16 +3853,26 @@ void archive_manager()
 
             if(!strcmp(entries2[nentries2].d_name, "..")) have_dot = 1;
 
+            entries2_size[nentries2] = 0;
+
             if(entries2[nentries2].d_type & DT_DIR) {
                 entries2[nentries2].d_type = 1;
                 if(path2[1]==0) {
                     sysFSStat stat;
                     sprintf(temp_buffer, "%s/%s", path2, entries2[nentries2].d_name);
                     if(sysLv2FsStat(temp_buffer, &stat)<0) entries2[nentries2].d_type |= 128;
+                } else if(strcmp(entries2[nentries2].d_name, "..")) {
+                     struct stat s;
+                     sprintf(temp_buffer, "%s/%s", path2, entries2[nentries2].d_name);
+                     if(!stat(temp_buffer, &s)) entries2_size[nentries2] = s.st_size;
                 }
             }
-            else
+            else {
+                struct stat s;
                 entries2[nentries2].d_type = 0;
+                sprintf(temp_buffer, "%s/%s", path2, entries2[nentries2].d_name);
+                if(!stat(temp_buffer, &s)) entries2_size[nentries2] = s.st_size;
+            }
 
 
             nentries2++;
@@ -3460,6 +3891,7 @@ void archive_manager()
                     if((mounts[k]+i)->name[0]) {
                         entries2[nentries2].d_type = 1;
                         sprintf(entries2[nentries2].d_name, "%s:", (mounts[k]+i)->name);
+                        entries2_size[nentries2] = 0;
                        
                         nentries2++;
                     }
@@ -3480,6 +3912,40 @@ void archive_manager()
         update_device2 = 1;
     }
 
+    if(cur_path1[0] != 0 && nentries1) {
+
+        for(i = 0; i < nentries1 ; i++) {
+            if(!strcmp(entries1[i].d_name, cur_path1)) {
+                sel1 = i; pos1 = sel1;
+                if(is_vsplit) {
+                    if(sel1 >= 12) pos1 = sel1 - 12; else pos1 = 0;
+                } else {
+                    if(sel1 >= 4) pos1 = sel1 - 4; else pos1 = 0;
+                }
+                break;
+            }
+        }
+    
+        cur_path1[0] = 0;
+    }
+
+    if(cur_path2[0] != 0 && nentries2) {
+
+        for(i = 0; i < nentries2 ; i++) {
+            if(!strcmp(entries2[i].d_name, cur_path2)) {
+                sel2 = i; pos2 = sel2;
+                if(is_vsplit) {
+                    if(sel2 >= 12) pos2 = sel2 - 12; else pos2 = 0;
+                } else {
+                    if(sel2 >= 4) pos2 = sel2 - 4; else pos2 = 0;
+                }
+
+                break;
+            }
+        }
+    
+        cur_path2[0] = 0;
+    }
 
     tiny3d_Flip();
 
@@ -3641,11 +4107,12 @@ void archive_manager()
                 if(!strcmp(ext, ".pkg") || !strcmp(ext, ".PKG")) type = 2; else
                 if(!strcmp(ext, ".self") || !strcmp(ext, ".SELF")) type = 3; else
                 if(!strcmp(ext, ".png") || !strcmp(ext, ".PNG") || !strcmp(ext, ".jpg") || !strcmp(ext, ".JPG")) type = 4; else
-                if(!strcmp(ext, ".iso") || !strcmp(ext, ".ISO") || !strcmpext(entries1[pos1 + n].d_name, ".iso.0")) type = 5; else
-                if(noBDVD && use_cobra && !strncmp(path1, "/ntfs", 5) && 
+                if(!strcmp(ext, ".iso") || !strcmp(ext, ".ISO") || !strcmpext(entries1[pos1 + n].d_name, ".iso.0") || !strcmpext(entries1[pos1 + n].d_name, ".ISO.0")) type = 5; else
+                if(noBDVD && use_cobra /*&& !strncmp(path1, "/ntfs", 5)*/ && 
                     (!strcmp(ext, ".avi") || !strcmp(ext, ".AVI")
                     || !strcmp(ext, ".mp4") || !strcmp(ext, ".MP4")
                     || !strcmp(ext, ".ogm") || !strcmp(ext, ".OGM")
+                    || !strcmp(ext, ".mpg") || !strcmp(ext, ".MPG")
                     || !strcmp(ext, ".mkv") || !strcmp(ext, ".MKV"))) type = 5; 
 
                 display_icon(0, py + (is_vsplit ? 50 : 34), 0, type);
@@ -3732,11 +4199,12 @@ void archive_manager()
                 if(!strcmp(ext, ".pkg") || !strcmp(ext, ".PKG")) type = 2; else
                 if(!strcmp(ext, ".self") || !strcmp(ext, ".SELF")) type = 3;else
                 if(!strcmp(ext, ".png") || !strcmp(ext, ".PNG") || !strcmp(ext, ".jpg") || !strcmp(ext, ".JPG")) type = 4; else
-                if(!strcmp(ext, ".iso") || !strcmp(ext, ".ISO") || !strcmpext(entries2[pos2 + n].d_name, ".iso.0")) type = 5; else
-                if(noBDVD && use_cobra &&!strncmp(path2, "/ntfs", 5) && 
+                if(!strcmp(ext, ".iso") || !strcmp(ext, ".ISO") || !strcmpext(entries2[pos2 + n].d_name, ".iso.0") || !strcmpext(entries2[pos2 + n].d_name, ".ISO.0")) type = 5; else
+                if(noBDVD && use_cobra /*&& !strncmp(path2, "/ntfs", 5)*/ && 
                     (!strcmp(ext, ".avi") || !strcmp(ext, ".AVI")
                     || !strcmp(ext, ".mp4") || !strcmp(ext, ".MP4")
                     || !strcmp(ext, ".ogm") || !strcmp(ext, ".OGM")
+                    || !strcmp(ext, ".mpg") || !strcmp(ext, ".MPG")
                     || !strcmp(ext, ".mkv") || !strcmp(ext, ".MKV"))) type = 5;
 
                 display_icon(0, py + (is_vsplit ? 50 : 34) + 256, 0, type);
@@ -4153,7 +4621,7 @@ void archive_manager()
             if(!archive_manager) {
                 if(test_mark_flags(entries1, nentries1, &files)) {// multiple
 
-                    if(!strcmp(path2, "/") || !strcmp(path1, path2)) {set_menu2 = 0;goto skip_menu2;}
+                    if(!strcmp(path2, "/") || !strcmp(path1, path2)) {set_menu2 = 0; goto skip_menu2;}
                     ret = copy_archive_manager(path1, path2, entries1, nentries1, -1, free_device2);
                 } else {
 
@@ -4400,22 +4868,23 @@ void archive_manager()
 
                 set_menu2 = 0;
 
-                if((!archive_manager && (!strncmp(path1, "/ntfs", 5)/* || !strncmp(path1, "/ext", 4)*/)) ||
-                    (archive_manager && (!strncmp(path2, "/ntfs", 5)/* || !strncmp(path2, "/ext", 4)*/))) {
+                if(/*(!archive_manager && (!strncmp(path1, "/ntfs", 5) || !strncmp(path1, "/ext", 4))) ||
+                    (archive_manager && (!strncmp(path2, "/ntfs", 5) || !strncmp(path2, "/ext", 4)))*/1) {
                 
                     if(!archive_manager) {
                         sprintf(temp_buffer, "%s/%s", path1, entries1[sel1].d_name);
+                        /*
                         sprintf(temp_buffer + 2048, "%s", path1);
                         char *p = strrchr(temp_buffer + 2048, ':');
                         if(p) p[1] = 0;
                         strcat(temp_buffer + 2048, "/iris_manager.biso");
+                        */
+                        sprintf(temp_buffer + 2048, "%s/iris_manager.biso", self_path);
+
 
                     } else {
                         sprintf(temp_buffer, "%s/%s", path2, entries2[sel2].d_name);
-                        sprintf(temp_buffer + 2048, "%s", path2);
-                        char *p = strrchr(temp_buffer + 2048, ':');
-                        if(p) p[1] = 0;
-                        strcat(temp_buffer + 2048, "/iris_manager.biso");
+                        sprintf(temp_buffer + 2048, "%s/iris_manager.biso", self_path);
                     }
 
                     if(((!archive_manager && path1[1]!=0 && strcmp(entries1[sel1].d_name, "..") && !(entries1[sel1].d_type & 1)) ||
@@ -4479,8 +4948,8 @@ void archive_manager()
                     n = strlen(path1);
                     while(n>0 && path1[n]!='/') n--;
 
-                    if(n==0) {path1[n] = '/';path1[n+1] = 0;} else path1[n] = 0;
-
+                    if(n==0) {path1[n] = '/';strcpy(cur_path1, &path1[n+1]); path1[n+1] = 0;} else {strcpy(cur_path1, &path1[n + 1]); path1[n] = 0;}
+                    
                     is_ntfs = 0; if(!strncmp(path1, "/ntfs", 5) || !strncmp(path1, "/ext", 4)) is_ntfs = 1;
 
                     if(!is_ntfs && sysLv2FsOpenDir(path1, &fd) == 0) {
@@ -4515,24 +4984,21 @@ void archive_manager()
             } else {
                 char *ext =get_extension(entries1[sel1].d_name);
 
-                if(noBDVD && use_cobra && !strncmp(path1, "/ntfs", 5) && !(entries1[sel1].d_type & 2) 
+                if(noBDVD && use_cobra /*&& !strncmp(path1, "/ntfs", 5)*/ && !(entries1[sel1].d_type & 2) 
                     && (!strcmp(ext, ".avi") || !strcmp(ext, ".AVI")
                     || !strcmp(ext, ".mp4") || !strcmp(ext, ".MP4")
                     || !strcmp(ext, ".ogm") || !strcmp(ext, ".OGM")
                     || !strcmp(ext, ".mkv") || !strcmp(ext, ".MKV"))) {
                     
                     sprintf(temp_buffer, "%s/%s", path1, entries1[sel1].d_name);
-                    sprintf(temp_buffer + 2048, "%s", path1);
-                    char *p = strrchr(temp_buffer + 2048, ':');
-                    if(p) p[1] = 0;
+                    sprintf(temp_buffer + 2048, "%s/iris_manager.biso", self_path);
 
-                    strcat(temp_buffer + 2048, "/iris_manager.biso");
                     launch_iso_build(temp_buffer + 2048, temp_buffer, 1);
 
                 
                 } else if(noBDVD && use_cobra && !(entries1[sel1].d_type & 2) 
                     && (!strcmp(ext, ".iso") || !strcmp(ext, ".ISO")
-                    || !strcmpext(entries1[sel1].d_name, ".iso.0"))) {
+                    || !strcmpext(entries1[sel1].d_name, ".iso.0") || !strcmpext(entries1[sel1].d_name, ".ISO.0"))) {
 
                     sprintf(temp_buffer, "%s/%s", path1, entries1[sel1].d_name);
                     launch_iso_game(temp_buffer);
@@ -4654,7 +5120,7 @@ void archive_manager()
                     n = strlen(path2);
                     while(n>0 && path2[n]!='/') n--;
 
-                    if(n==0) {path2[n] = '/';path2[n+1] = 0;} else path2[n] = 0;
+                    if(n==0) {path2[n] = '/';strcpy(cur_path2, &path2[n+1]); path2[n+1] = 0;} else {strcpy(cur_path2, &path2[n + 1]); path2[n] = 0;}
 
                     is_ntfs = 0; if(!strncmp(path2, "/ntfs", 5) || !strncmp(path2, "/ext", 4)) is_ntfs = 1;
 
@@ -4689,23 +5155,20 @@ void archive_manager()
             } else {
                 char *ext =get_extension(entries2[sel2].d_name);
 
-                if(noBDVD && use_cobra && !strncmp(path2, "/ntfs", 5) && !(entries2[sel2].d_type & 2) 
+                if(noBDVD && use_cobra /*&& !strncmp(path2, "/ntfs", 5)*/ && !(entries2[sel2].d_type & 2) 
                     && (!strcmp(ext, ".avi") || !strcmp(ext, ".AVI")
                     || !strcmp(ext, ".mp4") || !strcmp(ext, ".MP4")
                     || !strcmp(ext, ".ogm") || !strcmp(ext, ".OGM")
                     || !strcmp(ext, ".mkv") || !strcmp(ext, ".MKV"))) {
                     
                     sprintf(temp_buffer, "%s/%s", path2, entries2[sel2].d_name);
-                    sprintf(temp_buffer + 2048, "%s", path2);
-                    char *p = strrchr(temp_buffer + 2048, ':');
-                    if(p) p[1] = 0;
+                    sprintf(temp_buffer + 2048, "%s/iris_manager.biso", self_path);
 
-                    strcat(temp_buffer + 2048, "/iris_manager.biso");
                     launch_iso_build(temp_buffer + 2048, temp_buffer, 1);
                 
                 } else if(noBDVD && use_cobra && !(entries2[sel2].d_type & 2) 
                     && (!strcmp(ext, ".iso") || !strcmp(ext, ".ISO")
-                    || !strcmpext(entries2[sel2].d_name, ".iso.0"))) {
+                    || !strcmpext(entries2[sel2].d_name, ".iso.0")|| !strcmpext(entries2[sel2].d_name, ".ISO.0"))) {
 
                     sprintf(temp_buffer, "%s/%s", path2, entries2[sel2].d_name);
                     launch_iso_game(temp_buffer);

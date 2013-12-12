@@ -23,5 +23,7 @@ int NTFS_Test_Device(char *name);
 
 int launch_iso_game(char *path);
 
+int copy_archive_file(char *path1, char *path2, char *file, u64 free);
+
 
 #endif

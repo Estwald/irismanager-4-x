@@ -473,12 +473,13 @@ int display_ttf_string(int posx, int posy, char *string, u32 color, u32 bkcolor,
         // skip if out of window
         if((posx + cx) > Win_W_ttf || (posy + sh) > Win_H_ttf ) ccolor = 0;
 
-        if(ccolor)
+        if(ccolor) {
             DrawBox_ttf((float) (Win_X_ttf + posx), (float) (Win_Y_ttf + posy) + ((float) ttf_font_datas[l].y_start * sh) * 0.03125f,
             Z_ttf, (float) sw, (float) sh, bkcolor);
             DrawTextBox_ttf((float) (Win_X_ttf + posx), (float) (Win_Y_ttf + posy) + ((float) ttf_font_datas[l].y_start * sh) * 0.03125f,
             Z_ttf, (float) sw, (float) sh, color,
             0.99f, 0.99f);
+        }
 
         posx+= cx;
 

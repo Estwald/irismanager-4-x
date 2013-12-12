@@ -443,7 +443,7 @@ int patch_exe_error_09(char *path_exe)
 {
     
     u16 fw_421 = 42100;
-    u16 fw_450 = 45000;
+    u16 fw_460 = 46000;
     u32 offset_fw;
     s32 ret;
     u64 readed = 0;
@@ -453,7 +453,7 @@ int patch_exe_error_09(char *path_exe)
     int file = -1;
     int flag = 0;
 
-    //if(firmware < 0x421C || firmware >= 0x450C) return 0;
+    //if(firmware < 0x421C || firmware >= 0x460C) return 0;
 
     // open self/sprx and changes the fw version
     ret = sysLv2FsOpen( path_exe, SYS_O_RDWR, &file, 0, NULL, 0 );
@@ -474,7 +474,7 @@ int patch_exe_error_09(char *path_exe)
                         ret = sysLv2FsLSeek64( file, (u64) offset_fw, 0, &pos );
                         u16 cur_firm = ((firmware>>12) & 0xF) * 10000 + ((firmware>>8) & 0xF) * 1000 + ((firmware>>4) & 0xF) * 100;
                         
-                        if(ret == 0 && firmware >= 0x421C && firmware < 0x450C && ver > fw_421 && ver <= fw_450 && ver > cur_firm) {
+                        if(ret == 0 && firmware >= 0x421C && firmware < 0x460C && ver > fw_421 && ver <= fw_460 && ver > cur_firm) {
                             sysLv2FsWrite( file, &cur_firm, 0x2, &written );
                             flag = 1;
                         } else if(ret==0 && ver > cur_firm) flag = -1; // 
@@ -503,7 +503,7 @@ void patch_error_09( const char *path )
     int d = -1;
     s32 ret = 1;
 
-    if(firmware < 0x421C || firmware >= 0x450C) return;
+    if(firmware < 0x421C || firmware >= 0x460C) return;
 
     /* Open the directory specified by "path". */
 	ret = sysLv2FsOpenDir( path, &d );
@@ -566,8 +566,6 @@ void patch_error_09( const char *path )
 				
 			}
         }
-		
-	
 		
     }
     
@@ -826,10 +824,12 @@ void fill_iso_entries_from_device(char *path, u32 flag, t_directories *list, int
             strcat(path, entry->d_name);
             fill_iso_entries_from_device(path, flag, list, max);
             path[len] = 0;
+            continue;
             
         }
 
-        if(strcmpext(entry->d_name, ".iso") && strcmpext(entry->d_name, ".ISO") && strcmpext(entry->d_name, ".iso.0")) continue;
+        if(strcmpext(entry->d_name, ".iso") && strcmpext(entry->d_name, ".ISO")
+            && strcmpext(entry->d_name, ".iso.0") && strcmpext(entry->d_name, ".ISO.0")) continue;
 
         sprintf(list[*max ].path_name, "%s/%s", path, entry->d_name);
 
@@ -862,7 +862,7 @@ void fill_iso_entries_from_device(char *path, u32 flag, t_directories *list, int
 
         strcpy(name, entry->d_name);
 
-        if(!strcmpext(name, ".iso.0")) name[strlen(name) - 6] = 0; else name[strlen(name) - 4] = 0;
+        if(!strcmpext(name, ".iso.0") || !strcmpext(name, ".ISO.0")) name[strlen(name) - 6] = 0; else name[strlen(name) - 4] = 0;
 
         strncpy(list[*max ].title, name, 63);
         list[*max ].title[63]=0;
@@ -913,6 +913,7 @@ void fill_entries_from_device(char *path, t_directories *list, int *max, u32 fla
 
     if(sel== GAMEBASE_MODE && use_cobra && noBDVD == 2) { // isos
         int n;
+
         strncpy(file, path, 0x420);
         n=1;while(file[n]!='/' && file[n]!=0)  n++;
         
@@ -1505,7 +1506,7 @@ static int fast_copy_add(char *pathr, char *pathw, char *file)
 	}
 	
 	if(copy_mode == 1) {
-		if(((s64) s.st_size) >= 0x100000000LL) {
+		if(((s64) s.st_size) >= 0xFFFF0001LL) {
 			fast_files[fast_num_files].bigfile_mode = 1;
 			fast_files[fast_num_files].pos_path     = strlen(fast_files[fast_num_files].pathw);
 			fast_files[fast_num_files].giga_counter = 0;
@@ -2957,9 +2958,7 @@ void copy_from_selection(int game_sel)
 
             // try rename
             if(copy_is_split) {
-            #ifdef PSDEBUG
-                ret = 
-            #endif
+          
                 sysLv2FsRename(name, filename);
             }
 
@@ -3660,7 +3659,7 @@ void delete_game(int game_sel)
 void test_game(int game_sel)
 {
    
-    int r;
+    int r = 0;
 
     time_start= time(NULL);
 			
@@ -3680,9 +3679,11 @@ void test_game(int game_sel)
     
     self_alarm_version = 0;
 
-    my_game_test(directories[game_sel].path_name);
+    if(!(directories[game_sel].flags & (1<<15))) {
+        my_game_test(directories[game_sel].path_name);
 
-    r = self_alarm_version;
+        r = self_alarm_version;
+    }
 
     char game_update[0x420];
 

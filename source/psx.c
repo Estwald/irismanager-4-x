@@ -2567,7 +2567,7 @@ void copy_PSX_game_from_CD()
        
         if(stat(temp_buffer + 1024, &s)>=0) {
             sprintf(temp_buffer + 2048, "disc%i.img %s", disc, language[DRAWPSX_ISOEXITS]);
-            if(DrawDialogYesNo2(temp_buffer + 2048)==1) {
+            if(DrawDialogYesNo2(temp_buffer + 2048)!=1) {
                 close_bdvd();
                 continue;
             }
@@ -2586,7 +2586,7 @@ void copy_PSX_game_from_CD()
         free_hdd0 = ( ((u64)blockSize * freeSize));
 
         if((((s64) total_sector * 0x930LL) + 0x40000000LL) >= (s64) free_hdd0) {
-            sprintf(temp_buffer + 1024, "%s\n\n%s%1.2f GB", "Error: no space in HDD0 to copy it", "You need ", 
+            sprintf(temp_buffer + 1024, "%s\n\n%s%1.2f GB", "Error: no space in HDD0 to copy it", "You needs ", 
                 ((double) (((s64) total_sector * 0x930LL) + 0x40000000LL - free_hdd0))/(1024.0*1024.*1024.0));
             DrawDialogOK(temp_buffer + 1024);
             goto end;
@@ -2697,3 +2697,4 @@ void copy_PSX_game_from_CD()
     }
 
 }
+

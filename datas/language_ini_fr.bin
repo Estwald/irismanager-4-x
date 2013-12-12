@@ -46,6 +46,11 @@ DRAWGMOPT_TSTGAME       = Test Jeu
 DRAWGMOPT_CPYEBOOTGAME  = Copier l EBOOT.BIN vers l USB
 DRAWGMOPT_CPYTOFAV      = Copier les  Favourites
 DRAWGMOPT_DELFMFAV      = Effacer les Favourites
+DRAWGMOPT_EXTRACTISO    = Extract ISO
+DRAWGMOPT_BUILDISO      = Build ISO
+DRAWGMOPT_MKISO         = Select a device to Build the ISO
+DRAWGMOPT_XTISO         = Select a device to Extract the ISO
+DRAWGMOPT_CPYISO        = Select a device to Copy the ISO
 
 DRAWGMOPT_FIXCOMPLETE   = Fix des Permissions Fait!
 DRAWGMOPT_CPYOK         = copie avec succes

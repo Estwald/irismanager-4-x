@@ -16,5 +16,13 @@ unsigned char build_iso_data[53248];
 int create_fake_file_iso(char *path, char *filename, u64 size);
 char * create_fake_file_iso_mem(char *filename, u64 size, u32 *nsize);
 
+int makeps3iso(char *g_path, char *f_iso, int split);
+int extractps3iso(char *f_iso, char *g_path, int split);
+int patchps3iso(char *f_iso);
+
+int delps3iso(char *f_iso);
+
+u64 get_disk_free_space(char *path);
+
 #endif
 

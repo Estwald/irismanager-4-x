@@ -95,6 +95,11 @@ t_lngstr lang_strings[] =
     { DRAWGMOPT_CPYEBOOTGAME, "DRAWGMOPT_CPYEBOOTGAME"  , "Copy EBOOT.BIN from USB" },
     { DRAWGMOPT_CPYTOFAV, "DRAWGMOPT_CPYTOFAV"      , "Copy to Favourites" },
     { DRAWGMOPT_DELFMFAV, "DRAWGMOPT_DELFMFAV"      , "Delete from Favourites" },
+    { DRAWGMOPT_EXTRACTISO, "DRAWGMOPT_EXTRACTISO"      , "Extract ISO" },
+    { DRAWGMOPT_BUILDISO, "DRAWGMOPT_BUILDISO"      , "Build ISO" },
+    { DRAWGMOPT_MKISO, "DRAWGMOPT_MKISO"      , "Select a device to Build the ISO" },
+    { DRAWGMOPT_XTISO, "DRAWGMOPT_XTISO"      , "Select a device to Extract the ISO" },
+    { DRAWGMOPT_CPYISO, "DRAWGMOPT_CPYISO"      , "Select a device to Copy the ISO" },
 
     { DRAWGMOPT_FIXCOMPLETE, "DRAWGMOPT_FIXCOMPLETE"   , "Fix Permissions Done!" },
     { DRAWGMOPT_CPYOK, "DRAWGMOPT_CPYOK"         , "copied successfully" },
