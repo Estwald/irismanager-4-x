@@ -22,10 +22,17 @@
 #include "utils.h"
 
 #include "ps3_storage_bin.h"
+#include "mamba_4_46_lz_bin.h"
+#include "mamba_4_53_lz_bin.h"
+
+int zlib_decompress(char *source, char *dest, int in_size, int *out_size);
+
+extern int firmware;
 
 u64 lv2peek(u64 addr);
 u64 lv2poke(u64 addr, u64 value);
 extern u64 syscall_base;
+extern u64 restore_syscall8[2];
 
 u64 syscall_40(u64 cmd, u64 arg);
 
@@ -252,6 +259,7 @@ static void write_htab(void)
     }
 }
 
+
 void load_ps3_discless_payload()
 {
 
@@ -317,4 +325,81 @@ skip_the_load:
     send_async_data_table();
 }
 
+
+void load_ps3_mamba_payload()
+{
+
+    u64 *addr= (u64 *) memalign(128, 0x20000);
+
+    if(!addr) {
+        DrawDialogOK("Shit! full memory");
+        exit(0);
+    }
+
+    if(!syscall_base) {
+        DrawDialogOK("syscall_base is empty!");
+        free(addr);
+        return;
+    }
+    
+    //PAYLOAD_BASE = 0x80000000007E4000ULL;
+
+    if(sys8_mamba()==0x666) goto skip_the_load;  // MAMBA is running yet
+
+    write_htab();
+
+    memset((char *) addr, 0, 0x20000);
+    int out_size;
+
+    /*
+    if(firmware == 0x446C)
+        memcpy((char *) addr, (char *) mamba_4_46_bin, mamba_4_46_bin_size);
+    else if(firmware == 0x453C)
+        memcpy((char *) addr, (char *) mamba_4_53_bin, mamba_4_53_bin_size);
+    else {
+        DrawDialogOK("MAMBA is not supported for this CFW");
+        free(addr);
+        return;
+    }
+    */
+
+    if(firmware == 0x446C)
+        zlib_decompress((char *) mamba_4_46_lz_bin, (char *) addr, mamba_4_46_lz_bin_size, &out_size);
+    else if(firmware == 0x453C)
+        zlib_decompress((char *) mamba_4_53_lz_bin, (char *) addr, mamba_4_53_lz_bin_size, &out_size);
+    else {
+        DrawDialogOK("MAMBA is not supported for this CFW");
+        free(addr);
+        return;
+    }
+
+    out_size = (out_size + 0x4000) & ~127;
+    u64 lv2_mem = sys8_alloc(out_size, 0x27ULL); // alloc LV2 memory
+
+    if(!lv2_mem) {
+        DrawDialogOK("Shit! LV2 full memory");
+        free(addr);
+        exit(0);
+    }
+
+    int n;
+
+    for(n=0;n<2000;n++) {
+
+        lv2poke(lv2_mem, lv2_mem + 0x8ULL);
+        sys8_memcpy(lv2_mem + 8, (u64) addr, out_size);
+        
+
+        lv2poke(syscall_base + (u64) (40 * 8), lv2_mem);  // syscall management
+        lv2poke(0x80000000000004E8ULL, 0);
+
+        usleep(1000);
+    }
+
+   // sleep(1);
+
+skip_the_load:
+    free(addr);
+
+}
 

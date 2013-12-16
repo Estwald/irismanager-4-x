@@ -30,6 +30,8 @@ THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 int sys8_disable_all = 0;
 
+#define SYSCALL8_OPCODE_GET_MAMBA			0x7FFFULL
+
 static uint64_t syscall8(register uint64_t cmd, register uint64_t param1, register  uint64_t param2, register  uint64_t param3)
 {   
     if(sys8_disable_all) return -1ULL;
@@ -43,6 +45,13 @@ static uint64_t syscall8(register uint64_t cmd, register uint64_t param1, regist
 	lv2syscall4(8, cmd, param1, param2, param3);
     return_to_user_prog(uint64_t);
 #endif
+}
+
+
+int sys8_mamba(void)
+{
+
+	return (int) syscall8(SYSCALL8_OPCODE_GET_MAMBA, 0ULL, 0ULL, 0ULL);
 }
 
 int sys8_disable(uint64_t key)

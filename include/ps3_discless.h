@@ -4,5 +4,6 @@
 #include "syscall8.h"
 
 void load_ps3_discless_payload();
+void load_ps3_mamba_payload();
 
 #endif

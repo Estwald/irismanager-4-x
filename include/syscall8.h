@@ -293,6 +293,15 @@ uint64_t sys8_path_table(uint64_t addr_table);
 
 
 /*
+    sys8_mamba: return the mark of 'Mamba'
+
+    return: 0x666 -> is 'mamba', other wise -> is not 'mamba'
+*/
+
+int sys8_mamba(void);
+
+
+/*
 
 Developers notes:
 

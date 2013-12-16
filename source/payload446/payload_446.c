@@ -212,7 +212,6 @@ static u64 lv1poke(u64 addr, u64 value)
     return_to_user_prog(u64);
 }
 
-
 void load_payload_446(int mode)
 {
 //Remove Lv2 memory protection
@@ -223,6 +222,7 @@ void load_payload_446(int mode)
 	lv1poke(0x370AA8 + 24, 0x65140CD200000000ULL);
 
     install_lv2_memcpy();
+
     /* WARNING!! It supports only payload with a size multiple of 8 */
     lv2_memcpy(0x8000000000000000ULL + (u64) PAYLOAD_OFFSET,
                    (u64) payload_sky_446_bin, 

@@ -115,6 +115,8 @@
 void splash();
 
 int use_cobra = 0;
+int use_mamba = 0; // cobra app version
+
 int signal_ntfs_mount = 0;
 
 u64 restore_syscall8[2]= {0,0};
@@ -1744,8 +1746,8 @@ s32 main(s32 argc, const char* argv[])
     u32 segmentcount = 0;
     sysSpuSegment * segments;
 
-    if(lv2peek(0x80000000000004E8ULL)) syscall_40(1, 0); // disables PS3 Disc-less 
-    
+    if(lv2peek(0x80000000000004E8ULL)) syscall_40(1, 0); // disables PS3 Disc-less
+
     NTFS_init_system_io();
 
     event_threads_init();
@@ -1753,7 +1755,6 @@ s32 main(s32 argc, const char* argv[])
     atexit(fun_exit);
 
     int must_patch =0;
-
 
     if(lv2peek(0x80000000007EF220ULL)==0x45737477616C6420ULL && is_payload_loaded()) {
 
@@ -1852,7 +1853,7 @@ s32 main(s32 argc, const char* argv[])
 	}
 
     if(is_cobra_based()) use_cobra = 1;
-	
+
     //sprintf(temp_buffer + 0x1000, "firmware: %xex payload %i", firmware, payload_mode);
 
     ///////////////////////////
@@ -2045,6 +2046,13 @@ s32 main(s32 argc, const char* argv[])
                     load_payload_446(payload_mode);
                     __asm__("sync");
                     sleep(1); /* maybe need it, maybe not */
+
+                    if(!use_cobra) {
+
+                        load_ps3_mamba_payload();
+                        use_mamba = 1;
+                    }
+
                     break;
         		case SKY10_PAYLOAD:
         		    break;
@@ -2084,6 +2092,12 @@ s32 main(s32 argc, const char* argv[])
                     load_payload_453(payload_mode);
                     __asm__("sync");
                     sleep(1); /* maybe need it, maybe not */
+
+                    if(!use_cobra) {
+
+                        load_ps3_mamba_payload();
+                        use_mamba = 1;
+                    }
                     break;
                 case SKY10_PAYLOAD:
                     break;
@@ -2135,37 +2149,39 @@ s32 main(s32 argc, const char* argv[])
          else exit(0);
     }
 
-    if(must_patch) {
-        sys8_pokeinstr(0x80000000007EF220ULL, 0x0ULL);
-    }
+    if(!use_mamba) {
 
-    // disable ps1 emulation
-    unload_psx_payload();
+        if(must_patch) {
+            sys8_pokeinstr(0x80000000007EF220ULL, 0x0ULL);
+        }
 
-    {
-    FILE *fp =fopen("/dev_hdd0/game/HOMELAUN1/path.bin", "rb");
-    if(fp) {fclose(fp);homelaun= 1;fp =fopen("/dev_hdd0/game/HOMELAUN1/path2.bin", "rb");if(fp) {fclose(fp);homelaun= 2;}}
-    }
+        // disable ps1 emulation
+        unload_psx_payload();
 
-    // turn off
-    sys8_perm_mode(1);
-    usleep(5000);
+        {
+        FILE *fp =fopen("/dev_hdd0/game/HOMELAUN1/path.bin", "rb");
+        if(fp) {fclose(fp);homelaun= 1;fp =fopen("/dev_hdd0/game/HOMELAUN1/path2.bin", "rb");if(fp) {fclose(fp);homelaun= 2;}}
+        }
+
+        // turn off
+        sys8_perm_mode(1);
+        usleep(5000);
 
 
-    // sys8_perm_mode(0);
-    sys8_path_table(0LL);
+        // sys8_perm_mode(0);
+        sys8_path_table(0LL);
 
-   
-    if(lv2_patch_storage) { // for PSX games
-        if(lv2_patch_storage()<0) lv2_patch_storage = NULL;
-    }
+       
+        if(lv2_patch_storage) { // for PSX games
+            if(lv2_patch_storage()<0) lv2_patch_storage = NULL;
+        }
+    } else lv2_patch_storage = lv2_unpatch_storage = NULL;
 
 
     if(payload_mode < ZERO_PAYLOAD) //if mode is wanin or worse, launch advert
     {
         DrawDialogOK(temp_buffer);
     }
-
    
     sprintf(temp_buffer, "%s/config", self_path);
     mkdir_secure(temp_buffer);
@@ -2202,15 +2218,8 @@ s32 main(s32 argc, const char* argv[])
     gui_mode = manager_cfg.gui_mode & 15;
     if(gui_mode == 1) sort_mode = (manager_cfg.gui_mode>>4); else sort_mode = 0;
 
-/*
-    // disable ps1 emulation
-    if(noBDVD && lv2peek(0x8000000000001820ULL) == 0x455053315F454D55ULL) {
-        sys8_pokeinstr(0x8000000000001830ULL, (u64)((1ULL<<32) | 1ULL)); // disable emulation
-    }
-*/
-    
     // load ps3 disc less payload
-    if(noBDVD == 2 && !use_cobra) {
+    if(noBDVD == 2 && !use_cobra && !use_mamba) {
         //lv2poke(syscall_base +(u64) (40 * 8), lv2peek(syscall_base));
         load_ps3_discless_payload();
 
@@ -2263,6 +2272,23 @@ s32 main(s32 argc, const char* argv[])
     // splash screen
     if(payload_mode == ZERO_PAYLOAD)
         splash();
+    
+    if(use_mamba && !use_cobra) {
+    
+        
+        syscall_40(1, 0);
+        fun_exit();
+        restore_syscall8[1]= lv2peek(restore_syscall8[0]); // use mamba vector
+
+        // relaunch iris manger to get vsh process for mamba
+        sprintf(temp_buffer, "%s/USRDIR/iris_manager.self", self_path);
+        sysProcessExitSpawn2(temp_buffer, NULL, NULL, NULL, 0, 3071, SYS_PROCESS_SPAWN_STACK_SIZE_1M);
+        exit(0);
+        
+    }
+
+    // from reload, use_mamba is zero: this code detect if mamba is present and set to 1
+    if(sys8_mamba()==0x666) use_mamba = 1;
 
     select_px = select_py = 0;
 
@@ -2287,9 +2313,9 @@ s32 main(s32 argc, const char* argv[])
         sys_fs_mount("CELL_FS_UTILITY:HDD1", "CELL_FS_FAT", "/dev_bdvd", 1);
         
     }
-    sys_fs_umount("/dev_bdvd");
+    //sys_fs_umount("/dev_bdvd");
     //    sleep(0);
-    sys_fs_mount("CELL_FS_IOS:BDVD_DRIVE", "CELL_FS_ISO9660", "/dev_bdvd", 1);
+    //sys_fs_mount("CELL_FS_IOS:BDVD_DRIVE", "CELL_FS_ISO9660", "/dev_bdvd", 1);
 
     // eject disc with cobra method
     if(noBDVD && use_cobra) {
@@ -4208,6 +4234,7 @@ void gui_control()
             mode_favourites = 1;
 
         } else {
+            
             if(!test_ftp_working()) {
                 if(DrawDialogYesNo(language[DRAWSCREEN_EXITXMB])==1) {exit_program = 1; return;}
                 if(DrawDialogYesNo("Restart the PS3 System?\n\nReiniciar la PS3?")==1) {set_install_pkg = 1; game_cfg.direct_boot=0; exit(0);}
@@ -4800,7 +4827,6 @@ void gui_control()
 
                 }
 
-               
                 build_sys8_path_table();
 
                 exit_program = 1; 

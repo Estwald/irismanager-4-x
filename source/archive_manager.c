@@ -62,6 +62,7 @@ typedef struct
 
 extern int noBDVD;
 extern int use_cobra;
+extern int use_mamba;
 extern int options_locked;
 
 #define FS_S_IFMT 0170000
@@ -3153,6 +3154,7 @@ read_file:
     fd = -1;
 
 }
+
 /***********************************************************************************************************/
 /* COBRA ISO                                                                                               */
 /***********************************************************************************************************/
@@ -3160,8 +3162,10 @@ read_file:
 int launch_iso_game(char *path)
 {
     int type = EMU_DVD;
+
+    int is_ps2_game = 0;
                     
-    //char *files[32];
+    char *files[32];
 
     uint8_t *plugin_args = malloc(0x20000);
 
@@ -3194,7 +3198,7 @@ int launch_iso_game(char *path)
             else if(!memcmp((void *) &plugin_args[0x28], "PS3VOLUME", 9)) type = EMU_PS3;
             else if(!memcmp((void *) &plugin_args[8], "PLAYSTATION", 11) || !memcmp((void *) &plugin_args[256], "PLAYSTATION", 11) ) {
                 //if(s.st_size>= 900 * 1024 * 1024) 
-                    type = EMU_PS2_DVD; //else type = EMU_PS2_CD;
+                    type = EMU_PS2_DVD; is_ps2_game = 1;
             }
 
         }
@@ -3274,125 +3278,132 @@ int launch_iso_game(char *path)
         } else if(type == EMU_PS3 || (type == EMU_PS2_DVD && strncmp(path, "/dev_usb", 8)) 
             || type == EMU_DVD || type == EMU_BD) {    
 
-            #if 0
-            if(plugin_args) free(plugin_args); plugin_args = NULL;
+            if(is_ps2_game) {
+                if(plugin_args) free(plugin_args); plugin_args = NULL;
 
-            int ret;
-
-            int nfiles = 1;
-
-            files[0] = path;
-            files[1] = NULL;
-
-            if(!strcmpext(path, ".iso.0") || !strcmpext(path, ".ISO.0")) {
-                
-                int o;
-
-                for (o = 1; o < 64; o++) {
-                    struct stat s;
-
-                    files[o] = malloc(1024);
-                    if(!files[o]) break;
-
-                    sprintf(temp_buffer + 3072, "%s", path);
-                    temp_buffer[3072 + strlen(temp_buffer + 3072) - 1] = 0;
-
-                    sprintf(files[o], "%s%i", temp_buffer + 3072, o);   
-
-                    if(stat(files[o], &s)!=0) break;
-
-                    nfiles++;
-                    
+                if(use_mamba) {
+                    return -1;
                 }
-            }
-      
-            if(type == EMU_DVD) 
-                ret = cobra_mount_dvd_disc_image(files, nfiles);
-            else if(type == EMU_BD) 
-                ret = cobra_mount_bd_disc_image(files, nfiles);
-            else if(type == EMU_PS3) 
-                ret = cobra_mount_ps3_disc_image(files, nfiles);
-            else if(type == EMU_PS2_DVD)
-                ret = cobra_mount_ps2_disc_image(files, nfiles, (TrackDef *) temp_buffer + 2048, 0);
-            else ret = -1;
-                        
-            if (ret == 0)
-            {
-                cobra_send_fake_disc_insert_event();
 
-                //DrawDialogOKTimer("PS3 Disc inserted", 2000.0f);
-                use_cobra = 2;
-                exit(0);
-              
-            }
-            #else
+                int ret;
 
-            char *sections = malloc(64 * 0x200);
-            uint32_t *sections_size = malloc(64 * sizeof(uint32_t));
+                int nfiles = 1;
 
-            if(plugin_args && sections && sections_size) {
-
-                rawseciso_args *p_args;
-         
-                memset(sections, 0, 64 * 0x200);
-                memset(sections_size, 0, 64 * sizeof(uint32_t));
-
-                memset(plugin_args, 0, 0x10000);
-
-                int parts = 0;
+                files[0] = path;
+                files[1] = NULL;
 
                 if(!strcmpext(path, ".iso.0") || !strcmpext(path, ".ISO.0")) {
-                
+                    
                     int o;
 
-                    for (o = 0; o < 64; o++) {
+                    for (o = 1; o < 64; o++) {
                         struct stat s;
+
+                        files[o] = malloc(1024);
+                        if(!files[o]) break;
 
                         sprintf(temp_buffer + 3072, "%s", path);
                         temp_buffer[3072 + strlen(temp_buffer + 3072) - 1] = 0;
 
-                        sprintf(&sections[0x200 * o], "%s%i", temp_buffer + 3072, o);   
+                        sprintf(files[o], "%s%i", temp_buffer + 3072, o);   
 
-                        if(stat(&sections[0x200 * o], &s)!=0) {memset(&sections[0x200 * o], 0, 0x200); break;}
-                        sections_size[o] = s.st_size/2048;
+                        if(stat(files[o], &s)!=0) break;
 
-                        parts++;
+                        nfiles++;
                         
                     }
-                } else {
-                    parts = 1;
-
-                    strncpy(&sections[0], path, 0x200);
-
-                    if(stat(&sections[0], &s)!=0) goto skip_load;
-                    sections_size[0] = s.st_size/2048;
-
                 }
+          
+                if(type == EMU_DVD) 
+                    ret = cobra_mount_dvd_disc_image(files, nfiles);
+                else if(type == EMU_BD) 
+                    ret = cobra_mount_bd_disc_image(files, nfiles);
+                else if(type == EMU_PS3) 
+                    ret = cobra_mount_ps3_disc_image(files, nfiles);
+                else if(type == EMU_PS2_DVD)
+                    ret = cobra_mount_ps2_disc_image(files, nfiles, (TrackDef *) temp_buffer + 2048, 0);
+                else ret = -1;
+                            
+                if (ret == 0)
+                {
+                    cobra_send_fake_disc_insert_event();
 
-                p_args = (rawseciso_args *)plugin_args;
-                p_args->device = USB_MASS_STORAGE(NTFS_Test_Device(&path[1]));
-                p_args->emu_mode = type | 1024;
-                p_args->num_sections = parts;
-                p_args->num_tracks = 0;
+                    //DrawDialogOKTimer("PS3 Disc inserted", 2000.0f);
+                    use_cobra = 2;
+                    exit(0);
+                  
+                }
+            } else {
 
-                
-                memcpy(plugin_args+sizeof(rawseciso_args), sections, parts * 0x200);
-                memcpy(plugin_args+sizeof(rawseciso_args)+(parts* 0x200), sections_size, parts*sizeof(uint32_t)); 
+                char *sections = malloc(64 * 0x200);
+                uint32_t *sections_size = malloc(64 * sizeof(uint32_t));
 
-                cobra_unload_vsh_plugin(0);
+                if(plugin_args && sections && sections_size) {
 
-                sprintf(temp_buffer + 2048, "%s/sprx_iso", self_path);
+                    rawseciso_args *p_args;
+             
+                    memset(sections, 0, 64 * 0x200);
+                    memset(sections_size, 0, 64 * sizeof(uint32_t));
 
-                if (cobra_load_vsh_plugin(0, temp_buffer + 2048, plugin_args, 0x10000) == 0)
-                    {use_cobra = 2; exit(0);}
-            }
+                    memset(plugin_args, 0, 0x10000);
+
+                    int parts = 0;
+
+                    if(!strcmpext(path, ".iso.0") || !strcmpext(path, ".ISO.0")) {
+                    
+                        int o;
+
+                        for (o = 0; o < 64; o++) {
+                            struct stat s;
+
+                            sprintf(temp_buffer + 3072, "%s", path);
+                            temp_buffer[3072 + strlen(temp_buffer + 3072) - 1] = 0;
+
+                            sprintf(&sections[0x200 * o], "%s%i", temp_buffer + 3072, o);   
+
+                            if(stat(&sections[0x200 * o], &s)!=0) {memset(&sections[0x200 * o], 0, 0x200); break;}
+                            sections_size[o] = s.st_size/2048;
+
+                            parts++;
+                            
+                        }
+                    } else {
+                        parts = 1;
+
+                        strncpy(&sections[0], path, 0x200);
+
+                        if(stat(&sections[0], &s)!=0) goto skip_load;
+                        sections_size[0] = s.st_size/2048;
+
+                    }
+
+                    p_args = (rawseciso_args *)plugin_args;
+                    p_args->device = USB_MASS_STORAGE(NTFS_Test_Device(&path[1]));
+                    p_args->emu_mode = type | 1024;
+                    p_args->num_sections = parts;
+                    p_args->num_tracks = 0;
+
+                    
+                    memcpy(plugin_args+sizeof(rawseciso_args), sections, parts * 0x200);
+                    memcpy(plugin_args+sizeof(rawseciso_args)+(parts* 0x200), sections_size, parts*sizeof(uint32_t)); 
+
+                    cobra_unload_vsh_plugin(0);
+
+                    sprintf(temp_buffer + 2048, "%s/sprx_iso", self_path);
+
+
+                    if (cobra_load_vsh_plugin(0, temp_buffer + 2048, plugin_args, 0x10000) == 0)
+                        {use_cobra = 2; exit(0);}
+                }
+            
         
-        skip_load:
+            skip_load:
 
-            if(plugin_args) free(plugin_args); plugin_args = NULL;
-            if(sections) free(sections);
-            if(sections_size) free(sections_size);
-            #endif
+                if(plugin_args) free(plugin_args); plugin_args = NULL;
+                if(sections) free(sections);
+                if(sections_size) free(sections_size);
+            }
+            
         }
     }
 
@@ -3728,13 +3739,13 @@ void archive_manager()
 
     if(!nentries1 || path1[1]==0) {stat1.st_size = 0; free_device1 = 0ULL;}
     else {
-        stat1.st_mode = (entries1[nentries1].d_type & 1) ? DT_DIR : 0;
+        stat1.st_mode = (entries1[sel1].d_type & 1) ? DT_DIR : 0;
         stat1.st_size = entries1_size[sel1];
     }
 
     if(!nentries2 || path2[1]==0) {stat2.st_size = 0; free_device2 = 0ULL;}
     else {
-        stat2.st_mode = (entries2[nentries2].d_type & 1) ? DT_DIR : 0;
+        stat2.st_mode = (entries2[sel2].d_type & 1) ? DT_DIR : 0;
         stat2.st_size = entries2_size[sel2];
     }
 
@@ -3775,17 +3786,10 @@ void archive_manager()
                     sysFSStat stat;
                     sprintf(temp_buffer, "%s/%s", path1, entries1[nentries1].d_name);
                     if(sysLv2FsStat(temp_buffer, &stat)<0) entries1[nentries1].d_type |= 128;
-                } else if(strcmp(entries1[nentries1].d_name, "..")) {
-                     struct stat s;
-                     sprintf(temp_buffer, "%s/%s", path1, entries1[nentries1].d_name);
-                     if(!stat(temp_buffer, &s)) entries1_size[nentries1] = s.st_size;
                 }
             }
-            else {
-                struct stat s;
-                entries1[nentries1].d_type = 0;
-                sprintf(temp_buffer, "%s/%s", path1, entries1[nentries1].d_name);
-                if(!stat(temp_buffer, &s)) entries1_size[nentries1] = s.st_size;
+            else {    
+                entries1[nentries1].d_type = 0;     
             }
 
 
@@ -3823,6 +3827,16 @@ void archive_manager()
         if(old_entries > nentries1) pos1 = sel1 = 0;
 
         qsort(entries1, nentries1, sizeof(sysFSDirent), entry_compare);
+
+        for (i = 0; i < nentries1; i++) {
+            struct stat s;
+            if(path1[0] != 0) {
+            sprintf(temp_buffer, "%s/%s", path1, entries1[i].d_name);
+                if(!stat(temp_buffer, &s)) entries1_size[i] = s.st_size;
+            } else entries1_size[i] = 0;
+
+        }
+
         update_device1 = 1;
     }
 
@@ -3861,17 +3875,11 @@ void archive_manager()
                     sysFSStat stat;
                     sprintf(temp_buffer, "%s/%s", path2, entries2[nentries2].d_name);
                     if(sysLv2FsStat(temp_buffer, &stat)<0) entries2[nentries2].d_type |= 128;
-                } else if(strcmp(entries2[nentries2].d_name, "..")) {
-                     struct stat s;
-                     sprintf(temp_buffer, "%s/%s", path2, entries2[nentries2].d_name);
-                     if(!stat(temp_buffer, &s)) entries2_size[nentries2] = s.st_size;
                 }
             }
             else {
-                struct stat s;
+           
                 entries2[nentries2].d_type = 0;
-                sprintf(temp_buffer, "%s/%s", path2, entries2[nentries2].d_name);
-                if(!stat(temp_buffer, &s)) entries2_size[nentries2] = s.st_size;
             }
 
 
@@ -3909,6 +3917,15 @@ void archive_manager()
         if(old_entries > nentries2) pos2 = sel2 = 0;
 
         qsort(entries2, nentries2, sizeof(sysFSDirent), entry_compare);
+
+        for (i = 0; i < nentries2; i++) {
+            struct stat s;
+            if(path2[0] != 0) {
+            sprintf(temp_buffer, "%s/%s", path2, entries2[i].d_name);
+                if(!stat(temp_buffer, &s)) entries2_size[i] = s.st_size;
+            } else entries2_size[i] = 0;
+
+        }
         update_device2 = 1;
     }
 
