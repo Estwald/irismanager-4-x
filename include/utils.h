@@ -163,6 +163,6 @@ int rmdir_secure(void *path);
 int patch_exe_error_09(char *path_exe);
 void patch_error_09( const char *path );
 
-
+int game_update(char *title_id);
 #endif
 

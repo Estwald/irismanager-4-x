@@ -3,7 +3,7 @@
 
 #include "ntfs.h"
 
-void archive_manager();
+void archive_manager(char *pathw1, char *pathw2);
 
 extern const DISC_INTERFACE *disc_ntfs[8];
 

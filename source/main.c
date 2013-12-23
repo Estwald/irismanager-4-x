@@ -113,6 +113,7 @@
 #include "iso.h"
 
 void splash();
+void splash2(char *year);
 
 int use_cobra = 0;
 int use_mamba = 0; // cobra app version
@@ -209,7 +210,6 @@ u32 Png_res_offset[24];
 
 int Png_index[24];
 
-extern char * language[];
 char self_path[MAXPATHLEN]= "/"__MKDEF_MANAGER_FULLDIR__;
 
 char temp_buffer[8192];
@@ -1126,6 +1126,7 @@ int inited = 0;
 #define INITED_FS          64
 #define INITED_JPGDEC      128
 #define INITED_MODLIB      256
+#define INITED_HTTPS       512
 
 int set_install_pkg = 0;
 
@@ -1159,6 +1160,7 @@ void fun_exit()
     TTFUnloadFont();
 
     ftp_deinit();
+    ftp_net_deinit();
 
     if(inited & INITED_SOUNDLIB) {
         if(inited & INITED_MODLIB)  
@@ -1179,6 +1181,8 @@ void fun_exit()
     if(inited & INITED_PNGDEC)  sysModuleUnload(SYSMODULE_PNGDEC);
     if(inited & INITED_JPGDEC)  sysModuleUnload(SYSMODULE_JPGDEC);
     if(inited & INITED_FS)      sysModuleUnload(SYSMODULE_FS);
+    if(inited & INITED_HTTPS)   sysModuleUnload(SYSMODULE_HTTPS);
+
     sysModuleUnload(SYSMODULE_SYSUTIL);
     
     inited = 0;
@@ -1259,7 +1263,8 @@ void LoadManagerCfg()
 void auto_ftp(void)
 {
     static int one = 1;
-    if(!one) return;
+    static int counter = 0;
+    if(!one) goto ftp_net;
 
     one= 0;
     if (manager_cfg.opt_flags & OPTFLAGS_FTP) // maybe we need add an icon to user...
@@ -1269,7 +1274,7 @@ void auto_ftp(void)
         if(r == 0)
         {
             ftp_inited = 1; //DrawDialogOK("FTP Service init on boot: OK");
-            
+
         } else {
             if(r == -1) DrawDialogOKTimer("Error in netInitialize()", 2000.0f);
             else if(r == -2) DrawDialogOKTimer("Error in netCtlInit()", 2000.0f);
@@ -1278,6 +1283,23 @@ void auto_ftp(void)
             else DrawDialogOK("FTP Unknown Error");
         }
     }
+
+ftp_net:
+    if(!ftp_inited) return;
+    counter++;
+
+    if(counter < 600)  return;
+
+    counter = 0;
+
+    int r= ftp_net_status();
+
+    if(r == -4) {
+       ftp_net_deinit();
+       ftp_net_init();
+       r = ftp_net_status();
+    }
+
 }
 
 int SaveManagerCfg()
@@ -1633,7 +1655,8 @@ void set_last_game()
     if(currentgamedir < 0 || currentgamedir >= ndirectories || ndirectories <= 0) return;
     last_game_favourites = mode_favourites;
     last_game_flag = directories[currentgamedir].flags;
-    strncpy(last_game_id, directories[currentgamedir].title_id, 64);
+    strncpy(last_game_id, directories[currentgamedir].title_id, 63);
+    last_game_id[63] = 0;
 }
 
 void locate_last_game()
@@ -1765,13 +1788,15 @@ s32 main(s32 argc, const char* argv[])
         if(restore_syscall8[0]) sys8_pokeinstr(restore_syscall8[0], restore_syscall8[1]);
     }
 
-    if(sysModuleLoad(SYSMODULE_FS) ==0)      inited|= INITED_FS;      else exit(0);
-    if(sysModuleLoad(SYSMODULE_PNGDEC) ==0)  inited|= INITED_PNGDEC;  else exit(0);
-    if(sysModuleLoad(SYSMODULE_JPGDEC) ==0)  inited|= INITED_JPGDEC;  else exit(0);
-    if(sysModuleLoad(SYSMODULE_IO) ==0)      inited|= INITED_IO;      else exit(0);
-    if(sysModuleLoad(SYSMODULE_GCM_SYS) ==0) inited|= INITED_GCM_SYS; else exit(0);
-
+    if(sysModuleLoad(SYSMODULE_FS)      == 0) inited|= INITED_FS;      else exit(0);
+    if(sysModuleLoad(SYSMODULE_PNGDEC)  == 0) inited|= INITED_PNGDEC;  else exit(0);
+    if(sysModuleLoad(SYSMODULE_JPGDEC)  == 0) inited|= INITED_JPGDEC;  else exit(0);
+    if(sysModuleLoad(SYSMODULE_IO)      == 0) inited|= INITED_IO;      else exit(0);
+    if(sysModuleLoad(SYSMODULE_GCM_SYS) == 0) inited|= INITED_GCM_SYS; else exit(0);
+    if(sysModuleLoad(SYSMODULE_HTTPS)   == 0) inited|= INITED_HTTPS;   else exit(0);
+    
     sysModuleLoad(SYSMODULE_SYSUTIL);
+
     sysSpuInitialize(6, 5);
 
     sysSpuRawCreate(&spu, NULL);
@@ -2322,7 +2347,7 @@ s32 main(s32 argc, const char* argv[])
         int n;
         cobra_umount_disc_image();
         cobra_send_fake_disc_eject_event();
-        for(n = 0; n < 8; n++)
+        for(n = 0; n < 7; n++)
             cobra_unload_vsh_plugin(n); // unload plugin
     }
 
@@ -2379,6 +2404,19 @@ s32 main(s32 argc, const char* argv[])
         sprintf(temp_buffer, "%s/sprx_iso", self_path);
         if(stat(temp_buffer, &s)<0 || s.st_size!= SIZE_SPRX_ISO) {
             SaveFile(temp_buffer, (char *) sprx_iso, SIZE_SPRX_ISO);
+        }
+    }
+
+    if(!lv2peek(0x8000000000000560ULL)) {
+        u32 hh = 0, mm = 0, ss = 0, day = 0, month = 0, year = 0;
+
+        PS3GetDateTime(&hh, &mm, &ss, &day, &month, &year);
+
+        lv2poke(0x8000000000000560ULL, 0xFFULL);
+
+        if((month == 12 && day >= 22) || (month == 1 && day < 7)) {
+            sprintf(temp_buffer + 4096, "%u", year + 1 * (month == 12));
+            splash2(temp_buffer + 4096);
         }
     }
 
@@ -2510,6 +2548,8 @@ s32 main(s32 argc, const char* argv[])
                             select_px = 0;
                             select_py = 0;
                         }
+
+                        bluray_game[63] = 0;
 
                     }
                     else {
@@ -2812,7 +2852,6 @@ s32 main(s32 argc, const char* argv[])
             if(new_pad & BUTTON_CROSS) new_pad ^= BUTTON_CROSS;
             if(new_pad & BUTTON_CIRCLE) new_pad ^= BUTTON_CIRCLE;
 
-            
         }
             
         switch(menu_screen) {
@@ -2897,6 +2936,7 @@ void LoadCacheDatas()
         if(!(entry->d_type & DT_DIR)) continue;
 
         strncpy(cache_list[ncache_list].title_id, entry->d_name, 64);
+        cache_list[ncache_list].title_id[63] = 0;
 
         cache_list[ncache_list].size = 0ULL;
 
@@ -4847,7 +4887,7 @@ void gui_control()
     if(new_pad & BUTTON_START) {
        
         if(old_pad & BUTTON_L2) {
-            archive_manager();
+            archive_manager(NULL, NULL);
 
             select_px = select_py = 0;
             ndirectories = 0;
@@ -5993,6 +6033,7 @@ void draw_options(float x, float y, int index)
     if(mode_homebrew == HOMEBREW_MODE) {
         if(select_option < 2) select_option= 2;
         if(select_option == 5) select_option= 6;
+        if(select_option == 7) select_option= 8;
     }
 
     SetCurrentFont(FONT_BUTTON);
@@ -6021,7 +6062,7 @@ void draw_options(float x, float y, int index)
     DrawBox(x, y, 0, 200 * 4 - 8, 150 * 3 - 8, 0x00000028);
 
 
-    y2 = y + 8;
+    y2 = y - 4;
      
     if((directories[currentgamedir].flags & ((1<<11) | (1<<23))) == (1<<11)){
         n = sys_ss_media_id(BdId);
@@ -6046,7 +6087,7 @@ void draw_options(float x, float y, int index)
 
     SetFontColor(0xffffffff, 0x00000000);
 
-    y2 = y + 32;
+    y2 = y + 12;
     
     DrawButton1_UTF8(x + 32, y2, 320, language[DRAWGMOPT_CFGGAME], (directories[currentgamedir].title_id[0] == 0 ||
         mode_homebrew == HOMEBREW_MODE) ? -1 : (flash && select_option == 0));
@@ -6081,7 +6122,12 @@ void draw_options(float x, float y, int index)
     
     y2+= 48;
 
-    DrawButton1_UTF8(x + 32, y2, 320, language[GLOBAL_RETURN], (flash && select_option == 7));
+    DrawButton1_UTF8(x + 32, y2, 320, /*language[GLOBAL_RETURN]*/"Game Update", (directories[currentgamedir].title_id[0] == 0 || 
+        mode_homebrew == HOMEBREW_MODE) ? -1 : (flash && select_option == 7));
+    
+    y2+= 48;
+
+    DrawButton1_UTF8(x + 32, y2, 320, language[GLOBAL_RETURN], (flash && select_option == 8));
     
     y2+= 48;
     /*
@@ -6329,10 +6375,53 @@ void draw_options(float x, float y, int index)
                 }
                 break;
             case 7:
+            {
+               int r= ftp_net_status();
+
+               if(r == -1) {
+                   ftp_net_init();
+                   r = ftp_net_status();
+               } 
+               
+               if(r == -4) {
+                   ftp_net_deinit();
+                   ftp_net_init();
+                   r = ftp_net_status();
+               }
+
+               if(r != 0) break;
+
+
+               if(game_update(directories[currentgamedir].title_id)>0) {
+                   
+                    sprintf(temp_buffer, "%s/PKG", self_path);
+                    archive_manager(temp_buffer, NULL);
+
+                    select_px = select_py = 0;
+                    ndirectories = 0;
+
+                    fdevices=0;
+                    fdevices_old=0;
+                    forcedevices=0;
+                    find_device=0;
+                    bdvd_notify = 1;
+                    currentgamedir = currentdir = 0;
+
+                    select_option = 0;
+                    menu_screen = 0; 
+                }
+            }
+            break;
+
+            case 8:
+
                 Png_offset[12] = 0;
                 select_option = 0;
                 menu_screen = 0;
-                return;
+             
+            return;
+
+           /////
 
             default:
                break;
@@ -6353,16 +6442,17 @@ void draw_options(float x, float y, int index)
         if((directories[currentgamedir].flags & 2048) && (select_option == 2 || select_option == 6)) select_option--;
         if(!copy_flag && select_option == 1) select_option--;
 
-        if(directories[currentgamedir].title_id[0] == 0 && (select_option == 0 || select_option == 5)) select_option--;
+        if(directories[currentgamedir].title_id[0] == 0 && (select_option == 0 || select_option == 5 || select_option == 7)) select_option--;
 
         if(mode_homebrew == HOMEBREW_MODE) {
             if(select_option < 2) select_option= -1;
             if(select_option == 5) select_option= 4;
+            if(select_option == 7) select_option= 6;
         }
 
         if(select_option < 0) {
             
-            select_option = 7;  
+            select_option = 8;  
           
         }
     }
@@ -6380,15 +6470,16 @@ void draw_options(float x, float y, int index)
         if(mode_homebrew == HOMEBREW_MODE) {
             if(select_option < 2) select_option = 2;
             if(select_option == 5) select_option = 6;
+            if(select_option == 7) select_option= 8;
         }
         
-        if(select_option > 7) {
+        if(select_option > 8) {
            
             select_option = 0;
            
         }
 
-        if(directories[currentgamedir].title_id[0] == 0 && (select_option == 0 || select_option == 5)) {
+        if(directories[currentgamedir].title_id[0] == 0 && (select_option == 0 || select_option == 5 || select_option == 7)) {
             select_option++;
             
             if(!copy_flag && select_option == 1) select_option++;
@@ -6504,12 +6595,19 @@ void draw_iso_options(float x, float y, int index)
 
     y2+= 48;
 
+    if(select_option == o &&(directories[currentgamedir].flags & ((1<<24) | (1<<23))) == ((1<<24) | (1<<23))) select_option++;
+    DrawButton1_UTF8(x + 32, y2, 320, "Game Update", 
+        ((directories[currentgamedir].flags & ((1<<24) | (1<<23))) == ((1<<24) | (1<<23))) ? -1 : (flash && select_option == o));
+    max_op++; o++;
+
+    y2+= 48;
+
     DrawButton1_UTF8(x + 32, y2, 320, language[GLOBAL_RETURN], (flash && select_option == o));
     max_op++; o++;
     
     y2+= 48;
 
-    for(n = 0; n < ((is_ntfs_dev < 0) ? 2 : 1); n++) {
+    for(n = 0; n < ((is_ntfs_dev < 0) ? 1 : 0); n++) {
         
         DrawButton1_UTF8(x + 32, y2, 320, "", -1);
     
@@ -6783,8 +6881,46 @@ void draw_iso_options(float x, float y, int index)
                     }
                  }
                  return;
-                
+
             case 6:
+            {
+               int r= ftp_net_status();
+
+               if(r == -1) {
+                   ftp_net_init();
+                   r = ftp_net_status();
+               } 
+               
+               if(r == -4) {
+                   ftp_net_deinit();
+                   ftp_net_init();
+                   r = ftp_net_status();
+               }
+
+               if(r != 0) break;
+
+               if(game_update(directories[currentgamedir].title_id)>0) {
+                   
+                    sprintf(temp_buffer, "%s/PKG", self_path);
+                    archive_manager(temp_buffer, NULL);
+
+                    select_px = select_py = 0;
+                    ndirectories = 0;
+
+                    fdevices=0;
+                    fdevices_old=0;
+                    forcedevices=0;
+                    find_device=0;
+                    bdvd_notify = 1;
+                    currentgamedir = currentdir = 0;
+
+                    select_option = 0;
+                    menu_screen = 0; 
+                }
+            }
+            break;
+                
+            case 7:
                 Png_offset[12] = 0;
                 select_option = 0;
                 menu_screen = 0;
@@ -7330,7 +7466,20 @@ void draw_gbloptions(float x, float y)
                 if(test_ftp_working()) break;
                 if ((manager_cfg.opt_flags & OPTFLAGS_FTP) == 0)
                 {
-                    int r = ftp_init();
+                    int r= ftp_net_status();
+
+                    if(r == -1) {
+                       ftp_net_init();
+                       r = ftp_net_status();
+                    } 
+
+                    if(r == -4) {
+                       ftp_net_deinit();
+                       ftp_net_init();
+                       r = ftp_net_status();
+                    }
+
+                    r = ftp_init();
                     if(r == 0)
                     {
                         ftp_inited = 1;
@@ -7564,7 +7713,7 @@ void draw_toolsoptions(float x, float y)
                 exit(0);
                 break;
             case 5:
-                archive_manager();
+                archive_manager(NULL, NULL);
 
                 select_px = select_py = 0;
                 select_option = 0;

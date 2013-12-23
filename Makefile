@@ -18,7 +18,7 @@ SFOXML		:=	sfo.xml
 
 # usage:  make BUILD_STEALTH=yes
 ifndef BUILD_STEALTH
-TITLE		:=	IrisManager - v2.70
+TITLE		:=	IrisManager - v2.72
 APPID		:=	IMANAGER4
 else
 TITLE		:=	LEMMINGS™ Trial Version
@@ -61,7 +61,7 @@ INCLUDES	+=  include/payload446 include/payload450 include/payload450dex include
 # any extra libraries we wish to link with the project
 #---------------------------------------------------------------------------------
 LIBS		:=	../lib/libntfs_ext.a -lfreetype -lz -ltiny3d -lnetctl -lnet -lsysfs -lpngdec -ljpgdec -lsimdmath -lgcm_sys -lio -lsysutil -lrt -llv2 -lsysmodule \
-			-laudioplayer -lmod -lspu_sound -laudio -lm $(PORTLIBS)/modules/spu_soundmodule.bin.a
+			-lhttputil -lhttp -lssl -laudioplayer -lmod -lspu_sound -laudio -lm $(PORTLIBS)/modules/spu_soundmodule.bin.a
 
 
 #---------------------------------------------------------------------------------

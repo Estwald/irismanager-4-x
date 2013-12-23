@@ -304,10 +304,12 @@ int parse_param_sfo(char * file, char *title_name)
             if(!strcmp((char *) &mem[str], "TITLE"))
             {
                 strncpy(title_name, (char *) &mem[pos], 63);
+                title_name[63] = 0;
                 ct++;
             }
             else if(!strcmp((char *) &mem[str], "CATEGORY")) {
                 strncpy(title_name, (char *) &mem[pos], 63);
+                title_name[63] = 0;
                 ct++;
                 memcpy((char *) game_category, (char *) &mem[pos], 2);
             }
@@ -373,6 +375,7 @@ int parse_param_sfo_id(char * file, char *title_id)
                 memcpy(title_id, (char *) &mem[pos], 4);
                 title_id[4] = '-';
 				strncpy(&title_id[5], (char *) &mem[pos + 4], 58);
+                title_id[63] = 0;
 				free(mem);
 				return 0;
 				}
@@ -578,7 +581,7 @@ int unlink_secure(void *path)
 //    struct stat s;
     sysFSStat s;
     if(sysLv2FsStat(path, &s)>=0) {
-        sysFsChmod(path, FS_S_IFMT | 0777);
+        sysLv2FsChmod(path, FS_S_IFMT | 0777);
         return sysLv2FsUnlink(path);
     }
     return -1;
@@ -1094,11 +1097,13 @@ static char buff[4096];
 void DbgHeader(char *str)
 {
     strncpy(dbg_str1, str, 128);
+    dbg_str1[127] = 0;
 }
 
 void DbgMess(char *str)
 {
     strncpy(dbg_str2, str, 128);
+    dbg_str2[127] = 0;
 }
 
 

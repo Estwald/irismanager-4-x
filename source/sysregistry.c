@@ -245,6 +245,16 @@ void PS3GetDateTime(u32 * hh, u32 * mm, u32 * ss, u32 * day, u32 * month, u32 * 
     *year = sec / 365ULL;
 
     *day = ((u32) sec) - (*year * 365) - ((*year + 1)/4); // days in the year
+
+    int dd = *(day);
+
+    if(dd < 0) {
+     
+        (*year) --;
+
+        *day = ((u32) sec) - (*year * 365) - ((*year + 1)/4); // days in the year
+    }
+
     *year += 1970;
     
     if((*year % 4) == 0) bi = 1; 

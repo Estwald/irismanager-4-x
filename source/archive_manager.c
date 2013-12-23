@@ -46,6 +46,7 @@
 
 #include "cobre.h"
 #include "iso.h"
+#include "ftp/ftp.h"
 
 #define MAX_SECTIONS	((0x10000-sizeof(rawseciso_args))/8)
 
@@ -605,15 +606,15 @@ static int level_dump(char *path, int mode)
 
     u64 pos = 0ULL;
     u64 readed = 0, writed = 0;
-    u64 lenght = 0x800000ULL;
+    u64 length = 0x800000ULL;
 
-    if(mode==1) lenght = 0x1000000ULL;
+    if(mode==1) length = 0x1000000ULL;
 
-    parts = (lenght == 0) ? 0.0f : 100.0f / ((double) lenght / (double) 0x100000);
+    parts = (length == 0) ? 0.0f : 100.0f / ((double) length / (double) 0x100000);
     cpart = 0;
 
-    while(pos < lenght) {
-        readed = lenght - pos; if(readed > 0x100000ULL) readed = 0x100000ULL;
+    while(pos < length) {
+        readed = length - pos; if(readed > 0x100000ULL) readed = 0x100000ULL;
 
         if(is_ntfs) {ret = ps3ntfs_write(fd, (void *) &mem[pos>>3], (int) readed); writed = (u64) ret; if(ret>0) ret = 0;}
         else
@@ -697,16 +698,16 @@ static void my_func_async(struct f_async * v)
 #define CPY_FILE1_IS_NTFS 1
 #define CPY_FILE2_IS_NTFS 2
 
-static int CopyFd(s32 flags, s32 fd, s32 fd2, char *mem, u64 lenght)
+static int CopyFd(s32 flags, s32 fd, s32 fd2, char *mem, u64 length)
 {
     int ret = 0;
     int one = 0;
     u64 pos = 0ULL;
     u64 readed = 0, writed = 0;
 
-    while(pos < lenght) {
+    while(pos < length) {
 
-        readed = lenght - pos; if(readed > 0x100000ULL) readed = 0x100000ULL;
+        readed = length - pos; if(readed > 0x100000ULL) readed = 0x100000ULL;
         
         if(flags & CPY_FILE1_IS_NTFS) {ret = ps3ntfs_read(fd, mem, readed); writed = (u64) ret; if(ret>0) ret = 0;}
         else ret=sysLv2FsRead(fd, mem, readed, &writed);
@@ -726,7 +727,7 @@ static int CopyFd(s32 flags, s32 fd, s32 fd2, char *mem, u64 lenght)
                 my_f_async.size = readed;
                 my_f_async.readed = 0;
                 my_f_async.flags = ASYNC_ENABLE | ((flags & CPY_FILE2_IS_NTFS)!=0) 
-                    | (ASYNC_FCLOSE * (pos + readed >= lenght  && !(flags & CPY_NOTCLOSE)));
+                    | (ASYNC_FCLOSE * (pos + readed >= length  && !(flags & CPY_NOTCLOSE)));
                 event_thread_send(0x555ULL, (u64) my_func_async, (u64) &my_f_async);
 
 
@@ -742,7 +743,7 @@ static int CopyFd(s32 flags, s32 fd, s32 fd2, char *mem, u64 lenght)
                     my_f_async.size = readed;
                     my_f_async.readed = 0;
                     my_f_async.flags = ASYNC_ENABLE | ((flags & CPY_FILE2_IS_NTFS)!=0) 
-                        | (ASYNC_FCLOSE * (pos + readed >= lenght && !(flags & CPY_NOTCLOSE)));
+                        | (ASYNC_FCLOSE * (pos + readed >= length && !(flags & CPY_NOTCLOSE)));
                     event_thread_send(0x555ULL, (u64) my_func_async, (u64) &my_f_async);
                     
                 } else {
@@ -785,7 +786,7 @@ static int CopyFile(char* path, char* path2)
     int ret = 0;
     s32 fd = -1;
     s32 fd2 = -1;
-    u64 lenght = 0LL;
+    u64 length = 0LL;
     
     char *mem = NULL;
     
@@ -860,7 +861,7 @@ static int CopyFile(char* path, char* path2)
 
             if(ret < 0 || stat.st_size==0) {ret = 0;goto skip2;}
 
-            lenght = stat.st_size;
+            length = stat.st_size;
             if(flags & CPY_FILE1_IS_NTFS) {fd = ps3ntfs_open(path, O_RDONLY, 0);if(fd < 0) ret = -1; else ret = 0;}
             else
                 ret = sysLv2FsOpen(path, 0, &fd, S_IRWXU | S_IRWXG | S_IRWXO, NULL, 0);
@@ -879,10 +880,10 @@ static int CopyFile(char* path, char* path2)
                 }
             }
 
-            copy_parts = (lenght == 0) ? 0.0f : 100.0f / ((double) lenght / (double) 0x100000);
+            copy_parts = (length == 0) ? 0.0f : 100.0f / ((double) length / (double) 0x100000);
             copy_cpart = 0;
 
-            ret = CopyFd(flags | CPY_NOTCLOSE, fd, fd2, mem, lenght);
+            ret = CopyFd(flags | CPY_NOTCLOSE, fd, fd2, mem, length);
             if(ret < 0) goto skip2;
 
             if(flags & CPY_FILE1_IS_NTFS) ps3ntfs_close(fd); else sysLv2FsClose(fd); fd = -1;
@@ -927,7 +928,7 @@ static int CopyFile(char* path, char* path2)
 
             if(ret < 0 || stat.st_size==0) {ret = 0;goto skip2;}
 
-            lenght = stat.st_size;
+            length = stat.st_size;
             if(flags & CPY_FILE1_IS_NTFS) {fd = ps3ntfs_open(path, O_RDONLY, 0);if(fd < 0) ret = -1; else ret = 0;}
             else
                 ret = sysLv2FsOpen(path, 0, &fd, S_IRWXU | S_IRWXG | S_IRWXO, NULL, 0);
@@ -946,10 +947,10 @@ static int CopyFile(char* path, char* path2)
                 }
             }
 
-            copy_parts = (lenght == 0) ? 0.0f : 100.0f / ((double) lenght / (double) 0x100000);
+            copy_parts = (length == 0) ? 0.0f : 100.0f / ((double) length / (double) 0x100000);
             copy_cpart = 0;
 
-            ret = CopyFd(flags | CPY_NOTCLOSE, fd, fd2, mem, lenght);
+            ret = CopyFd(flags | CPY_NOTCLOSE, fd, fd2, mem, length);
             if(ret < 0) goto skip2;
 
             if(flags & CPY_FILE1_IS_NTFS) ps3ntfs_close(fd); else sysLv2FsClose(fd); fd = -1;
@@ -974,9 +975,9 @@ static int CopyFile(char* path, char* path2)
 
         if(ret) goto skip;
 
-        lenght = stat.st_size;
+        length = stat.st_size;
 
-        if(lenght >= 0xFFFF0001LL && strncmp(path2, "/dev_hdd0", 9) 
+        if(length >= 0xFFFF0001LL && strncmp(path2, "/dev_hdd0", 9) 
             && strncmp(path2, "/ntfs", 5) && strncmp(path2, "/ext", 4)) { // split the file
             if(flags & CPY_FILE1_IS_NTFS) {fd = ps3ntfs_open(path, O_RDONLY, 0);if(fd < 0) ret = -1; else ret = 0;}
             else
@@ -989,7 +990,7 @@ static int CopyFile(char* path, char* path2)
             u64 pos = 0;
             int n = 0;
 
-            copy_parts = (lenght == 0) ? 0.0f : 100.0f / ((double) lenght / (double) 0x100000);
+            copy_parts = (length == 0) ? 0.0f : 100.0f / ((double) length / (double) 0x100000);
             copy_cpart = 0;
             
             char *ext2 =&path2[strlen(path2)];
@@ -1006,15 +1007,15 @@ static int CopyFile(char* path, char* path2)
 
                 msgDialogProgressBarSetMsg(MSG_PROGRESSBAR_INDEX1, dyn_get_name(path2));
 
-                lenght = (stat.st_size - pos);
+                length = (stat.st_size - pos);
 
                 if(is_iso) {
 
-                    if(lenght > 0xFFFF0000LL) lenght = 0xFFFF0000LL;
+                    if(length > 0xFFFF0000LL) length = 0xFFFF0000LL;
 
                 } else {
 
-                    if(lenght > 0x40000000LL) lenght = 0x40000000LL;
+                    if(length > 0x40000000LL) length = 0x40000000LL;
                 }
                 
                 if(flags & CPY_FILE2_IS_NTFS) {fd2 = ps3ntfs_open(path2, O_WRONLY | O_CREAT | O_TRUNC, 0);if(fd2 < 0) ret = -1; else ret = 0;}
@@ -1023,7 +1024,7 @@ static int CopyFile(char* path, char* path2)
 
                 if(!(flags & CPY_FILE2_IS_NTFS)) sysLv2FsChmod(path2, FS_S_IFMT | 0777);
 
-                ret = CopyFd(flags, fd, fd2, mem, lenght);
+                ret = CopyFd(flags, fd, fd2, mem, length);
                 if(ret < 0) goto skip2;
 
                 if(!use_async_fd) {
@@ -1032,7 +1033,7 @@ static int CopyFile(char* path, char* path2)
                 
                 fd2 = -1;
 
-                pos+= lenght;
+                pos+= length;
                 
                 n++;
             
@@ -1056,10 +1057,10 @@ static int CopyFile(char* path, char* path2)
             if(!mem) {ret= (int) 0x80010004; goto skip2;}
 
             
-            copy_parts = (lenght == 0) ? 0.0f : 100.0f / ((double) lenght / (double) 0x100000);
+            copy_parts = (length == 0) ? 0.0f : 100.0f / ((double) length / (double) 0x100000);
             copy_cpart = 0;
 
-            ret = CopyFd(flags, fd, fd2, mem, lenght);
+            ret = CopyFd(flags, fd, fd2, mem, length);
         }
     }
 
@@ -3370,7 +3371,8 @@ int launch_iso_game(char *path)
                     } else {
                         parts = 1;
 
-                        strncpy(&sections[0], path, 0x200);
+                        strncpy(&sections[0], path, 0x1ff);
+                        sections[0x1ff] = 0;
 
                         if(stat(&sections[0], &s)!=0) goto skip_load;
                         sections_size[0] = s.st_size/2048;
@@ -3456,7 +3458,8 @@ int launch_iso_build(char *path, char *path2, int sel)
                 //int parts = ps3ntfs_file_to_sectors(path, sections, sections_size, MAX_SECTIONS, 1);
                 
                 // create file section
-                strncpy((char *) sections, path, 0x200);
+                strncpy((char *) sections, path, 0x1ff);
+                ((char *) sections)[0x1ff] = 0;
                 sections[0x200/4] = 0;
                 sections_size[0] = s.st_size / 2048ULL;
                 int parts = 1;
@@ -3522,13 +3525,15 @@ int launch_iso_build(char *path, char *path2, int sel)
 
                 int parts = 2;
 
-                strncpy(&sections[0], path, 0x200);
+                strncpy(&sections[0], path, 0x1ff);
+                sections[0x1ff] = 0;
 
                 if(stat(&sections[0], &s)!=0) goto skip_load;
                 sections_size[0] = s.st_size/2048;
 
                 if(stat(path2, &s)!=0) goto skip_load;
-                strncpy(&sections[0x200], path2, 0x200);
+                strncpy(&sections[0x200], path2, 0x1ff);
+                sections[0x1ff] = 0;
                 sections_size[1] = (s.st_size + 2047)/2048;
  
                 p_args = (rawseciso_args *)plugin_args;
@@ -3594,7 +3599,7 @@ static char help1[]= {
 static char cur_path1[0x420];
 static char cur_path2[0x420];
 
-void archive_manager()
+void archive_manager(char *pathw1, char *pathw2)
 {
     u32 frame = 0;
 
@@ -3650,7 +3655,10 @@ void archive_manager()
 
     int png_signal = 0;
     int tick1_move = 0; 
-    int tick2_move = 0; 
+    int tick2_move = 0;
+
+    if(pathw1) strncpy(path1, pathw1, 0x420);
+    if(pathw2) strncpy(path2, pathw2, 0x420);
 
     while(1) {
 
@@ -3971,7 +3979,20 @@ void archive_manager()
     tiny3d_Project2D();
     cls2();
     update_twat();
-    
+
+    static int counter_internal = 0;
+
+    if(counter_internal >= 600) {
+        counter_internal = 0;
+        int r= ftp_net_status();
+
+        if(r == -4) {
+           ftp_net_deinit();
+           ftp_net_init();
+           r = ftp_net_status();
+        }
+    }
+
     if(nentries1 && path1[1]!=0) {
         u32 blockSize;
         static u64 freeSize = 0;
@@ -5040,7 +5061,15 @@ void archive_manager()
 
                 } else if(!options_locked && !(entries1[sel1].d_type & 2) && (!strcmp(ext, ".pkg") || !strcmp(ext, ".PKG"))) {
 
+                    struct stat s;
+
                     install_pkg(path1, entries1[sel1].d_name);
+                    
+                    sprintf(temp_buffer, "%s/%s", path1, entries1[sel1].d_name);
+                    if(stat(temp_buffer, &s)) {
+                        nentries1 = 0; sel1--;
+                    }
+
                 } else if(!options_locked && !(entries1[sel1].d_type & 2) && (!strcmp(ext, ".self") || !strcmp(ext, ".SELF")) && strncmp(path1, "/ntfs", 5) && strncmp(path1, "/ext", 4)) {
 
                     sprintf(temp_buffer, "%s/%s", path1, entries1[sel1].d_name);
@@ -5210,8 +5239,16 @@ void archive_manager()
                     }
 
                 } else if(!(entries2[sel2].d_type & 2) && (!strcmp(ext, ".pkg") || !strcmp(ext, ".PKG"))) {
+
+                    struct stat s;
             
                     install_pkg(path2, entries2[sel2].d_name);
+
+                    sprintf(temp_buffer, "%s/%s", path2, entries2[sel2].d_name);
+                    if(stat(temp_buffer, &s)) {
+                        nentries2 = 0; sel2--;
+                    }
+  
                 } else if(!(entries2[sel2].d_type & 2) && (!strcmp(ext, ".self") || !strcmp(ext, ".SELF")) &&
                     strncmp(path2, "/ntfs", 5) && strncmp(path2, "/ext", 4)) {
 
@@ -5309,4 +5346,5 @@ void archive_manager()
     if(copy_mem) free(copy_mem); copy_mem = NULL;
 
 }
+
 

@@ -549,6 +549,7 @@ int create_fake_file_iso(char *path, char *filename, u64 size)
 
     char name[65];
     strncpy(name, filename, 64);
+    name[64] = 0;
 
     if(strlen(filename) > 64) { // break the string
         int pos = 63 - strlen(get_extension(filename));
@@ -650,6 +651,7 @@ char * create_fake_file_iso_mem(char *filename, u64 size, u32 *nsize)
 
     char name[65];
     strncpy(name, filename, 64);
+    name[64] = 0;
     
     if(strlen(filename) > 64) { // break the string
         int pos = 63 - strlen(get_extension(filename));
@@ -860,6 +862,7 @@ static int iso_parse_param_sfo(char * file, char *title_id, char *title_name)
 
             if(!strcmp((char *) &mem[str], "TITLE")) {
                 strncpy(title_name, (char *) &mem[pos], 63);
+                title_name[63] = 0;
                 ct++;
             }
             else 
@@ -867,6 +870,7 @@ static int iso_parse_param_sfo(char * file, char *title_id, char *title_name)
                 memcpy(title_id, (char *) &mem[pos], 4);
                 title_id[4] = '-';
 				strncpy(&title_id[5], (char *) &mem[pos + 4], 58);
+                title_id[63] = 0;
                 ct++;
 				
 		    }
@@ -911,7 +915,6 @@ static int calc_entries(char *path, int parent)
     cldir = ldir;
     cwdir = wdir;
 
-
     lpath+= (lpath & 1);
     wpath+= (wpath & 1);
 
@@ -927,7 +930,6 @@ static int calc_entries(char *path, int parent)
         if(!directory_iso[cur].name) return -1;
         directory_iso[cur].name[0] = 0;
     }
-
 
     int cur2 = cur;
 
@@ -967,6 +969,7 @@ static int calc_entries(char *path, int parent)
             int add;
 
             add = sizeof(struct iso_directory_record) + strlen(entry->d_name) - 1 + 6;
+            add+= add & 1;
             cldir += add;
 
             if(cldir > 2048) {
@@ -975,12 +978,13 @@ static int calc_entries(char *path, int parent)
             }
             
             ldir += add;
-            ldir += ldir & 1;
+            //ldir += ldir & 1;
 
             wpath += sizeof(struct iso_path_table) + len_string * 2 - 1;
             wpath += (wpath & 1);
 
             add = sizeof(struct iso_directory_record) + len_string * 2 - 1 + 6;
+            add+= add & 1;
             cwdir += add;
 
             if(cwdir > 2048) {
@@ -989,7 +993,7 @@ static int calc_entries(char *path, int parent)
             }
 
             wdir += add;
-            wdir += wdir & 1;
+            //wdir += wdir & 1;
     
             
         } else {
@@ -1061,6 +1065,7 @@ static int calc_entries(char *path, int parent)
                 int add;
 
                 add = sizeof(struct iso_directory_record) + lname - 1 + 8; // add ";1"
+                add+= add & 1;
                 cldir += add;
 
                 if(cldir > 2048) {
@@ -1069,9 +1074,10 @@ static int calc_entries(char *path, int parent)
                 }
 
                 ldir += add;
-                ldir += ldir & 1;
+                //ldir += ldir & 1;
 
                 add = sizeof(struct iso_directory_record) + len_string * 2 - 1 + 4 + 6;  // add "\0;\01"
+                add+= add & 1;
                 cwdir += add;
 
                 if(cwdir > 2048) {
@@ -1080,14 +1086,14 @@ static int calc_entries(char *path, int parent)
                 }
 
                 wdir += add;
-                wdir += wdir & 1;
+                //wdir += wdir & 1;
             }
         }
 
     }
 
-    if((2048 - (ldir & 2047)) < sizeof(struct iso_directory_record)) ldir += 2048; // increase an sector if not space for directory record
-    if((2048 - (wdir & 2047)) < sizeof(struct iso_directory_record)) wdir += 2048; // increase an sector if not space for directory record
+    if((2048 - (ldir & 2047)) < 256 /*sizeof(struct iso_directory_record)*/) ldir += 2048; // increase an sector if not space for directory record
+    if((2048 - (wdir & 2047)) < 256 /*sizeof(struct iso_directory_record)*/) wdir += 2048; // increase an sector if not space for directory record
 
     directory_iso[cur].ldir = (ldir + 2047)/2048;
     directory_iso[cur].wdir = (wdir + 2047)/2048;
@@ -1777,7 +1783,7 @@ static int write_split0(int *fd, u32 lba, u8 *mem, int sectors, int sel)
 #include "event_threads.h"
 
 
-volatile struct f_async {
+static volatile struct f_async {
     int flags;
     int *fd;
     void * mem;
@@ -2167,6 +2173,10 @@ static int build_file_iso(int *fd, char *path1, char *path2, int level)
         }
 
         event_thread_send(0x555ULL, (u64) 0, 0);
+
+        sprintf(dbhead, "%s - done (%i/100)", "MAKEPS3ISO Utility", 100);
+
+        DbgHeader(dbhead);
 
         return ret;
 
@@ -3119,6 +3129,9 @@ int extractps3iso(char *f_iso, char *g_path, int split)
         char file_aux[0x420];
 
         file_aux[0] = 0;
+
+        int q2 = 0;
+        int size_directory = 0;
         
         while(1) {
 
@@ -3136,6 +3149,17 @@ int extractps3iso(char *f_iso, char *g_path, int split)
 
             int q = 0;
 
+            if(q2 == 0) {
+                idr = (struct iso_directory_record *) &sectors2[q];
+                if((int) idr->name_len[0] == 1 && idr->name[0]== 0 && lba == isonum_731((void *) idr->extent) && idr->flags[0] == 0x2) {
+                    size_directory = isonum_733((void *) idr->size);
+                 
+                } else {
+                    DPrintf("Error!: Bad first directory record! (LBA %i)\n\n", lba);
+                    goto err;
+                }
+            }
+
             int signal_idr_correction = 0;
 
             while(1) {
@@ -3148,33 +3172,61 @@ int extractps3iso(char *f_iso, char *g_path, int split)
                     memset(sectors2 + 2048, 0, 2048);
                     lba++;
 
+                    q2 += 2048;
+
                 }
+
+                if(q2 >= size_directory) goto end_dir_rec;
 
                 idr = (struct iso_directory_record *) &sectors2[q];
 
-                if((2048 - q) < sizeof(struct iso_directory_record)) {
-                    if(idr->length[0] != 0) {
-                        DPrintf("Warning! Entry directory break the standard ISO 9660\n\nPress TRIANGLE button\n\n");
-                        get_input_char();
+                if(idr->length[0]!=0 && (idr->length[0] + q) > 2048) {
+                
+                    DPrintf("Warning! Entry directory break the standard ISO 9660\n\nPress TRIANGLE button\n\n");
+                    get_input_char();
 
-                        if(ps3ntfs_seek64(fd, lba * 2048 + 2048, SEEK_SET)<0) {
-                            DPrintf("Error!: in directory_record fseek\n\n");
-                            goto err;
-                        }
+                    if(ps3ntfs_seek64(fd, lba * 2048 + 2048, SEEK_SET)<0) {
+                        DPrintf("Error!: in directory_record fseek\n\n");
+                        goto err;
+                    }
 
-                        if(ps3ntfs_read(fd, (void *) (sectors2 + 2048), 2048) != 2048) {
-                            DPrintf("Error!: reading directory_record sector\n\n");
-                            goto err;
-                        }
+                    if(ps3ntfs_read(fd, (void *) (sectors2 + 2048), 2048) != 2048) {
+                        DPrintf("Error!: reading directory_record sector\n\n");
+                        goto err;
+                    }
 
-                        signal_idr_correction = 1;
-
-                    } else
-                        break; // read a new sector
+                    signal_idr_correction = 1;
+               
                 }
 
-                if(idr->length[0] == 0) goto end_dir_rec;
-                
+                if(idr->length[0] == 0 && (2048 - q) > 255) goto end_dir_rec;
+
+                if((idr->length[0] == 0 && q != 0) || q == 2048)  { 
+                    
+                    lba++;
+                    q2 += 2048;
+
+                    if(q2 >= size_directory) goto end_dir_rec;
+
+                    if(ps3ntfs_seek64(fd, lba * 2048, SEEK_SET)<0) {
+                        DPrintf("Error!: in directory_record fseek\n\n");
+                        goto err;
+                    }
+
+                    if(ps3ntfs_read(fd, (void *) (sectors2), 2048) != 2048) {
+                        DPrintf("Error!: reading directory_record sector\n\n");
+                        goto err;
+                    }
+
+                    memset(sectors2 + 2048, 0, 2048);
+
+                    q = 0;
+                    idr = (struct iso_directory_record *) &sectors2[q];
+
+                    if(idr->length[0] == 0 || ((int) idr->name_len[0] == 1 && !idr->name[0])) goto end_dir_rec;
+                    
+                }
+
                 if((int) idr->name_len[0] > 1 && idr->flags[0] != 0x2 &&
                     idr->name[idr->name_len[0] - 1]== '1' && idr->name[idr->name_len[0] - 3]== ';') { // skip directories
                     
@@ -3342,6 +3394,8 @@ int extractps3iso(char *f_iso, char *g_path, int split)
             }
 
             lba ++;
+            q2+= 2048;
+            if(q2 >= size_directory) goto end_dir_rec;
 
         }
 
@@ -3353,6 +3407,9 @@ int extractps3iso(char *f_iso, char *g_path, int split)
         idx++;
 
     }
+
+    sprintf(dbhead, "%s - done (100/100)", "EXTRACTPS3ISO Utility");
+    DbgHeader(dbhead);
 
     if(fd) ps3ntfs_close(fd);
     if(fd2) ps3ntfs_close(fd2);
@@ -3835,6 +3892,9 @@ int patchps3iso(char *f_iso)
         char file_aux[0x420];
 
         file_aux[0] = 0;
+
+        int q2 = 0;
+        int size_directory = 0;
         
         while(1) {
 
@@ -3852,6 +3912,17 @@ int patchps3iso(char *f_iso)
 
             int q = 0;
 
+            if(q2 == 0) {
+                idr = (struct iso_directory_record *) &sectors2[q];
+                if((int) idr->name_len[0] == 1 && idr->name[0]== 0 && lba == isonum_731((void *) idr->extent) && idr->flags[0] == 0x2) {
+                    size_directory = isonum_733((void *) idr->size);
+                 
+                } else {
+                    DPrintf("Error!: Bad first directory record! (LBA %i)\n\n", lba);
+                    goto err;
+                }
+            }
+
             int signal_idr_correction = 0;
 
             while(1) {
@@ -3864,33 +3935,60 @@ int patchps3iso(char *f_iso)
                     memset(sectors2 + 2048, 0, 2048);
                     lba++;
 
+                    q2 += 2048;
+
                 }
+
+                if(q2 >= size_directory) goto end_dir_rec;
 
                 idr = (struct iso_directory_record *) &sectors2[q];
 
-                if((2048 - q) < sizeof(struct iso_directory_record)) {
-                    if(idr->length[0] != 0) {
-                        DPrintf("Warning! Entry directory break the standard ISO 9660\n\nPress TRIANGLE button\n\n");
-                        get_input_char();
+                if(idr->length[0]!=0 && (idr->length[0] + q) > 2048) {
+                
+                    DPrintf("Warning! Entry directory break the standard ISO 9660\n\nPress TRIANGLE button\n\n");
+                    get_input_char();
 
-                        if(ps3ntfs_seek64(fd, lba * 2048 + 2048, SEEK_SET)<0) {
-                            DPrintf("Error!: in directory_record fseek\n\n");
-                            goto err;
-                        }
+                    if(ps3ntfs_seek64(fd, lba * 2048 + 2048, SEEK_SET)<0) {
+                        DPrintf("Error!: in directory_record fseek\n\n");
+                        goto err;
+                    }
 
-                        if(ps3ntfs_read(fd, (void *) (sectors2 + 2048), 2048) != 2048) {
-                            DPrintf("Error!: reading directory_record sector\n\n");
-                            goto err;
-                        }
+                    if(ps3ntfs_read(fd, (void *) (sectors2 + 2048), 2048) != 2048) {
+                        DPrintf("Error!: reading directory_record sector\n\n");
+                        goto err;
+                    }
 
-
-                        signal_idr_correction = 1;
-
-                    } else
-                        break; // read a new sector
+                    signal_idr_correction = 1;
+               
                 }
 
-                if(idr->length[0] == 0) goto end_dir_rec;
+                if(idr->length[0] == 0 && (2048 - q) > 255) goto end_dir_rec;
+
+                if((idr->length[0] == 0 && q != 0) || q == 2048)  { 
+                    
+                    lba++;
+                    q2 += 2048;
+
+                    if(q2 >= size_directory) goto end_dir_rec;
+
+                    if(ps3ntfs_seek64(fd, lba * 2048, SEEK_SET)<0) {
+                        DPrintf("Error!: in directory_record fseek\n\n");
+                        goto err;
+                    }
+
+                    if(ps3ntfs_read(fd, (void *) (sectors2), 2048) != 2048) {
+                        DPrintf("Error!: reading directory_record sector\n\n");
+                        goto err;
+                    }
+
+                    memset(sectors2 + 2048, 0, 2048);
+
+                    q = 0;
+                    idr = (struct iso_directory_record *) &sectors2[q];
+
+                    if(idr->length[0] == 0 || ((int) idr->name_len[0] == 1 && !idr->name[0])) goto end_dir_rec;
+                    
+                }
                 
                 if((int) idr->name_len[0] > 1 && idr->flags[0] != 0x2 &&
                     idr->name[idr->name_len[0] - 1]== '1' && idr->name[idr->name_len[0] - 3]== ';') { // skip directories
@@ -3985,6 +4083,8 @@ int patchps3iso(char *f_iso)
             }
 
             lba ++;
+            q2+= 2048;
+            if(q2 >= size_directory) goto end_dir_rec;
 
         }
 

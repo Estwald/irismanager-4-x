@@ -51,6 +51,48 @@ int get_ftp_activity()
     return (ftp_working!=0);
 }
 
+static int _net_initialized = 0;
+
+int ftp_net_init()
+{
+    if(_net_initialized) return 0;
+    
+    if(netInitialize()<0) return -1;
+	if(netCtlInit()<0) {netDeinitialize();return -2;}
+    
+    _net_initialized = 1;
+
+    return 0;
+
+}
+
+int ftp_net_deinit()
+{
+    if(!_net_initialized) return 0;
+    
+    _net_initialized = 0;
+
+    netCtlTerm();
+    netDeinitialize();
+
+    return 0;
+
+}
+
+int ftp_net_status()
+{
+    if(!_net_initialized) return -1;
+    
+    s32 state = 0;
+    
+    if(netCtlGetState(&state)<0 || state !=NET_CTL_STATE_IPObtained) {
+ 
+        return -4;
+    }
+
+    return 0;
+
+}
 
 int ftp_init()
 {
@@ -58,15 +100,16 @@ int ftp_init()
 
     ftp_working = 0;
 
-    if(netInitialize()<0) return -1;
-	if(netCtlInit()<0) {netDeinitialize();return -2;}
+    int r = ftp_net_init();
+    if(r < 0) return r; 
+
+    
     
     s32 state = 0;
     
     if(netCtlGetState(&state)<0 || state !=3) {
         ftp_initialized = 0;
-        netCtlTerm();
-        netDeinitialize();
+        ftp_net_deinit();
         return -4;
     }
 
@@ -115,9 +158,7 @@ int ftp_init()
 		//msgDialogOpen2(mt_ok, OFTP_ERRMSG_NETWORK, dialog_handler, NULL, NULL);
 
         ftp_initialized = 0;
-        netCtlTerm();
-        netDeinitialize();
-
+        ftp_net_deinit();
 	}
 
     return -3;
@@ -129,8 +170,7 @@ void ftp_deinit()
 
     appstate = 1;
 
-    netCtlTerm();
-    netDeinitialize();
+    ftp_net_deinit();
 
     u64 retval;
     sysThreadJoin(thread_id, &retval);

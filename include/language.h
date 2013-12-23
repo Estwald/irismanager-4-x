@@ -253,6 +253,7 @@ enum lang_codes
  
 };
 
+extern char * language[];
 
 int open_language (int lang, char * filename);
 void close_language(void);

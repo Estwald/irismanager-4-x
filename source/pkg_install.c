@@ -45,7 +45,6 @@
 #include "pad.h"
 #include "ntfs.h"
 
-extern char * language[];
 extern char temp_buffer[8192];
 extern char self_path[MAXPATHLEN];
 
