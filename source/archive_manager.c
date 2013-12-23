@@ -3993,6 +3993,8 @@ void archive_manager(char *pathw1, char *pathw2)
         }
     }
 
+    counter_internal++;
+
     if(nentries1 && path1[1]!=0) {
         u32 blockSize;
         static u64 freeSize = 0;
