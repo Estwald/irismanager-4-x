@@ -227,7 +227,9 @@ char * LoadFile(char *path, int *file_size)
         
         fseek(fp, 0, SEEK_SET);
 
-		fread((void *) mem, 1, *file_size, fp);
+		if(*file_size != fread((void *) mem, 1, *file_size, fp)) {
+            fclose(fp); *file_size = 0; free(mem); return NULL;
+        }
 
 		fclose(fp);
 
@@ -244,7 +246,9 @@ int SaveFile(char *path, char *mem, int file_size)
 
 	if (fp != NULL) {
        
-		fwrite((void *) mem, 1, file_size, fp);
+		if(file_size != fwrite((void *) mem, 1, file_size, fp)) {
+            fclose(fp); return -1;
+        }
 
 		fclose(fp);
 

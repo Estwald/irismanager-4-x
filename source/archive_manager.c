@@ -3393,9 +3393,13 @@ int launch_iso_game(char *path)
 
                     sprintf(temp_buffer + 2048, "%s/sprx_iso", self_path);
 
-
-                    if (cobra_load_vsh_plugin(0, temp_buffer + 2048, plugin_args, 0x10000) == 0)
+                    int r= 0;
+                    if ((r= cobra_load_vsh_plugin(0, temp_buffer + 2048, plugin_args, 0x10000)) == 0)
                         {use_cobra = 2; exit(0);}
+
+                    sprintf(temp_buffer + 2048,"error %X", r);
+                    DrawDialogOK(temp_buffer + 2048);
+
                 }
             
         

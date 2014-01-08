@@ -2071,7 +2071,7 @@ s32 main(s32 argc, const char* argv[])
                     load_payload_446(payload_mode);
                     __asm__("sync");
                     sleep(1); /* maybe need it, maybe not */
-
+                    
                     if(!use_cobra) {
 
                         load_ps3_mamba_payload();
@@ -2305,7 +2305,7 @@ s32 main(s32 argc, const char* argv[])
         fun_exit();
         restore_syscall8[1]= lv2peek(restore_syscall8[0]); // use mamba vector
 
-        // relaunch iris manger to get vsh process for mamba
+        // relaunch iris manager to get vsh process for mamba
         sprintf(temp_buffer, "%s/USRDIR/iris_manager.self", self_path);
         sysProcessExitSpawn2(temp_buffer, NULL, NULL, NULL, 0, 3071, SYS_PROCESS_SPAWN_STACK_SIZE_1M);
         exit(0);
@@ -2347,7 +2347,7 @@ s32 main(s32 argc, const char* argv[])
         int n;
         cobra_umount_disc_image();
         cobra_send_fake_disc_eject_event();
-        for(n = 0; n < 7; n++)
+        for(n = 0; n < 1; n++)
             cobra_unload_vsh_plugin(n); // unload plugin
     }
 

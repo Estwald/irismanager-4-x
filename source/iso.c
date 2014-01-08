@@ -20,18 +20,18 @@
 /* 
     (c) 2013 Estwald/Hermes <www.elotrolado.net>
 
-    MAKEPS3ISO, EXTRACTISO and PATCHISO is free software: you can redistribute it and/or modify
+    MAKEPS3ISO, EXTRACTPS3ISO and PATCHPS3ISO is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
     the Free Software Foundation, either version 3 of the License, or
     (at your option) any later version.
 
-    MAKEPS3ISO, EXTRACTISO and PATCHISO is distributed in the hope that it will be useful,
+    MAKEPS3ISO, EXTRACTPS3ISO and PATCHPS3ISO is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
     GNU General Public License for more details.
 
     You should have received a copy of the GNU General Public License
-    apayloadlong with MAKEPS3ISO, EXTRACTISO and PATCHISO .  If not, see <http://www.gnu.org/licenses/>.
+    apayloadlong with MAKEPS3ISO, EXTRACTPS3ISO and PATCHPS3ISO .  If not, see <http://www.gnu.org/licenses/>.
 
 */
 
@@ -973,8 +973,9 @@ static int calc_entries(char *path, int parent)
             cldir += add;
 
             if(cldir > 2048) {
-                ldir += add - (cldir - 2048);
-                cldir = 0;
+                
+                ldir = (ldir & ~2047) + 2048;
+                cldir = add;
             }
             
             ldir += add;
@@ -988,9 +989,11 @@ static int calc_entries(char *path, int parent)
             cwdir += add;
 
             if(cwdir > 2048) {
-                wdir += add - (cwdir - 2048);
-                cwdir = 0;
+
+                wdir= (wdir & ~2047) + 2048;
+                cwdir = add;
             }
+
 
             wdir += add;
             //wdir += wdir & 1;
@@ -1069,8 +1072,9 @@ static int calc_entries(char *path, int parent)
                 cldir += add;
 
                 if(cldir > 2048) {
-                    ldir += add - (cldir - 2048);
-                    cldir = 0;
+                
+                    ldir = (ldir & ~2047) + 2048;
+                    cldir = add;
                 }
 
                 ldir += add;
@@ -1081,8 +1085,9 @@ static int calc_entries(char *path, int parent)
                 cwdir += add;
 
                 if(cwdir > 2048) {
-                    wdir += add - (cwdir - 2048);
-                    cwdir = 0;
+                 
+                    wdir= (wdir & ~2047) + 2048;
+                    cwdir = add;
                 }
 
                 wdir += add;
@@ -3680,6 +3685,9 @@ int patchps3iso(char *f_iso)
     char string2[0x420];
     u16 wstring[1024];
 
+    int num_files = 0;
+    int num_dir = 0;
+
     struct iso_primary_descriptor sect_descriptor;
     struct iso_directory_record * idr;
     int idx = -1;
@@ -3871,6 +3879,7 @@ int patchps3iso(char *f_iso)
             goto err;
         }
 
+   
         directory_iso2[idx].name = malloc(strlen(string) + 2);
         if(!directory_iso2[idx].name) {
             DPrintf("Error!: in directory_iso2.name malloc()\n\n");
@@ -3992,6 +4001,8 @@ int patchps3iso(char *f_iso)
                 
                 if((int) idr->name_len[0] > 1 && idr->flags[0] != 0x2 &&
                     idr->name[idr->name_len[0] - 1]== '1' && idr->name[idr->name_len[0] - 3]== ';') { // skip directories
+
+                    if(idr->flags[0] != 0x80) num_files++;
                     
                     memset(wstring, 0, 512 * 2);
                     memcpy(wstring, idr->name, idr->name_len[0]);
@@ -4094,6 +4105,7 @@ int patchps3iso(char *f_iso)
         if(snamelen & 1) p++;
 
         idx++;
+        num_dir++;
 
     }
 
@@ -4122,7 +4134,7 @@ int patchps3iso(char *f_iso)
     else if(file_size < 0x100000LL) 
         DPrintf("Total ISO Size %u KB\n", (u32) (file_size/1024));
     else
-        DPrintf("Total ISO Size %u MB\n", (u32) (file_size/0x100000LL));
+        DPrintf("Total ISO Size %u MB\nTotal folders %i\nTotal files %i\n", (u32) (file_size/0x100000LL), num_dir - 1, num_files);
     
     DPrintf("\nPress TRIANGLE button to exit\n");
     get_input_char();
@@ -4189,3 +4201,4 @@ int delps3iso(char *f_iso)
 
     return 0;
 }
+
