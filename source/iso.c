@@ -942,7 +942,7 @@ static int calc_entries(char *path, int parent)
         struct dirent *entry = readdir (dir);
             
         if(!entry) break;
-        if(entry->d_name[0]=='.') continue;
+        if(entry->d_name[0]=='.' && (entry->d_name[1]=='.' || entry->d_name[1]== 0)) continue;
 
         int len = strlen(path);
         strcat(path,"/");
@@ -1114,7 +1114,7 @@ static int calc_entries(char *path, int parent)
         struct dirent *entry = readdir (dir);
             
         if(!entry) break;
-        if(entry->d_name[0]=='.') continue;
+        if(entry->d_name[0]=='.' && (entry->d_name[1]=='.' || entry->d_name[1]== 0)) continue;
         
         int len = strlen(path);
 
@@ -1436,7 +1436,7 @@ static int fill_entries(char *path1, char *path2, int level)
             struct dirent *entry = readdir (dir);
                 
             if(!entry) break;
-            if(entry->d_name[0]=='.') continue;
+            if(entry->d_name[0]=='.' && (entry->d_name[1]=='.' || entry->d_name[1]== 0)) continue;
             
             int len = strlen(path1);
 
@@ -1907,7 +1907,7 @@ static int build_file_iso(int *fd, char *path1, char *path2, int level)
             struct dirent *entry=readdir (dir);
                 
             if(!entry) break;
-            if(entry->d_name[0]=='.') continue;
+            if(entry->d_name[0]=='.' && (entry->d_name[1]=='.' || entry->d_name[1]== 0)) continue;
             
             int len = strlen(path1);
 
