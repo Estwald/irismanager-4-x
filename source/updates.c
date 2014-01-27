@@ -371,6 +371,7 @@ err:
 }
 
 
+#if 0
 static int download_file(char *url, char *file, int mode, u64 *size)
 {
     int flags = 0;
@@ -552,6 +553,7 @@ err:
     return ret;
 }
 
+#endif
 
 int locate_xml(u8 *mem, int pos, int size, char *key, int *last)
 {
@@ -808,3 +810,121 @@ int game_update(char *title_id)
 
     return downloaded;
 }
+
+int copy_async_gbl(char *path1, char *path2, u64 size, char *progress_string1, char *progress_string2)
+{
+    int ret = 0;
+    
+    FILE *fp = NULL;
+    FILE *fp2 = NULL;
+    float parts = 0;
+    float cpart;
+    char buffer[16384];
+
+    use_async_fd = 128;
+    my_f_async.flags = 0;
+
+    single_bar(progress_string1);
+    
+    parts = (size == 0) ? 0.0f : 100.0f / ((double) size / (double) sizeof(buffer));
+    cpart = 0;
+    
+    fp = fopen(path1, "rb");
+	if(!fp) {ret = -1; goto err;}
+    fp2 = fopen(path2, "wb");
+	if(!fp2) {ret = -2; goto err;}
+	
+    int acum = 0;
+	while (size != 0ULL) {
+        int recv = (size > 16384) ? 16384 : size;
+
+        recv = fread(buffer, 1, recv, fp);
+		if (recv <= 0) break;
+		if (recv > 0) {
+
+        loop_write:
+            if(use_async_fd == 128) {
+                use_async_fd = 1;
+                my_f_async.flags = 0;
+                my_f_async.size = recv;
+                my_f_async.fp = fp2;
+                my_f_async.mem = malloc(recv);
+                if(my_f_async.mem) memcpy(my_f_async.mem, (void *) buffer, recv);        
+                my_f_async.ret = -1;
+                my_f_async.flags = ASYNC_ENABLE;
+                event_thread_send(0x555ULL, (u64) my_func_async, (u64) &my_f_async);
+
+            } else {
+             
+                if(!(my_f_async.flags & ASYNC_ENABLE)) {
+
+                    if(my_f_async.flags & ASYNC_ERROR) {
+                        fclose(fp2); fp2 = NULL; ret = -6; goto err;
+                    }
+                   
+                    my_f_async.flags = 0;
+                    my_f_async.size = recv;
+                    my_f_async.fp = fp2;
+                    my_f_async.mem = malloc(recv);
+                    if(my_f_async.mem) memcpy(my_f_async.mem, (void *) buffer, recv);  
+                    my_f_async.ret = -1;
+                    my_f_async.flags = ASYNC_ENABLE;
+                    event_thread_send(0x555ULL, (u64) my_func_async, (u64) &my_f_async);
+                    
+                } else {
+                    goto loop_write;
+                }
+            }
+            ///////////////////
+            size -= recv;
+            acum+= recv;
+		}
+
+        if(progress_action == 2) {ret = -0x555; goto err;}
+
+        pad_last_time = 0;
+    
+        if(1) {
+
+            if(acum >= sizeof(buffer)) {
+                acum-= sizeof(buffer);
+                cpart += parts;
+                if(cpart >= 1.0f) {
+                    update_bar((u32) cpart);
+                    cpart-= (float) ((u32) cpart); 
+                }
+            }
+        }
+	}
+
+ 
+	ret = 0;
+	
+err:
+
+    if(my_f_async.flags & ASYNC_ENABLE){
+        wait_event_thread();
+        if(my_f_async.flags  & ASYNC_ERROR) {
+            
+            if(fp2) fclose(fp2); fp2 = NULL; ret = -6;
+        }
+        my_f_async.flags = 0;
+    }
+
+    event_thread_send(0x555ULL, (u64) 0, 0);
+
+    msgDialogAbort();
+    
+
+    if(fp) {
+        fclose(fp);
+    }
+
+    if(fp2) {
+        fclose(fp2);
+        if(ret < 0) unlink_secure(path2);
+    }
+  
+    return ret;
+}
+

@@ -405,7 +405,7 @@ int get_iso_file_pos(FILE *fp, char *path, u32 *flba, u64 *size)
     if(fread((void *) &sect_descriptor, 1, sizeof(struct iso_primary_descriptor), fp) != sizeof(struct iso_primary_descriptor)) goto err;
     #endif
 
-    if(strncmp((void *) sect_descriptor.id, "CD001", 5)) goto err;
+    if(sect_descriptor.type[0]!=1 || strncmp((void *) sect_descriptor.id, "CD001", 5)) goto err;
 
     u32 lba0 = isonum_731(&sect_descriptor.type_l_path_table[0]); // lba
     u32 size0 = isonum_733(&sect_descriptor.path_table_size[0]); // tamaño
@@ -478,9 +478,21 @@ int get_iso_file_pos(FILE *fp, char *path, u32 *flba, u64 *size)
     #endif
 
     p = 0;
+
+    int size_directory = -1;
+    int p2 = 0;
     while(1) {
         if(nsplit >= nfolder_split) break;
         idr = (struct iso_directory_record *) &sectors[p];
+
+        if(size_directory == -1) {
+                
+            if((int) idr->name_len[0] == 1 && idr->name[0]== 0 && lba == isonum_731((void *) idr->extent) && idr->flags[0] == 0x2) {
+                size_directory = isonum_733((void *) idr->size);
+             
+            } 
+        }
+
         if(idr->length[0] == 0 && sizeof(struct iso_directory_record) + p > 2048) {
             lba_folder++;
            
@@ -491,10 +503,10 @@ int get_iso_file_pos(FILE *fp, char *path, u32 *flba, u64 *size)
             if(fseek(fp, lba_folder * 2048, SEEK_SET)!=0) goto err;
             if(fread((void *) sectors, 1, 2048, fp) != 2048) goto err;
             #endif
-            p = 0; continue;
+            p = 0; p2= (p2 & ~2047) + 2048; continue;
         }
 
-        if(idr->length[0] == 0) break;
+        if((size_directory == -1 && idr->length[0] == 0) || (size_directory != -1 && p2 >= size_directory)) break;
     
         if((int) idr->name_len[0] == folder_split[nsplit][2]
             && !strncmp((char *) idr->name, &path[folder_split[nsplit][1]], (int) idr->name_len[0])) {
@@ -504,7 +516,7 @@ int get_iso_file_pos(FILE *fp, char *path, u32 *flba, u64 *size)
           
         } else if(file_lba != 0xffffffff) break;
 
-        p+= idr->length[0];
+        p+= idr->length[0]; p2+= idr->length[0];
     }
     
     *flba = file_lba;

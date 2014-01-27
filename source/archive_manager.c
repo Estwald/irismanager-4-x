@@ -24,7 +24,6 @@
 #include <unistd.h>
 #include <math.h>
 
-
 #include <sysutil/osk.h>
 #include "sysutil/sysutil.h"
 #include <sys/memory.h>
@@ -47,6 +46,7 @@
 #include "cobre.h"
 #include "iso.h"
 #include "ftp/ftp.h"
+#include "modules.h"
 
 #define MAX_SECTIONS	((0x10000-sizeof(rawseciso_args))/8)
 
@@ -222,7 +222,7 @@ int NTFS_Event_Mount(int id)
     ports_cnt &= ~(1<<id);
     if(PS3_NTFS_IsInserted(id)) ports_cnt |= 1<<id;
 
-    if( ((ports_cnt>>id) & 1) && !((old_ports_cnt>>id) & 1)) automountCount[id] = 300; // enable delay event
+    if( ((ports_cnt>>id) & 1) && !((old_ports_cnt>>id) & 1)) automountCount[id] = 420; // enable delay event (420 = 7 seconds)
 
     if(automountCount[id]>0) { // if delay counter ticks...
         automountCount[id]--; if(automountCount[id]==0) r = 1; // mount device
@@ -3174,7 +3174,7 @@ int launch_iso_game(char *path)
 
         struct stat s;
 
-        sprintf((char *) plugin_args, "%s/sprx_iso", self_path);
+        sprintf((char *) plugin_args, PLUGIN_ISO, self_path);
 
         if(stat((char *) plugin_args, &s)!=0) {free(plugin_args); return -1;}
 
@@ -3198,8 +3198,8 @@ int launch_iso_game(char *path)
             else if(!memcmp((void *) &plugin_args[1], "BEA01", 5)) type = EMU_BD;
             else if(!memcmp((void *) &plugin_args[0x28], "PS3VOLUME", 9)) type = EMU_PS3;
             else if(!memcmp((void *) &plugin_args[8], "PLAYSTATION", 11) || !memcmp((void *) &plugin_args[256], "PLAYSTATION", 11) ) {
-                //if(s.st_size>= 900 * 1024 * 1024) 
-                    type = EMU_PS2_DVD; is_ps2_game = 1;
+                if(!strncmp(path, "/ntfs", 5) || !strncmp(path, "/ext", 4)) type = EMU_PSX;
+                else {type = EMU_PS2_DVD; is_ps2_game = 1;}
             }
 
         }
@@ -3214,7 +3214,7 @@ int launch_iso_game(char *path)
             uint32_t *sections = malloc(MAX_SECTIONS * sizeof(uint32_t));
             uint32_t *sections_size = malloc(MAX_SECTIONS * sizeof(uint32_t));
 
-            if(plugin_args && sections && sections_size && (type == EMU_PS3 || type == EMU_DVD || type == EMU_BD)) { 
+            if(plugin_args && sections && sections_size && (type == EMU_PS3 || type == EMU_DVD || type == EMU_BD || type == EMU_PSX)) { 
                 
                 rawseciso_args *p_args;
          
@@ -3262,7 +3262,7 @@ int launch_iso_game(char *path)
 
                     cobra_unload_vsh_plugin(0);
 
-                    sprintf(temp_buffer + 2048, "%s/sprx_iso", self_path);
+                    sprintf(temp_buffer + 2048, PLUGIN_ISO, self_path);
 
                     if (cobra_load_vsh_plugin(0, temp_buffer + 2048, plugin_args, 0x10000) == 0)
                         {use_cobra = 2; exit(0);}
@@ -3391,7 +3391,7 @@ int launch_iso_game(char *path)
 
                     cobra_unload_vsh_plugin(0);
 
-                    sprintf(temp_buffer + 2048, "%s/sprx_iso", self_path);
+                    sprintf(temp_buffer + 2048, PLUGIN_ISO, self_path);
 
                     int r= 0;
                     if ((r= cobra_load_vsh_plugin(0, temp_buffer + 2048, plugin_args, 0x10000)) == 0)
@@ -3431,7 +3431,7 @@ int launch_iso_build(char *path, char *path2, int sel)
 
         struct stat s;
 
-        sprintf((char *) plugin_args, "%s/sprx_iso", self_path);
+        sprintf((char *) plugin_args, PLUGIN_ISO, self_path);
 
         if(stat((char *) plugin_args, &s)!=0) {free(plugin_args); return -1;}
 
@@ -3485,7 +3485,7 @@ int launch_iso_build(char *path, char *path2, int sel)
                    
                     cobra_unload_vsh_plugin(0);
 
-                    sprintf(temp_buffer + 2048, "%s/sprx_iso", self_path);
+                    sprintf(temp_buffer + 2048, PLUGIN_ISO, self_path);
 
                     if (cobra_load_vsh_plugin(0, temp_buffer + 2048, plugin_args, 0x1000) == 0) {
                         
@@ -3552,7 +3552,7 @@ int launch_iso_build(char *path, char *path2, int sel)
 
                 cobra_unload_vsh_plugin(0);
 
-                sprintf(temp_buffer + 2048, "%s/sprx_iso", self_path);
+                sprintf(temp_buffer + 2048, PLUGIN_ISO, self_path);
 
                 if (cobra_load_vsh_plugin(0, temp_buffer + 2048, plugin_args, 0x10000) == 0) {
                     
@@ -4152,7 +4152,7 @@ void archive_manager(char *pathw1, char *pathw2)
                 if(!strcmp(ext, ".self") || !strcmp(ext, ".SELF")) type = 3; else
                 if(!strcmp(ext, ".png") || !strcmp(ext, ".PNG") || !strcmp(ext, ".jpg") || !strcmp(ext, ".JPG")) type = 4; else
                 if(!strcmp(ext, ".iso") || !strcmp(ext, ".ISO") || !strcmpext(entries1[pos1 + n].d_name, ".iso.0") || !strcmpext(entries1[pos1 + n].d_name, ".ISO.0")) type = 5; else
-                if(noBDVD && use_cobra /*&& !strncmp(path1, "/ntfs", 5)*/ && 
+                if(noBDVD == 2 && use_cobra /*&& !strncmp(path1, "/ntfs", 5)*/ && 
                     (!strcmp(ext, ".avi") || !strcmp(ext, ".AVI")
                     || !strcmp(ext, ".mp4") || !strcmp(ext, ".MP4")
                     || !strcmp(ext, ".ogm") || !strcmp(ext, ".OGM")
@@ -4244,7 +4244,7 @@ void archive_manager(char *pathw1, char *pathw2)
                 if(!strcmp(ext, ".self") || !strcmp(ext, ".SELF")) type = 3;else
                 if(!strcmp(ext, ".png") || !strcmp(ext, ".PNG") || !strcmp(ext, ".jpg") || !strcmp(ext, ".JPG")) type = 4; else
                 if(!strcmp(ext, ".iso") || !strcmp(ext, ".ISO") || !strcmpext(entries2[pos2 + n].d_name, ".iso.0") || !strcmpext(entries2[pos2 + n].d_name, ".ISO.0")) type = 5; else
-                if(noBDVD && use_cobra /*&& !strncmp(path2, "/ntfs", 5)*/ && 
+                if(noBDVD == 2 && use_cobra /*&& !strncmp(path2, "/ntfs", 5)*/ && 
                     (!strcmp(ext, ".avi") || !strcmp(ext, ".AVI")
                     || !strcmp(ext, ".mp4") || !strcmp(ext, ".MP4")
                     || !strcmp(ext, ".ogm") || !strcmp(ext, ".OGM")
@@ -5028,7 +5028,7 @@ void archive_manager(char *pathw1, char *pathw2)
             } else {
                 char *ext =get_extension(entries1[sel1].d_name);
 
-                if(noBDVD && use_cobra /*&& !strncmp(path1, "/ntfs", 5)*/ && !(entries1[sel1].d_type & 2) 
+                if(noBDVD == 2 && use_cobra /*&& !strncmp(path1, "/ntfs", 5)*/ && !(entries1[sel1].d_type & 2) 
                     && (!strcmp(ext, ".avi") || !strcmp(ext, ".AVI")
                     || !strcmp(ext, ".mp4") || !strcmp(ext, ".MP4")
                     || !strcmp(ext, ".ogm") || !strcmp(ext, ".OGM")
@@ -5040,7 +5040,7 @@ void archive_manager(char *pathw1, char *pathw2)
                     launch_iso_build(temp_buffer + 2048, temp_buffer, 1);
 
                 
-                } else if(noBDVD && use_cobra && !(entries1[sel1].d_type & 2) 
+                } else if(noBDVD == 2 && use_cobra && !(entries1[sel1].d_type & 2) 
                     && (!strcmp(ext, ".iso") || !strcmp(ext, ".ISO")
                     || !strcmpext(entries1[sel1].d_name, ".iso.0") || !strcmpext(entries1[sel1].d_name, ".ISO.0"))) {
 
@@ -5207,7 +5207,7 @@ void archive_manager(char *pathw1, char *pathw2)
             } else {
                 char *ext =get_extension(entries2[sel2].d_name);
 
-                if(noBDVD && use_cobra /*&& !strncmp(path2, "/ntfs", 5)*/ && !(entries2[sel2].d_type & 2) 
+                if(noBDVD == 2 && use_cobra /*&& !strncmp(path2, "/ntfs", 5)*/ && !(entries2[sel2].d_type & 2) 
                     && (!strcmp(ext, ".avi") || !strcmp(ext, ".AVI")
                     || !strcmp(ext, ".mp4") || !strcmp(ext, ".MP4")
                     || !strcmp(ext, ".ogm") || !strcmp(ext, ".OGM")
@@ -5218,7 +5218,7 @@ void archive_manager(char *pathw1, char *pathw2)
 
                     launch_iso_build(temp_buffer + 2048, temp_buffer, 1);
                 
-                } else if(noBDVD && use_cobra && !(entries2[sel2].d_type & 2) 
+                } else if(noBDVD == 2 && use_cobra && !(entries2[sel2].d_type & 2) 
                     && (!strcmp(ext, ".iso") || !strcmp(ext, ".ISO")
                     || !strcmpext(entries2[sel2].d_name, ".iso.0")|| !strcmpext(entries2[sel2].d_name, ".ISO.0"))) {
 

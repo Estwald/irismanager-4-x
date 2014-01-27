@@ -276,6 +276,9 @@ void load_payload_446(int mode)
     PATCH_JUMP(0x2C47D4, (PAYLOAD_OFFSET+0x30)); // patch openhook - done
 	_poke32(0x2C47B0, 0xF821FF61); // free openhook Rogero 4.30 (put "stdu    %sp, -0xA0(%sp)" instead   "b       sub_2E9F98") 
 
+    _poke(0x2C47B8, 0xFB810080FBA10088ULL); // skip stupid new Rogero patch for ToolBox }:/ (must I restore all LV2 patches to skip this shit?)
+   
+
 #ifdef CONFIG_USE_SYS8PERMH4
     PATCH_JUMP(PERMS_OFFSET, (PAYLOAD_OFFSET+0x18));
 #endif

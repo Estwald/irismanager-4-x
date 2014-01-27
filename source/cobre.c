@@ -512,5 +512,25 @@ int cobra_unload_vsh_plugin(unsigned int slot)
 	return_to_user_prog(s32);
 }
 
+int cobra_mount_psx_disc_image(char *file, TrackDef *tracks, unsigned int num_tracks)
+{	
+	ScsiTrackDescriptor scsi_tracks[100];	
+	
+	if (!file || num_tracks >= 100)
+		return EINVAL;
+	
+	memset(scsi_tracks, 0, sizeof(scsi_tracks));
+	
+	for (int i = 0; i < num_tracks; i++)
+	{
+		scsi_tracks[i].adr_control = (!tracks[i].is_audio) ? 0x14 : 0x10;
+		scsi_tracks[i].track_number = i+1;
+		scsi_tracks[i].track_start_addr = tracks[i].lba;
+	}
+	
+	return sys_storage_ext_mount_psx_discfile(file, num_tracks, scsi_tracks);
+}
+
+
 
 

@@ -107,6 +107,7 @@ void sort_entries2(t_directories *list, int *max, u32 mode);
 int delete_entries(t_directories *list, int *max, u32 flag);
 void fill_entries_from_device(char *path, t_directories *list, int *max, u32 flag, int sel);
 void fill_iso_entries_from_device(char *path, u32 flag, t_directories *list, int *max);
+void fill_psx_iso_entries_from_device(char *path, u32 flag, t_directories *list, int *max);
 
 void copy_from_selection(int game_sel);
 void copy_from_bluray();

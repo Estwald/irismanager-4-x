@@ -29,6 +29,7 @@ Credits:
 #include "language.h"
 #include <sys/file.h>
 #include "ntfs.h"
+#include "iso.h"
 
 #define FS_S_IFMT 0170000
 #define FS_S_IFDIR 0040000
@@ -43,7 +44,9 @@ extern int game_list_category;
 //void UTF8_to_Ansi(char *utf8, char *ansi, int len); // from osk_input
 void UTF32_to_UTF8(u32 *stw, u8 *stb);
 
-int copy_async(char *path1, char *path2, u64 size, char *progress_string1, char *progress_string2);
+int copy_async(char *path1, char *path2, u64 size, char *progress_string1, char *progress_string2); // pkg_install.c
+
+int copy_async_gbl(char *path1, char *path2, u64 size, char *progress_string1, char *progress_string2); // updates.c (it can copy to ntfs devices)
 
 msgType mdialogyesno = MSG_DIALOG_NORMAL | MSG_DIALOG_BTN_TYPE_YESNO | MSG_DIALOG_DISABLE_CANCEL_ON | MSG_DIALOG_DEFAULT_CURSOR_NO;
 msgType mdialogyesno2 = MSG_DIALOG_NORMAL | MSG_DIALOG_BTN_TYPE_YESNO | MSG_DIALOG_DISABLE_CANCEL_ON;
@@ -336,6 +339,39 @@ int parse_param_sfo(char * file, char *title_name)
 
 }
 
+int mem_parse_param_sfo(u8 *mem, u32 len, char *title_name)
+{
+    u32 pos, str;
+
+    str= (mem[8]+(mem[9]<<8));
+    pos=(mem[0xc]+(mem[0xd]<<8));
+
+    int indx=0;
+
+    while(str<len)
+    {
+        if(mem[str]==0)
+            break;
+        
+        if(!strcmp((char *) &mem[str], "TITLE"))
+        {
+            strncpy(title_name, (char *) &mem[pos], 63);
+            title_name[63] = 0;
+            return 0;
+        }
+        
+        while(mem[str])
+            str++;
+        str++;
+        pos+=(mem[0x1c+indx]+(mem[0x1d+indx]<<8));
+        indx+=16;
+    }
+
+    return -1;
+
+}
+
+
 int parse_param_sfo_id(char * file, char *title_id)
 {
 	Lv2FsFile fd;
@@ -582,8 +618,16 @@ void patch_error_09( const char *path )
 
 int unlink_secure(void *path)
 {
-//    struct stat s;
+    struct stat s2;
     sysFSStat s;
+    int is_ntfs = 0; if(!strncmp(path, "/ntfs", 5) || !strncmp(path, "/ext", 4)) is_ntfs = 1;
+
+    if(is_ntfs) {
+        if(ps3ntfs_stat(path, &s2)>=0) {
+            return ps3ntfs_unlink(path);
+        }
+        return -1;
+    }
     if(sysLv2FsStat(path, &s)>=0) {
         sysLv2FsChmod(path, FS_S_IFMT | 0777);
         return sysLv2FsUnlink(path);
@@ -608,6 +652,13 @@ int rmdir_secure(void *path)
     DIR  *dir = opendir (path);
     if(dir) {
         closedir(dir);
+
+        int is_ntfs = 0; if(!strncmp(path, "/ntfs", 5) || !strncmp(path, "/ext", 4)) is_ntfs = 1;
+
+        if(is_ntfs) {
+            return ps3ntfs_unlink(path);
+        }
+
         sysFsChmod(path, FS_S_IFDIR | 0777);
         ret= sysLv2FsRmdir(path);
     }
@@ -880,8 +931,31 @@ void fill_iso_entries_from_device(char *path, u32 flag, t_directories *list, int
             else
                 strncpy(list[*max ].title_id, mem + 256, 63);
         }
-        else 
+        else {
             strncpy(list[*max ].title_id, mem + 256, 63);
+            int fd = ps3ntfs_open(list[*max ].path_name, O_RDONLY, 0);
+            if(fd >= 0) {
+                u32 flba;
+                u64 size;
+                int re;
+                char *mem = NULL;
+
+                if(!get_iso_file_pos(fd, "/PS3_GAME/PARAM.SFO;1", &flba, &size) && (mem = malloc(size + 16)) != NULL) {
+
+                    memset(mem, 0, size + 16);
+
+                    re = ps3ntfs_read(fd, (void *) mem, size);
+                    
+                    if(re == size) {
+                        mem_parse_param_sfo((u8 *) mem, size, list[*max ].title);
+                        list[*max ].title[63]=0;
+
+                    }
+                    free(mem);
+                }
+                ps3ntfs_close(fd);
+            }
+        }
 
         list[*max ].title_id[63]=0;
 
@@ -898,6 +972,67 @@ void fill_iso_entries_from_device(char *path, u32 flag, t_directories *list, int
         }
 
    free(mem);
+}
+
+
+void fill_psx_iso_entries_from_device(char *path, u32 flag, t_directories *list, int *max)
+{
+    DIR  *dir;
+
+    mkdir_secure(path);
+
+    dir = opendir (path);
+    if(dir) {
+        while(1) {
+        
+        struct dirent *entry=readdir (dir);
+        
+            
+        if(!entry) break;
+        if(entry->d_name[0]=='.') continue;
+
+        if(!(entry->d_type & DT_DIR)) continue;
+
+        list[*max ].flags=flag  | (1<<23);
+
+        strncpy(list[*max ].title, entry->d_name, 63);
+        list[*max ].title[63]=0;
+
+        strncpy(list[*max ].title_id, entry->d_name, 63);
+        list[*max ].title_id[63]=0;
+
+        sprintf(list[*max ].path_name, "%s/%s", path, entry->d_name);
+        list[*max ].splitted = 0;
+
+        if(!(flag & 1)) { // is not HDD
+            struct stat s;
+            char file2[0x420];
+            char file3[0x420];
+
+            sprintf(file2, "%s/VM1/%s/Internal_MC.VM1", self_path, list[*max ].title);
+            sprintf(file3, "%s/Internal_MC.VM1", list[*max ].path_name);
+            
+            if(stat(file2, &s)>=0) {
+                
+                unlink_secure(file3);
+                if(copy_async_gbl(file2, file3, s.st_size, "Copying Memory Card to USB device...", NULL)<0) {
+                    unlink_secure(file3); // delete possible truncated file
+                    DrawDialogOK("Error copying the Memory Card to USB device");
+                } else unlink_secure(file2);
+                
+                sprintf(file2,"%s/VM1/%s", self_path, list[*max ].title);
+                rmdir_secure(file2);
+            }
+        }
+        
+        (*max) ++;
+        if(*max >= MAX_DIRECTORIES)
+            break;
+
+        }
+
+    closedir (dir);
+    }
 }
 
 void fill_entries_from_device(char *path, t_directories *list, int *max, u32 flag, int sel)
@@ -918,7 +1053,7 @@ void fill_entries_from_device(char *path, t_directories *list, int *max, u32 fla
     if(*max >= MAX_DIRECTORIES)
                 return;
 
-    if(sel== GAMEBASE_MODE && use_cobra && noBDVD == 2) { // isos
+    if(sel == GAMEBASE_MODE && use_cobra && noBDVD == 2) { // isos
         int n;
 
         strncpy(file, path, 0x420);

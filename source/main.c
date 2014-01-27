@@ -1583,7 +1583,7 @@ void DiscInsertCallback(u32 discType, char *title)
             Reset2_BDVD();
     }
     
-    if(noBDVD !=2) {
+    if(noBDVD != 2) {
         bdvd_notify = 1;
         bdvd_ejected = 0;
 
@@ -2149,12 +2149,20 @@ s32 main(s32 argc, const char* argv[])
             if(payload_mode == ZERO_PAYLOAD) {
                 if(firmware== 0x341C)
                     sprintf(payload_str, "payload-hermes - new syscall8 v%i (libfs_patched %s)", test & 0xff, is_libfs_patched()? "found!": "not found");
-                else 
-                    sprintf(payload_str, "payload-sk1e - new syscall8 v%i (libfs_patched %s)", test & 0xff, is_libfs_patched()? "found!": "not found");
+                else {
+                    
+                    if(use_mamba) sprintf(payload_str, "payload-sk1e - 'Mamba' syscall8 v%i (libfs_patched %s)", test & 0xff, is_libfs_patched()? "found!": "not found");
+                    else if(use_cobra) sprintf(payload_str, "payload-sk1e - 'Cobra' syscall8 v%i (libfs_patched %s)", test & 0xff, is_libfs_patched()? "found!": "not found");
+                    else sprintf(payload_str, "payload-sk1e - new syscall8 v%i (libfs_patched %s)", test & 0xff, is_libfs_patched()? "found!": "not found");
+                }
             }
-            else if (payload_mode == SKY10_PAYLOAD)
-                sprintf(payload_str, "payload-sk1e resident - new syscall8 v%i (libfs_patched %s)", test & 0xff, is_libfs_patched()? "found!": "not found");
-                else sprintf(payload_str, "payload-hermes resident - new syscall8 v%i (libfs_patched %s)", test & 0xff, is_libfs_patched()? "found!": "not found");
+            else if (payload_mode == SKY10_PAYLOAD) {
+                
+                if(use_cobra && sys8_mamba()==0x666) sprintf(payload_str, "payload-sk1e - 'Mamba' syscall8 v%i (libfs_patched %s)", test & 0xff, is_libfs_patched()? "found!": "not found");
+                    else if(use_cobra) sprintf(payload_str, "payload-sk1e - 'Cobra' syscall8 v%i (libfs_patched %s)", test & 0xff, is_libfs_patched()? "found!": "not found");
+                    else sprintf(payload_str, "payload-sk1e - new syscall8 v%i (libfs_patched %s)", test & 0xff, is_libfs_patched()? "found!": "not found");
+            } else sprintf(payload_str, "payload-hermes resident - new syscall8 v%i (libfs_patched %s)", test & 0xff, is_libfs_patched()? "found!": "not found");
+
         } else
         {       sys8_disable_all = 1;
                 sprintf(payload_str, "payload-sk10 - new syscall8 Err?! v(%i)", test);
@@ -2243,6 +2251,10 @@ s32 main(s32 argc, const char* argv[])
     gui_mode = manager_cfg.gui_mode & 15;
     if(gui_mode == 1) sort_mode = (manager_cfg.gui_mode>>4); else sort_mode = 0;
 
+    if(noBDVD == 1) {
+        use_cobra = 0; use_mamba = 0;
+    }
+
     // load ps3 disc less payload
     if(noBDVD == 2 && !use_cobra && !use_mamba) {
         //lv2poke(syscall_base +(u64) (40 * 8), lv2peek(syscall_base));
@@ -2312,8 +2324,14 @@ s32 main(s32 argc, const char* argv[])
         
     }
 
+    
+    // disable cobra and mamba flags if "no BDVD device" mode is set
+    if(noBDVD == 1) {use_cobra = 0; use_mamba = 0;}
+    else {
+    
     // from reload, use_mamba is zero: this code detect if mamba is present and set to 1
-    if(sys8_mamba()==0x666) use_mamba = 1;
+        if(sys8_mamba()==0x666) use_mamba = 1;
+    }
 
     select_px = select_py = 0;
 
@@ -2329,15 +2347,14 @@ s32 main(s32 argc, const char* argv[])
 
     unpatch_bdvdemu();
 
-    //if(noBDVD == 1) use_cobra = 0;
     if(noBDVD && !use_cobra) {
         
         //sys_fs_umount("/dev_ps2disc");
         sys_fs_umount("/dev_bdvd");
         sleep(0);
-        sys_fs_mount("CELL_FS_UTILITY:HDD1", "CELL_FS_FAT", "/dev_bdvd", 1);
-        
+        sys_fs_mount("CELL_FS_UTILITY:HDD1", "CELL_FS_FAT", "/dev_bdvd", 1);         
     }
+
     //sys_fs_umount("/dev_bdvd");
     //    sleep(0);
     //sys_fs_mount("CELL_FS_IOS:BDVD_DRIVE", "CELL_FS_ISO9660", "/dev_bdvd", 1);
@@ -2345,8 +2362,9 @@ s32 main(s32 argc, const char* argv[])
     // eject disc with cobra method
     if(noBDVD && use_cobra) {
         int n;
-        cobra_umount_disc_image();
+        
         cobra_send_fake_disc_eject_event();
+        cobra_umount_disc_image();
         for(n = 0; n < 1; n++)
             cobra_unload_vsh_plugin(n); // unload plugin
     }
@@ -2690,7 +2708,7 @@ s32 main(s32 argc, const char* argv[])
 		}
 
         // NTFS/EXTx
-        if(noBDVD && use_cobra) {
+        if(noBDVD == 2 && use_cobra) {
             u32 ports_plug_cnt = 0;
             signal_ntfs_mount = 0;
             for(find_device = 0; find_device < 8; find_device++) {
@@ -2713,6 +2731,10 @@ s32 main(s32 argc, const char* argv[])
                                 if((mounts[find_device]+k)->name[0]) {
                                     sprintf(filename, "/%s:/PS3ISO", (mounts[find_device]+k)->name);    
                                     fill_iso_entries_from_device(filename, (1<<15), directories, &ndirectories);
+                                    sprintf(filename, "/%s:/PSXGAMES", (mounts[find_device]+k)->name);
+
+                                    if(mode_homebrew ==0  && game_list_category != 1)
+                                        fill_psx_iso_entries_from_device(filename, (1<<15), directories, &ndirectories);
                                     found_game_insert=1;
                                 }
                             }
@@ -3116,6 +3138,55 @@ void get_pict(int *index)
                 ? favourites.list[i].index : (int_currentdir + i)].path_name, 
                 &folder_mode[!((directories[(mode_favourites != 0) 
                     ? favourites.list[i].index : (int_currentdir + i)].flags>>31) & 1)][0]);
+
+        int ind = (mode_favourites != 0) ? favourites.list[i].index : (int_currentdir + i);
+
+        // ISOS
+
+        if((directories[ind].flags & ((1<<24) | (1<<31) | (1<<11))) == (1<<24)) {
+
+            if(directories[ind].flags & (1<<23)) { // PS2
+            } else { // PS3
+                //
+                int fd = ps3ntfs_open(directories[ind].path_name, O_RDONLY, 0);
+
+                if(fd > 0) {
+                    u32 flba;
+                    u64 size;
+                    int re;
+                    char *mem = NULL;
+
+                    re = get_iso_file_pos(fd, "/PS3_GAME/PIC1.PNG;1", &flba, &size);
+                    if(re) re = get_iso_file_pos(fd, "/PS3_GAME/PIC0.PNG;1", &flba, &size);
+                    if(re) re = get_iso_file_pos(fd, "/PS3_GAME/ICON0.PNG;1", &flba, &size);
+                    if(re) re = get_iso_file_pos(fd, "/PS3_GAME/PIC2.PNG;1", &flba, &size);
+
+                    Png_offset[12] = 0;
+
+                    if(!re && (mem = malloc(size)) != NULL) {
+
+                        re = ps3ntfs_read(fd, (void *) mem, size);
+                        ps3ntfs_close(fd);
+                        if(re == size) {
+                           
+                            memset(&my_png_datas, 0, sizeof(PngDatas));
+                            my_png_datas.png_in = mem;
+                            my_png_datas.png_size = size;
+                            if(LoadTexturePNG(NULL, 12) == 0) ;  else Png_offset[12] = 0;
+                        } 
+                        free(mem);                                   
+                        
+                    } else ps3ntfs_close(fd);
+                }
+
+                //
+
+            }
+        
+            return;
+        }
+
+        // GAMES
 
         sprintf(temp_buffer, "%sPIC1.PNG", dir);
        
@@ -4345,7 +4416,7 @@ void gui_control()
 
                 int use_cache = 0;
 
-                if(noBDVD && use_cobra && (directories[currentgamedir].flags & ((1<<11) | (1<<31) | (1<<24))) == (1<<24)) {
+                if(noBDVD == 2 && use_cobra && (directories[currentgamedir].flags & ((1<<11) | (1<<31) | (1<<24))) == (1<<24)) {
 
                     bdvd_is_usb = NTFS_Test_Device(directories[currentgamedir].path_name) + 1;
                     set_device_wakeup_mode(bdvd_is_usb ? 0xFFFFFFFF : 1 << bdvd_is_usb);
@@ -4380,7 +4451,7 @@ void gui_control()
                     }
 
 
-                    if(noBDVD && use_cobra) {
+                    if(noBDVD == 2 && use_cobra) {
                         char *files[1];
           
                         memcpy((char *) temp_buffer, (char *) directories[currentgamedir].title_id, 4);
@@ -7710,7 +7781,13 @@ void draw_toolsoptions(float x, float y)
 
                 DrawDialogOKTimer(temp_buffer, 2000.0f);
                 game_cfg.direct_boot=0;
-                exit(0);
+
+                if(1) {
+                    unlink_secure("/dev_hdd0/tmp/turnoff");
+                    fun_exit();
+                    sys_reboot();
+                } else
+                    exit(0);
                 break;
             case 5:
                 archive_manager(NULL, NULL);

@@ -56,6 +56,37 @@
 #include "ttf_render.h"
 #include "controlfan.h"
 
+#include "cobre.h"
+#include "ntfs.h"
+#include "modules.h"
+
+int NTFS_Test_Device(char *name);
+
+static u8 region_psx = 0;
+
+#define EMU_PSX_MULTI (EMU_PSX + 16)
+
+//int cobra_mount_psx_disc_image(char *file, TrackDef *tracks, unsigned int num_tracks);
+
+typedef struct
+{
+	uint64_t device;
+    uint32_t emu_mode;
+    uint32_t num_sections;
+    uint32_t num_tracks;
+    // sections after
+    // sizes after
+    // tracks after
+} __attribute__((packed)) rawseciso_args;
+
+typedef struct
+{
+	uint64_t device;
+    uint32_t emu_mode;         //   16 bits    16 bits    32 bits
+    uint32_t discs_desc[8][2]; //    parts  |   offset | toc_filesize (LBA format)   -> if parts == 0  use files
+} __attribute__((packed)) psxseciso_args;
+
+
 extern u16 * ttf_texture;
 extern int update_title_utf8;
 extern u8 string_title_utf8[128];
@@ -122,7 +153,7 @@ void pause_music(int pause);
 int LoadTexturePNG(char * filename, int index);
 int LoadTextureJPG(char * filename, int index);
 
-int copy_async(char *path1, char *path2, u64 size, char *progress_string1, char *progress_string2);
+int copy_async_gbl(char *path1, char *path2, u64 size, char *progress_string1, char *progress_string2); // updates.c (it can copy to ntfs devices)
 
 void fun_exit();
 
@@ -174,6 +205,12 @@ void draw_psx_options(float x, float y, int index)
     int selected = select_px + select_py * 4;
 
     char *mc_name = NULL;
+    int is_ntfs = 0;
+
+    if(!strncmp(directories[currentgamedir].path_name, "/ntfs", 5)  || !strncmp(directories[currentgamedir].path_name, "/ext", 4)) {
+        is_ntfs = 1;
+        if((psx_options.flags & 0x2) == 0x2) psx_options.flags^=2;
+    }
     
     SetCurrentFont(FONT_TTF);
 
@@ -202,7 +239,7 @@ void draw_psx_options(float x, float y, int index)
         
         if(select_option == 0) mc_name = psx_options.mc1; else mc_name = psx_options.mc2;
 
-    } else mc_name = NULL;;
+    } else mc_name = NULL;
 
     SetCurrentFont(FONT_TTF);
         
@@ -242,8 +279,18 @@ void draw_psx_options(float x, float y, int index)
 
     x2= DrawButton1_UTF8(x + 32, y2, 320, language[DRAWPSX_EMULATOR], (flash && select_option == 2)) + 8;
 
-    x2 = DrawButton2_UTF8(x2, y2, 0, " ps1_emu ", ((psx_options.flags & 0x3) == 0)) + 8;
-    x2 = DrawButton2_UTF8(x2, y2, 0, " ps1_netemu ", ((psx_options.flags & 0x3) == 1)) + 8;
+    if(!is_ntfs && use_cobra && noBDVD == 2) {
+
+        x2 = DrawButton2_UTF8(x2, y2, 0, " ps1_emu ", ((psx_options.flags & 0x3) == 0)) + 8;
+        x2 = DrawButton2_UTF8(x2, y2, 0, " ps1_netemu ", ((psx_options.flags & 0x3) == 1)) + 8;
+        
+        x2 = DrawButton2_UTF8(x2, y2, 0, " old_emu ", ((psx_options.flags & 0x3) == 2)) + 8;
+        x2 = DrawButton2_UTF8(x2, y2, 0, " old_netemu ", ((psx_options.flags & 0x3) == 3)) + 8;
+    } else {
+
+        x2 = DrawButton2_UTF8(x2, y2, 0, " ps1_emu ", ((psx_options.flags & 0x1) == 0)) + 8;
+        x2 = DrawButton2_UTF8(x2, y2, 0, " ps1_netemu ", ((psx_options.flags & 0x1) == 1)) + 8;
+    }
 
     y2+= 48;
 
@@ -336,7 +383,7 @@ void draw_psx_options(float x, float y, int index)
                 } else return; // cancel
             }
           
-            if(copy_async(temp_buffer, temp_buffer + 1024, lenfile, "Copying Memory Card as Internal_MC.VM1...", NULL)<0) {
+            if(copy_async_gbl(temp_buffer, temp_buffer + 1024, lenfile, "Copying Memory Card as Internal_MC.VM1...", NULL)<0) {
                 unlink_secure(temp_buffer + 1024); // delete possible truncated file
                 DrawDialogOK("Error copying the Memory Card as Internal_MC.VM1");
 
@@ -379,7 +426,11 @@ void draw_psx_options(float x, float y, int index)
                
                 psx_modified = 1;
                 n= (psx_options.flags & 0x3) + 1;
-                if(n > 1) n = 0;
+                if(!is_ntfs && use_cobra && noBDVD == 2) {
+                    if(n > 3) n = 0;
+                } else {
+                    if(n > 1) n = 0;
+                }
                 psx_options.flags = (n & 0x3) | (psx_options.flags & 0xfffffffc);
                 break;
 
@@ -563,7 +614,12 @@ void draw_psx_options(float x, float y, int index)
             case 2:
                 psx_modified = 1;
                 n= (psx_options.flags & 0x3) - 1;
-                if(n < 0) n = 1;
+                if(!is_ntfs && use_cobra && noBDVD == 2) {
+                    if(n < 0) n = 3;
+                } else {
+                    if(n < 0) n = 1;
+                }
+                
                 psx_options.flags = (n & 0x3) | (psx_options.flags & 0xfffffffc);
                 break;
         }
@@ -603,7 +659,11 @@ void draw_psx_options(float x, float y, int index)
             
                 psx_modified = 1;
                 n= (psx_options.flags & 0x3) + 1;
-                if(n > 1) n = 0;
+                if(!is_ntfs && use_cobra && noBDVD == 2) {
+                    if(n > 3) n = 0;
+                } else {
+                    if(n > 1) n = 0;
+                }
                 psx_options.flags = (n & 0x3) | (psx_options.flags & 0xfffffffc);
                 break;
          }
@@ -739,7 +799,6 @@ void draw_psx_options2(float x, float y, int index)
 
     DrawButton1_UTF8(x + 32, y2, 320, language[GLOBAL_RETURN], (flash && select_option == 6));
     
-
     y2+= 48;
 
     DrawButton1_UTF8(x + 32, y2, 320, " ", -1);
@@ -747,11 +806,8 @@ void draw_psx_options2(float x, float y, int index)
     y2+= 48;
 
     DrawButton1_UTF8(x + 32, y2, 320, " ", -1);
-
     
     y2+= 48;
-    
-
 
     // draw game name
 
@@ -1480,7 +1536,7 @@ int psx_cd_with_cheats(void)
  
         //build_sys8_path_table();
 
-        if(!noBDVD)
+        if(!noBDVD || (use_cobra && noBDVD == 2))
             sys8_pokeinstr(0x8000000000001830ULL, (u64) 3); // enable emulation mode 3
         else
             sys8_pokeinstr(0x8000000000001830ULL, (u64)((1ULL<<32) | 3ULL));
@@ -1495,6 +1551,9 @@ int psx_cd_with_cheats(void)
 
 }
 
+uint8_t *plugin_args = NULL;
+
+
 int psx_iso_prepare(char *path, char *name)
 {
     DIR  *dir;
@@ -1502,12 +1561,37 @@ int psx_iso_prepare(char *path, char *name)
     char *files[9];
     u8 *file_datas[9];
     int file_ndatas[9];
+
+    int forced_no_cd = 0;
    
     u32 sector_size = 0;
 
     are_using_cheats = 0;
 
-    load_psx_payload();
+    if(plugin_args) free(plugin_args); plugin_args = NULL;
+
+    if((psx_options.flags & 0x2) == 0x2) { // disable payload alternative
+        
+        if(!strncmp(path, "/ntfs", 5)  || !strncmp(path, "/ext", 4)) {
+           
+            psx_options.flags^=2;
+        }
+    }
+
+    { // test old_psxemu use (payload) when CD is ejected under cobra plugin
+    struct stat s;
+
+    ps3pad_read();
+
+    sprintf(temp_buffer, "%s/ps1_rom.bin", self_path);
+    if((old_pad & BUTTON_L2) && (psx_options.flags & 0x10) && !stat(temp_buffer, &s) && use_cobra && noBDVD == 2) {
+        psx_options.flags|=2; 
+        if(!strncmp(path, "/ntfs", 5)  || !strncmp(path, "/ext", 4)) forced_no_cd = 2; else forced_no_cd = 1;// force old_psxemu without CD
+    }
+    }
+
+    if((psx_options.flags & 0x2) || !(use_cobra && noBDVD == 2))
+        load_psx_payload();
 
     if(strstr(path, "/PSXGAMES/CHEATS")) {
           DrawDialogOK(language[DRAWPSX_ERRCHEATS]);
@@ -1573,14 +1657,12 @@ int psx_iso_prepare(char *path, char *name)
        if((psx_options.flags & 0x10) && !stat(temp_buffer, &s)) {
 
             add_sys8_path_table("/dev_flash/ps1emu/ps1_rom.bin", temp_buffer);
-            
-            ps3pad_read();
 
             u64 value = lv2peek(0x8000000000001820ULL);
             if((value == 0x45505331454D5531ULL)
-                && (old_pad & BUTTON_L2)) {
+                && forced_no_cd) {
 
-                if(!noBDVD)
+                if(!noBDVD || (use_cobra && noBDVD == 2))
                     sys8_pokeinstr(0x8000000000001830ULL, (u64) 2); // disable CD
                 else
                     sys8_pokeinstr(0x8000000000001830ULL, (u64)((1ULL<<32) | 2ULL)); // disable CD
@@ -1690,7 +1772,7 @@ int psx_iso_prepare(char *path, char *name)
         /////////////////////////////////////
         // cheats
         
-        if(nfiles < 8) {
+        if(nfiles < 8 && forced_no_cd != 2) {
             strncpy((char *) temp_buffer, "/dev_hdd0/PSXGAMES/CHEATS", 1024);
             dir = opendir(temp_buffer);
             if(!dir) {
@@ -1800,27 +1882,140 @@ int psx_iso_prepare(char *path, char *name)
             }
         }
 
+        if(are_using_cheats == 1) region_psx = get_psx_region_file(files[1]);
+        else region_psx = get_psx_region_file(files[0]);
+
+        if(forced_no_cd == 2) { // NTFS & EXTx (copy partial ISO to HDD0)
+
+            sprintf(files[7], "%s/temp_psx.iso", self_path);
+            
+            if(copy_async_gbl(files[0], files[7], 32 * sector_size, "creating temp_psx", NULL)<0) {
+                
+                DrawDialogOK("Error creating temp_psx");
+                goto end;
+
+            }
+
+        }
+
+        if(!forced_no_cd && use_cobra && noBDVD == 2 && (psx_options.flags & 0x2) != 0x2) { // use plugin
+            plugin_args = malloc(0x20000);
+
+            psxseciso_args *p_args;
+
+            memset(plugin_args, 0, 0x10000);
+
+            p_args = (psxseciso_args *)plugin_args;
+            p_args->device = 0ULL;
+            p_args->emu_mode = EMU_PSX_MULTI;
+
+            int max_parts = (0x10000 - sizeof(psxseciso_args)) / 8;
+
+            uint32_t *sections = malloc(max_parts * sizeof(uint32_t));
+            uint32_t *sections_size = malloc(max_parts * sizeof(uint32_t));
+
+            u32 offset = 0;
+            
+            for(n = 0; n < nfiles; n++) {
+                
+                if(stat(files[n], &s)) s.st_size = 0x40000000;
+                if(!strncmp(files[n], "/ntfs", 5) || !strncmp(files[n], "/ext", 4)) {
+
+                    if(p_args->device == 0) p_args->device = USB_MASS_STORAGE(NTFS_Test_Device(((char *) files[n])+1));
+
+                    memset(sections, 0, max_parts * sizeof(uint32_t));
+                    memset(sections_size, 0, max_parts * sizeof(uint32_t));
+                    int parts = ps3ntfs_file_to_sectors(files[n], sections, sections_size, max_parts, 1);
+                    if(parts <=0 || parts >= max_parts) {
+                        if(sections) free(sections);
+                        if(sections_size) free(sections_size);
+                        if(plugin_args) free(plugin_args); plugin_args = NULL;
+
+                        sprintf(temp_buffer, "Too much parts in PSX iso:\n%s", files[n]);
+                        DrawDialogOK(temp_buffer);
+                        nfiles = 0;
+                        reset_sys8_path_table();
+                        goto end;
+                    }
+
+                    //sprintf(temp_buffer, "parts %i\n%s", parts, files[n]);
+                    //DrawDialogOK(temp_buffer);
+
+                    p_args->discs_desc[n][0] = (parts << 16) | offset;
+
+                    memcpy((void *) (((u32 *) &p_args->discs_desc[8][0]) + offset), sections, parts * sizeof(uint32_t));
+                    memcpy((void *) (((u32 *) &p_args->discs_desc[8][0]) + offset + parts), sections_size, parts * sizeof(uint32_t));
+                    
+                    offset += parts * 2;
+                    max_parts -= parts;
+
+                } else p_args->discs_desc[n][0] = 0;
+                
+                p_args->discs_desc[n][1] = (s.st_size / sector_size);
+               
+            }
+            
+            for(; n < 8; n++) {
+                p_args->discs_desc[n][0] = p_args->discs_desc[n % nfiles][0];
+                p_args->discs_desc[n][1] = p_args->discs_desc[n % nfiles][1];
+
+            }
+
+            if(sections) free(sections);
+            if(sections_size) free(sections_size);
+        } else {
+
+            if(plugin_args) free(plugin_args); plugin_args = NULL;
+
+        }
+
         // index TOC table
         lv2_addr = 0x8000000000000050ULL;
 
         for(n = 0; n < 8; n++) {
             sprintf(files[8], "/psx_d%c", 48 + n);
-            add_sys8_path_table(files[8], files[n % nfiles]);
+            
+            if(forced_no_cd == 2) add_sys8_path_table(files[8], files[7]); // NTFS-EXTx without CD
+            else add_sys8_path_table(files[8], files[n % nfiles]); 
+
             sys8_memcpyinstr(lv2_addr, (u64) &lv2_table[n  % nfiles][0], 0x10);
             lv2_addr+= 0x10ULL;
+
         }
-        
+
+        if(forced_no_cd == 2) {plugin_args = NULL; goto use_hdd0;}
+
         dir = opendir("/dev_usb");
         if(dir) {
             add_sys8_path_table("/psx_cdrom0", "/dev_usb");
             closedir(dir);
         } else {
+
+            psxseciso_args *p_args;
+            p_args = (psxseciso_args *)plugin_args;
+
+            if(p_args && p_args->device == 0 && use_cobra && noBDVD == 2) { // use NTFS/EXTx if it is connected
+
+                for(n = 0; n < 8; n++) {
+
+                    if(PS3_NTFS_IsInserted(n)) {
+
+                        p_args->device = USB_MASS_STORAGE(n);
+                        goto use_hdd0;
+                    }
+                }
+
+            }
+
+            if(p_args) goto use_hdd0;
             
             dir = opendir("/dev_bdvd");
             if(dir) {
                 add_sys8_path_table("/psx_cdrom0", "//dev_bdvd");
                 closedir(dir);
             } else {
+
+                use_hdd0:
 
                 dir = opendir("/dev_hdd0");
                 if(dir) {
@@ -1829,7 +2024,6 @@ int psx_iso_prepare(char *path, char *name)
                 }
             }
         } 
-        
         
         if(!strcmp(psx_options.mc1, "No Memory Card") || !strcmp(psx_options.mc1, "Internal_MC.VM1"))  {
             struct stat s;
@@ -1843,7 +2037,7 @@ int psx_iso_prepare(char *path, char *name)
             
             if(stat(files[8], &s)>=0 && s.st_size >= 0x20000) {
 
-                if(!strncmp(path, "/dev_usb", 8)) { // from USB move the MC to the Iris folder VM1
+                if(!strncmp(path, "/dev_usb", 8) || !strncmp(path, "/ntfs", 5) || !strncmp(path, "/ext", 4)) { // from USB move the MC to the Iris folder VM1
                     
                     sprintf(temp_buffer, "%s/VM1", self_path);
                     mkdir_secure(temp_buffer);
@@ -1855,7 +2049,7 @@ int psx_iso_prepare(char *path, char *name)
 
                     unlink_secure(temp_buffer);
               
-                    if(copy_async(files[8], temp_buffer, s.st_size, language[DRAWPSX_COPYMC], NULL)<0) {
+                    if(copy_async_gbl(files[8], temp_buffer, s.st_size, language[DRAWPSX_COPYMC], NULL)<0) {
                         unlink_secure(temp_buffer); // delete possible truncated file
                         strncpy(psx_options.mc1, "No Memory Card", 256);
                         DrawDialogOK(language[DRAWPSX_ERRCOPYMC]);
@@ -1889,6 +2083,7 @@ int psx_iso_prepare(char *path, char *name)
 
 void unload_psx_payload()
 {
+    
     volatile u64 value = lv2peek(0x8000000000001820ULL);
 
     if(value == 0x45505331454D5531ULL) { // new method
@@ -1979,7 +2174,7 @@ void load_psx_payload()
 
     usleep(10000);
 
-   if(!noBDVD)
+   if(!noBDVD || (use_cobra && noBDVD == 2))
        sys8_pokeinstr(0x8000000000001830ULL, (u64) 0); // enable emulation
    else
        sys8_pokeinstr(0x8000000000001830ULL, (u64)((1ULL<<32))); // enable emulation
@@ -1993,13 +2188,10 @@ void psx_launch(void)
     int k;
 
     struct stat s;
-    if(!stat("/psx_d0", &s)) {
+    if(!stat("/psx_d0", &s) || (plugin_args && use_cobra && noBDVD == 2)) {
         //psx_options.flags   |= 3;
-        if(are_using_cheats == 1) directories[currentgamedir].flags|= (get_psx_region_file("/psx_d1") & 0xff)<<16; // get region data from second disc
-        else directories[currentgamedir].flags|= (get_psx_region_file("/psx_d0") & 0xff)<<16;
-
-        if((psx_options.flags & 0x3) == 0x3) psx_options.flags^=2;
-
+        directories[currentgamedir].flags|= (region_psx & 0xff)<<16; // get region data from second disc
+      
     } else if(directories[currentgamedir].flags & (1<<11)) {
     
         struct stat s;
@@ -2025,6 +2217,25 @@ void psx_launch(void)
         sys_set_leds(1, 1);
     } else set_fan_mode(-1);
 
+    if(!(psx_options.flags & 0x2) && plugin_args && use_cobra && noBDVD == 2) {
+
+        cobra_send_fake_disc_eject_event();
+        cobra_umount_disc_image();
+
+        cobra_unload_vsh_plugin(0);
+
+        sprintf(temp_buffer + 2048, PLUGIN_ISO, self_path);
+
+        if (cobra_load_vsh_plugin(0, temp_buffer + 2048, plugin_args, 0x10000) == 0)
+            {use_cobra = 2; /*exit(0);*/}
+        else {
+            use_cobra = 2; exit(0);
+        }
+    }
+
+    if((psx_options.flags & 0x2) == 0x2) psx_options.flags^=2; //  dont use flag 2 here
+      
+
     // check empty mc
 
     if(strlen(psx_options.mc1) < 4 || strcmp(psx_options.mc1 + strlen(psx_options.mc1) - 4, ".VM1")) psx_options.mc1[0] = 0;
@@ -2039,11 +2250,13 @@ void psx_launch(void)
     arg[k] = malloc(256); p[k] = (u32)(u64) arg[k]; strncpy(arg[k], psx_options.mc2, 256); k++;
     arg[k] = malloc( 5);  p[k] = (u32)(u64) arg[k]; strncpy(arg[k], "0082", 5);  k++;	// region
     arg[k] = malloc( 5);  p[k] = (u32)(u64) arg[k];
-    if((psx_options.flags & 0x3)==0 || (psx_options.flags & 0x3)==3) strncpy(arg[k], "1200", 5); else strncpy(arg[k], "1600", 5);
-    k++;
-    if((psx_options.flags & 0x3)!=0 && (psx_options.flags & 0x3)!=3) {
-        
 
+    if((psx_options.flags & 0x1)==0) strncpy(arg[k], "1200", 5); else strncpy(arg[k], "1600", 5);
+    
+    k++;
+
+    if((psx_options.flags & 0x1)!=0) {
+        
         arg[k] = malloc(16); p[k] = (u32)(u64) arg[k]; strncpy(arg[k], "", 16);k++;
         
         arg[k] = malloc( 2); p[k] = (u32)(u64) arg[k]; strncpy(arg[k], "1", 2); k++;
@@ -2094,11 +2307,7 @@ void psx_launch(void)
 
     fun_exit();
 
-    if((psx_options.flags & 0x3)==3)
-        sysProcessExitSpawn2((const char*) "/dev_flash/ps1emu/ps1_emu.self", (const char**) arg, NULL, NULL, 0,
-            1001, SYS_PROCESS_SPAWN_STACK_SIZE_1M);
-        
-    if((psx_options.flags & 0x3)==0)
+    if((psx_options.flags & 0x1)==0)
         sysProcessExitSpawn2((const char*) "/dev_flash/ps1emu/ps1_emu.self", (const char**) arg, NULL, NULL, 0,
             1001, SYS_PROCESS_SPAWN_STACK_SIZE_1M);
     else 
