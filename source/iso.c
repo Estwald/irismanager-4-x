@@ -947,6 +947,7 @@ static int calc_entries(char *path, int parent)
 
     cur_isop++;
 
+    // files
     dir = opendir (path);
     if(dir) {
         while(1) {
@@ -964,54 +965,7 @@ static int calc_entries(char *path, int parent)
         
         path[len] = 0;
 
-        if(S_ISDIR(s.st_mode)) {
-
-            if(strlen(entry->d_name) > 222) {closedir(dir); return -555;}
-
-            UTF8_to_UTF16((u8 *) entry->d_name, wstring);
-
-            for(len_string = 0; len_string < 512; len_string++) if(wstring[len_string] == 0) break;
-
-            if(len_string > 222) {closedir(dir); return -555;}
-            
-
-            lpath += sizeof(struct iso_path_table) + strlen(entry->d_name) - 1;
-            lpath += (lpath & 1);
-
-            int add;
-
-            add = sizeof(struct iso_directory_record) + strlen(entry->d_name) - 1 + 6;
-            add+= add & 1;
-            cldir += add;
-
-            if(cldir > 2048) {
-                
-                ldir = (ldir & ~2047) + 2048;
-                cldir = add;
-            }
-            
-            ldir += add;
-            //ldir += ldir & 1;
-
-            wpath += sizeof(struct iso_path_table) + len_string * 2 - 1;
-            wpath += (wpath & 1);
-
-            add = sizeof(struct iso_directory_record) + len_string * 2 - 1 + 6;
-            add+= add & 1;
-            cwdir += add;
-
-            if(cwdir > 2048) {
-
-                wdir= (wdir & ~2047) + 2048;
-                cwdir = add;
-            }
-
-
-            wdir += add;
-            //wdir += wdir & 1;
-    
-            
-        } else {
+        if(!S_ISDIR(s.st_mode)) {
             
             int lname = strlen(entry->d_name);
 
@@ -1109,16 +1063,85 @@ static int calc_entries(char *path, int parent)
 
     }
 
-    if((2048 - (ldir & 2047)) < 256 /*sizeof(struct iso_directory_record)*/) ldir += 2048; // increase an sector if not space for directory record
-    if((2048 - (wdir & 2047)) < 256 /*sizeof(struct iso_directory_record)*/) wdir += 2048; // increase an sector if not space for directory record
+    closedir (dir);
+    
+    // directories
+    dir = opendir (path);
+    if(dir) {
+        while(1) {
+        
+            struct dirent *entry = readdir (dir);
+                
+            if(!entry) break;
+            if(entry->d_name[0]=='.' && (entry->d_name[1]=='.' || entry->d_name[1]== 0)) continue;
 
+            int len = strlen(path);
+            strcat(path,"/");
+            strcat(path, entry->d_name);
+
+            if(stat(path, &s)<0) {closedir(dir); return -669;}
+            
+            path[len] = 0;
+
+            if(S_ISDIR(s.st_mode)) {
+
+                if(strlen(entry->d_name) > 222) {closedir(dir); return -555;}
+
+                UTF8_to_UTF16((u8 *) entry->d_name, wstring);
+
+                for(len_string = 0; len_string < 512; len_string++) if(wstring[len_string] == 0) break;
+
+                if(len_string > 222) {closedir(dir); return -555;}
+                
+
+                lpath += sizeof(struct iso_path_table) + strlen(entry->d_name) - 1;
+                lpath += (lpath & 1);
+
+                int add;
+
+                add = sizeof(struct iso_directory_record) + strlen(entry->d_name) - 1 + 6;
+                add+= add & 1;
+                cldir += add;
+
+                if(cldir > 2048) {
+                    
+                    ldir = (ldir & ~2047) + 2048;
+                    cldir = add;
+                }
+                
+                ldir += add;
+                //ldir += ldir & 1;
+
+                wpath += sizeof(struct iso_path_table) + len_string * 2 - 1;
+                wpath += (wpath & 1);
+
+                add = sizeof(struct iso_directory_record) + len_string * 2 - 1 + 6;
+                add+= add & 1;
+                cwdir += add;
+
+                if(cwdir > 2048) {
+
+                    wdir= (wdir & ~2047) + 2048;
+                    cwdir = add;
+                }
+
+
+                wdir += add;
+                //wdir += wdir & 1;
+                
+            }
+
+        }
+
+        closedir (dir);
+    }
+   
     directory_iso[cur].ldir = (ldir + 2047)/2048;
     directory_iso[cur].wdir = (wdir + 2047)/2048;
 
-    closedir (dir);
     }
 
-
+    // directories add
     dir = opendir (path);
     if(dir) {
         while(1) {
@@ -1173,7 +1196,9 @@ static int calc_entries(char *path, int parent)
             for(m = n + 1; m < cur_isop; m++) {
             
                 if(directory_iso[n].parent > directory_iso[m].parent) {
+
                     directory_iso[cur_isop] = directory_iso[n]; directory_iso[n] = directory_iso[m]; directory_iso[m] = directory_iso[cur_isop];
+
                     for(l = n; l < cur_isop; l++) {
 
                         if(n + 1 == directory_iso[l].parent) 
@@ -1181,7 +1206,6 @@ static int calc_entries(char *path, int parent)
                         else if(m + 1 == directory_iso[l].parent) 
                             directory_iso[l].parent = n + 1;
                     }
-
 
                 }
         }
@@ -1245,7 +1269,7 @@ static int fill_dirpath(void)
         if(!n) {
             set721((void *) iptl0->name_len, 1);
             set731((void *) iptl0->extent, directory_iso[n].llba);
-            set721((void *) iptl0->parent,directory_iso[n].parent);
+            set721((void *) iptl0->parent, directory_iso[n].parent);
             iptl0->name[0] = 0;
             pos_lpath0 += sizeof(struct iso_path_table) - 1 + 1;
             pos_lpath0 += pos_lpath0 & 1;
@@ -1341,14 +1365,17 @@ static int fill_entries(char *path1, char *path2, int level)
     struct iso_directory_record *idrl0 = idrl;
     struct iso_directory_record *idrw0 = idrw;
 
-
     struct tm *tm;
     struct stat s;
+
+    memset((void *) idrl, 0, 2048);
+    memset((void *) idrw, 0, 2048);
+
+    u32 count_sec1 = 1, count_sec2 = 1, max_sec1, max_sec2;
 
     int first_file = 1;
     
     int aux_parent = directory_iso[level].parent - 1;
-
 
     if(level!=0) {
         strcat(path2, "/");
@@ -1383,6 +1410,8 @@ static int fill_entries(char *path1, char *path2, int level)
     idrl->name[0] = 0;
     idrl = (void *) ((char *) idrl) + idrl->length[0];
 
+    max_sec1 = directory_iso[level].ldir;
+
     idrw->length[0] = sizeof(struct iso_directory_record) + 6;
     idrw->length[0] += idrw->length[0] & 1;
     idrw->ext_attr_length[0] = 0;
@@ -1396,6 +1425,8 @@ static int fill_entries(char *path1, char *path2, int level)
     idrw->name_len[0] = 1;
     idrw->name[0] = 0;
     idrw = (void *) ((char *) idrw) + idrw->length[0];
+
+    max_sec2 = directory_iso[level].wdir;
 
     if(level) {
         int len = strlen(path1);
@@ -1494,7 +1525,6 @@ static int fill_entries(char *path1, char *path2, int level)
 
                     memcpy(path1 + l, entry->d_name, lname);
                     
-
                     sprintf(&path1[l + lname], ".666%2.2u", n);
 
                     if(stat(path1, &s)<0) {s.st_size = size; path1[len2] = 0; break;}
@@ -1552,10 +1582,11 @@ static int fill_entries(char *path1, char *path2, int level)
                 int add;
 
                 add = sizeof(struct iso_directory_record) - 1 + (lname + 8);
+                add+= (add & 1);
 
                 // align entry data with sector
 
-                int cldir = (((int) (s64) idrl) - (int) (s64) idrl0) & 2047;
+                int cldir = (((int) (s64) idrl) - ((int) (s64) idrl0)) & 2047;
                 
                 cldir += add;
 
@@ -1564,7 +1595,16 @@ static int fill_entries(char *path1, char *path2, int level)
                     //DPrintf("gapl1 lba 0x%X %s/%s %i\n", directory_iso[level].llba, path1, entry->d_name, cldir);
                     //getchar();
 
+                    count_sec1++;
+                    if(count_sec1 > max_sec1) {
+                        closedir (dir);
+                        DPrintf("Error!: too much entries in directory:\n%s\n", path1);
+                        return -444;
+                    }
+
                     idrl = (void *) ((char *) idrl) + (add - (cldir - 2048));
+
+                    memset((void *) idrl, 0, 2048);
                     
                 }
 
@@ -1581,17 +1621,19 @@ static int fill_entries(char *path1, char *path2, int level)
                 idrl->interleave[0] = 0x0;
                 set723(idrl->volume_sequence_number, 1);
                 idrl->name_len[0] = lname + 2;
-                memcpy(idrl->name, entry->d_name, lname);
-                strcat((void *) idrl->name, ";1");
+                memcapscpy(idrl->name, entry->d_name, lname);
+                idrl->name[lname + 0] = ';';
+                idrl->name[lname + 1] = '1';
                 idrl = (void *) ((char *) idrl) + idrl->length[0];
                 
                 //
 
                 add = sizeof(struct iso_directory_record) - 1 + len_string * 2 + 4 + 6;
+                add+= (add & 1);
 
                 // align entry data with sector
                 
-                int cwdir = (((int) (s64)idrw) - (int) (s64)idrw0) & 2047;
+                int cwdir = (((int) (s64)idrw) - ((int) (s64)idrw0)) & 2047;
                 
                 cwdir += add;
 
@@ -1600,7 +1642,16 @@ static int fill_entries(char *path1, char *path2, int level)
                     //DPrintf("gapw1 lba 0x%X %s/%s %i\n", directory_iso[level].wlba, path1, entry->d_name, cwdir);
                     //getchar();
 
+                    count_sec2++;
+                    if(count_sec2 > max_sec2) {
+                        closedir (dir);
+                        DPrintf("Error!: too much entries in directory:\n%s\n", path1);
+                        return -444;
+                    }
+
                     idrw = (void *) ((char *) idrw) + (add - (cwdir - 2048));
+
+                    memset((void *) idrw, 0, 2048);
                     
                 }
 
@@ -1658,10 +1709,11 @@ static int fill_entries(char *path1, char *path2, int level)
             int add;
 
             add = sizeof(struct iso_directory_record) - 1 + (strlen(directory_iso[n].name) + 6);
+            add+= (add & 1);
 
             // align entry data with sector
             
-            int cldir = (((int)(s64)idrl) - (int) (s64)idrl0) & 2047;
+            int cldir = (((int)(s64)idrl) - ((int) (s64)idrl0)) & 2047;
             
             cldir += add;
 
@@ -1670,7 +1722,16 @@ static int fill_entries(char *path1, char *path2, int level)
                 //DPrintf("gapl0 lba 0x%X %s/%s %i\n", directory_iso[level].llba, path1, directory_iso[n].name, cldir);
                 //getchar();
 
+                count_sec1++;
+                if(count_sec1 > max_sec1) {
+                    closedir (dir);
+                    DPrintf("Error!: too much entries in directory:\n%s\n", path1);
+                    return -444;
+                }
+
                 idrl = (void *) ((char *) idrl) + (add - (cldir - 2048));
+
+                memset((void *) idrl, 0, 2048);
                 
             }
 
@@ -1685,7 +1746,7 @@ static int fill_entries(char *path1, char *path2, int level)
             idrl->interleave[0] = 0x0;
             set723(idrl->volume_sequence_number, 1);
             idrl->name_len[0] = strlen(directory_iso[n].name);
-            memcpy(idrl->name, directory_iso[n].name, strlen(directory_iso[n].name));
+            memcapscpy(idrl->name, directory_iso[n].name, strlen(directory_iso[n].name));
             idrl = (void *) ((char *) idrl) + idrl->length[0];
 
             //
@@ -1694,10 +1755,11 @@ static int fill_entries(char *path1, char *path2, int level)
             for(len_string = 0; len_string < 512; len_string++) if(wstring[len_string] == 0) break;
 
             add = sizeof(struct iso_directory_record) - 1 + len_string * 2 + 6;
+            add+= (add & 1);
 
             // align entry data with sector
             
-            int cwdir = (((int) (s64)idrw) - (int) (s64)idrw0) & 2047;
+            int cwdir = (((int) (s64)idrw) - ((int) (s64)idrw0)) & 2047;
             
             cwdir += add;
 
@@ -1706,7 +1768,16 @@ static int fill_entries(char *path1, char *path2, int level)
                 //DPrintf("gapw0 lba 0x%X %s/%s %i\n", directory_iso[level].wlba, path1, directory_iso[n].name, cwdir);
                 //getchar();
 
+                count_sec2++;
+                if(count_sec2 > max_sec2) {
+                    closedir (dir);
+                    DPrintf("Error!: too much entries in directory:\n%s\n", path1);
+                    return -444;
+                }
+
                 idrw = (void *) ((char *) idrw) + (add - (cwdir - 2048));
+
+                memset((void *) idrw, 0, 2048);
                 
             }
 

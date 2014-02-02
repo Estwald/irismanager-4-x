@@ -3603,6 +3603,8 @@ static char help1[]= {
 static char cur_path1[0x420];
 static char cur_path2[0x420];
 
+static int update_device_sizes = 3; // flags to update the free device space calling to the function (1-> win1  | 2 -> win2)
+
 void archive_manager(char *pathw1, char *pathw2)
 {
     u32 frame = 0;
@@ -3663,6 +3665,8 @@ void archive_manager(char *pathw1, char *pathw2)
 
     if(pathw1) strncpy(path1, pathw1, 0x420);
     if(pathw2) strncpy(path2, pathw2, 0x420);
+
+    update_device_sizes = 3;
 
     while(1) {
 
@@ -4004,9 +4008,11 @@ void archive_manager(char *pathw1, char *pathw2)
         static u64 freeSize = 0;
         int n;
 
-        if(!update_device1) {
+        if(!update_device1 || !(update_device_sizes & 1)) {
             free_device1 = freeSize;
         } else {
+
+            update_device_sizes&= ~1;
 
             n=1;while(path1[n]!='/' && path1[n]!=0) n++;
 
@@ -4040,9 +4046,11 @@ void archive_manager(char *pathw1, char *pathw2)
         static u64 freeSize = 0;
         int n;
 
-        if(!update_device2) {
+        if(!update_device2 || !(update_device_sizes & 2)) {
             free_device2 = freeSize;
         } else {
+
+            update_device_sizes&= ~2;
 
             n=1;while(path2[n]!='/' && path2[n]!=0) n++;
 
@@ -4572,11 +4580,15 @@ void archive_manager(char *pathw1, char *pathw2)
                 sel = sel1;
                 path = path1;
 
+                update_device_sizes|= 1;
+
             } else {
                 entries = entries2;
                 nentries = nentries2;
                 sel = sel2;
                 path = path2;
+
+                update_device_sizes|= 2;
             } 
                 
 
@@ -4663,6 +4675,7 @@ void archive_manager(char *pathw1, char *pathw2)
             int ret = 0;
        
             if(!archive_manager) {
+                update_device_sizes|= 2;
                 if(test_mark_flags(entries1, nentries1, &files)) {// multiple
 
                     if(!strcmp(path2, "/") || !strcmp(path1, path2)) {set_menu2 = 0; goto skip_menu2;}
@@ -4675,6 +4688,7 @@ void archive_manager(char *pathw1, char *pathw2)
                     ret = copy_archive_manager(path1, path2, entries1, nentries1, sel1, free_device2);
                 }
             } else {
+                update_device_sizes|= 1;
                 if(test_mark_flags(entries2, nentries2, &files)) {// multiple
                      if(!strcmp(path1, "/") || !strcmp(path1, path2)) {set_menu2 = 0;goto skip_menu2;}
                     ret = copy_archive_manager(path2, path1, entries2, nentries2, -1, free_device1);
@@ -4701,6 +4715,8 @@ void archive_manager(char *pathw1, char *pathw2)
             
             int files;
             int ret = 0;
+
+            update_device_sizes|= 3;
        
             if(!archive_manager) {
                 if(test_mark_flags(entries1, nentries1, &files)) {// multiple
@@ -4764,10 +4780,12 @@ void archive_manager(char *pathw1, char *pathw2)
             int ret = 0;
 
             if(!archive_manager) { 
+                update_device_sizes|= 1;
                 if(free_device1 < 0x800400) ret= (int) 0x80010020;
                 nentries1=0;
                 pos1 = sel1 = 0;
             } else {
+                update_device_sizes|= 2;
                 if(free_device2 < 0x800400) ret= (int) 0x80010020; 
                 nentries2=0;
                 pos2 = sel2 = 0;
@@ -4789,11 +4807,13 @@ void archive_manager(char *pathw1, char *pathw2)
             
             int ret = 0;
 
-            if(!archive_manager) { 
+            if(!archive_manager) {
+                update_device_sizes|= 1;
                 nentries1=0;
                 pos1 = sel1 = 0;
                 if(free_device1 < 0x1000400) ret= (int) 0x80010020; 
             } else {
+                update_device_sizes|= 2;
                 if(free_device2 < 0x1000400) ret= (int) 0x80010020; 
                 nentries2=0;
                 pos2 = sel2 = 0;
@@ -4835,8 +4855,10 @@ void archive_manager(char *pathw1, char *pathw2)
                  if(DrawDialogYesNo(temp_buffer) == 1) {
 
                      if(!archive_manager) {
+                        update_device_sizes|= 1;
                         sprintf(temp_buffer, "%s/%s.bin", path1, buffer1);
                      } else {
+                        update_device_sizes|= 2;
                         sprintf(temp_buffer, "%s/%s.bin", path2, buffer1);
                      }
                      
@@ -4987,6 +5009,8 @@ void archive_manager(char *pathw1, char *pathw2)
         if(new_pad & BUTTON_CROSS) {
 
             if(entries1[sel1].d_type & 1) { // change dir
+
+                if(path1[1] == 0) update_device_sizes |= 1;
                 
                 if(!strcmp(entries1[sel1].d_name,"..")) {
                     n = strlen(path1);
@@ -5129,6 +5153,8 @@ void archive_manager(char *pathw1, char *pathw2)
             change_path1--; if(change_path1<0) change_path1=2;
             nentries1=0;
             pos1 = sel1 = 0;
+
+            update_device_sizes |= 1;
                    
             switch(change_path1) {
                 case 0:
@@ -5147,6 +5173,8 @@ void archive_manager(char *pathw1, char *pathw2)
             change_path1++; if(change_path1>2) change_path1=0;
             nentries1=0;
             pos1 = sel1 = 0;
+
+            update_device_sizes |= 1;
 
             switch(change_path1) {
                 case 0:
@@ -5167,6 +5195,8 @@ void archive_manager(char *pathw1, char *pathw2)
         if(new_pad & BUTTON_CROSS) {
 
             if(entries2[sel2].d_type & 1) { // change dir
+
+                if(path2[1] == 0) update_device_sizes |= 2;
                 
                 if(!strcmp(entries2[sel2].d_name,"..")) {
                     n = strlen(path2);
@@ -5313,6 +5343,8 @@ void archive_manager(char *pathw1, char *pathw2)
             nentries2=0;
             pos2 = sel2 = 0;
 
+            update_device_sizes |= 2;
+
             switch(change_path2) {
                 case 0:
                     strcpy(path2, "/");
@@ -5330,6 +5362,8 @@ void archive_manager(char *pathw1, char *pathw2)
             change_path2++; if(change_path2>2) change_path2=0;
             nentries2=0;
             pos2 = sel2 = 0;
+
+            update_device_sizes |= 2;
 
             switch(change_path2) {
                 case 0:
