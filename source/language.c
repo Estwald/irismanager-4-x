@@ -100,6 +100,7 @@ t_lngstr lang_strings[] =
     { DRAWGMOPT_MKISO, "DRAWGMOPT_MKISO"      , "Select a device to Build the ISO" },
     { DRAWGMOPT_XTISO, "DRAWGMOPT_XTISO"      , "Select a device to Extract the ISO" },
     { DRAWGMOPT_CPYISO, "DRAWGMOPT_CPYISO"      , "Select a device to Copy the ISO" },
+    { DRAWGMOPT_GAMEUPDATE, "DRAWGMOPT_GAMEUPDATE"      , "Game Update" },
 
     { DRAWGMOPT_FIXCOMPLETE, "DRAWGMOPT_FIXCOMPLETE"   , "Fix Permissions Done!" },
     { DRAWGMOPT_CPYOK, "DRAWGMOPT_CPYOK"         , "copied successfully" },
@@ -188,11 +189,12 @@ t_lngstr lang_strings[] =
     
     { DRAWTOOLS_COPYFROM, "DRAWTOOLS_COPYFROM"     , "Copy from /dev_usb/iris to Iris folder"},
     { DRAWTOOLS_WITHBDVD, "DRAWTOOLS_WITHBDVD"     , "With BDVD Controller"},
-    { DRAWTOOLS_NOBDVD,   "DRAWTOOLS_NOBDVD"         , "Without BDVD Device"},
-    { DRAWTOOLS_NOBDVD2,   "DRAWTOOLS_NOBDVD2"         , "Disc - Less payload"},
+    { DRAWTOOLS_NOBDVD,   "DRAWTOOLS_NOBDVD"       , "Without BDVD Device"},
+    { DRAWTOOLS_NOBDVD2,   "DRAWTOOLS_NOBDVD2"     , "Disc - Less payload"},
     
-    { DRAWTOOLS_PKGTOOLS, "DRAWTOOLS_PKGTOOLS"         , ".PKG Install" },
-    { DRAWTOOLS_ARCHIVEMAN, "DRAWTOOLS_ARCHIVEMAN"         , "Archive Manager" },
+    { DRAWTOOLS_PKGTOOLS, "DRAWTOOLS_PKGTOOLS"     , ".PKG Install" },
+    { DRAWTOOLS_ARCHIVEMAN, "DRAWTOOLS_ARCHIVEMAN" , "Archive Manager" },
+    { DRAWTOOLS_COVERSDOWN, "DRAWTOOLS_COVERSDOWN" , "Covers Download" },
 
     //MAIN - OTHERS
     { DRAWCACHE_CACHE, "DRAWCACHE_CACHE"         , "Delete Cache Tool" },

@@ -165,5 +165,7 @@ int patch_exe_error_09(char *path_exe);
 void patch_error_09( const char *path );
 
 int game_update(char *title_id);
+int cover_update(char *title_id);
+int covers_update(int pass);
 #endif
 

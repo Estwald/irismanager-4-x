@@ -493,10 +493,18 @@ int get_icon(char * path, const int num_dir)
             if(stat(path, &s)<0) {
                 sprintf(path, "%s/covers/%c%c%c%c%s.JPG", self_path, directories[num_dir].title_id[0], directories[num_dir].title_id[1],
                     directories[num_dir].title_id[2], directories[num_dir].title_id[3], &directories[num_dir].title_id[5]);
-               // get covers from GAMES or GAME
+               // get covers from GAMES or GAMEZ
                if(stat(path, &s)<0) {
-                 sprintf(path, "/dev_hdd0/GAMES/covers/%c%c%c%c%s.JPG", directories[num_dir].title_id[0], directories[num_dir].title_id[1],
+                 if(!strcmp(hdd_folder, "dev_hdd0_2"))
+                    sprintf(path, "/dev_hdd0/GAMES/covers/%c%c%c%c%s.JPG", directories[num_dir].title_id[0], directories[num_dir].title_id[1],
                     directories[num_dir].title_id[2], directories[num_dir].title_id[3], &directories[num_dir].title_id[5]);
+                 else if(!strcmp(hdd_folder, "dev_hdd0"))
+                    sprintf(path, "/dev_hdd0/%s/covers/%c%c%c%c%s.JPG", __MKDEF_GAMES_DIR, directories[num_dir].title_id[0], directories[num_dir].title_id[1],
+                    directories[num_dir].title_id[2], directories[num_dir].title_id[3], &directories[num_dir].title_id[5]);
+                 else sprintf(path, "/dev_hdd0/game/%s/%s/covers/%c%c%c%c%s.JPG", hdd_folder, __MKDEF_GAMES_DIR, directories[num_dir].title_id[0], directories[num_dir].title_id[1],
+                    directories[num_dir].title_id[2], directories[num_dir].title_id[3], &directories[num_dir].title_id[5]);
+
+
                  if(stat(path, &s)<0) {
                      strcpy(path, directories[num_dir].path_name);
                      if(path[strlen(path) - 1]=='0') path[strlen(path) - 6] = 0; else path[strlen(path) - 4] = 0;
@@ -533,13 +541,16 @@ int get_icon(char * path, const int num_dir)
     if(stat(path, &s)<0) {
        sprintf(path, "%s/covers/%c%c%c%c%s.JPG", self_path, directories[num_dir].title_id[0], directories[num_dir].title_id[1],
             directories[num_dir].title_id[2], directories[num_dir].title_id[3], &directories[num_dir].title_id[5]);
-       // get covers from GAMES or GAME
+       // get covers from GAMES or GAMEZ
        if(stat(path, &s)<0) {
-           sprintf(path, "/dev_hdd0/GAMES/covers/%c%c%c%c%s.JPG", directories[num_dir].title_id[0], directories[num_dir].title_id[1],
+            if(!strcmp(hdd_folder, "dev_hdd0_2"))
+                sprintf(path, "/dev_hdd0/GAMES/covers/%c%c%c%c%s.JPG", directories[num_dir].title_id[0], directories[num_dir].title_id[1],
                 directories[num_dir].title_id[2], directories[num_dir].title_id[3], &directories[num_dir].title_id[5]);
-           if(stat(path, &s)<0) sprintf(path, "/dev_hdd0/GAMEZ/covers/%c%c%c%c%s.JPG", directories[num_dir].title_id[0], directories[num_dir].title_id[1],
+            else if(!strcmp(hdd_folder, "dev_hdd0"))
+                sprintf(path, "/dev_hdd0/%s/covers/%c%c%c%c%s.JPG", __MKDEF_GAMES_DIR, directories[num_dir].title_id[0], directories[num_dir].title_id[1],
                 directories[num_dir].title_id[2], directories[num_dir].title_id[3], &directories[num_dir].title_id[5]);
-
+            else sprintf(path, "/dev_hdd0/game/%s/%s/covers/%c%c%c%c%s.JPG", hdd_folder, __MKDEF_GAMES_DIR, directories[num_dir].title_id[0], directories[num_dir].title_id[1],
+                directories[num_dir].title_id[2], directories[num_dir].title_id[3], &directories[num_dir].title_id[5]);
        }
     }
 
@@ -4075,7 +4086,7 @@ void draw_gui2(float x, float y)
         
         x2 = 0;
 
-        if((game_cfg.useBDVD) || (game_cfg.direct_boot == 2))
+        if((directories[get_currentdir(i)].flags & (1 << 24)) || (game_cfg.useBDVD) || (game_cfg.direct_boot == 2))
         {
             tiny3d_SetTextureWrap(0, Png_res_offset[0], Png_res[0].width, 
                 Png_res[0].height, Png_res[0].wpitch, 
@@ -4086,25 +4097,27 @@ void draw_gui2(float x, float y)
             x2+= 40;
         }
         
-        if(game_cfg.direct_boot)
-        {
-            tiny3d_SetTextureWrap(0, Png_res_offset[3], Png_res[3].width, 
-                Png_res[3].height, Png_res[3].wpitch, 
-                TINY3D_TEX_FORMAT_A8R8G8B8,  TEXTWRAP_CLAMP, TEXTWRAP_CLAMP,1);
+        if(!(directories[get_currentdir(i)].flags & (1 << 24))) {
+            if(game_cfg.direct_boot)
+            {
+                tiny3d_SetTextureWrap(0, Png_res_offset[3], Png_res[3].width, 
+                    Png_res[3].height, Png_res[3].wpitch, 
+                    TINY3D_TEX_FORMAT_A8R8G8B8,  TEXTWRAP_CLAMP, TEXTWRAP_CLAMP,1);
 
-            DrawTextBox(x + x2,  y + 3 * 150 - 48, 0, 32, 32, 0xffffffff); 
-            x2+= 40;
-        }
+                DrawTextBox(x + x2,  y + 3 * 150 - 48, 0, 32, 32, 0xffffffff); 
+                x2+= 40;
+            }
 
-        n = (directories[get_currentdir(i)].flags & 1) ?  game_cfg.bdemu : game_cfg.bdemu_ext;
+            n = (directories[get_currentdir(i)].flags & 1) ?  game_cfg.bdemu : game_cfg.bdemu_ext;
 
-        SetFontColor(0xffffffee, 0x00000000);
-        SetCurrentFont(FONT_TTF);
-        SetFontSize(12, 24);
+            SetFontColor(0xffffffee, 0x00000000);
+            SetCurrentFont(FONT_TTF);
+            SetFontSize(12, 24);
 
-        if(n == 1) x2 = DrawString(x + x2,  y + 3 * 150 - 48 + 4, "BD Emu");
+            if(n == 1) x2 = DrawString(x + x2,  y + 3 * 150 - 48 + 4, "BD Emu");
 
-        if(n == 2) x2 = DrawString(x + x2,  y + 3 * 150 - 48 + 4, "LIBFS");
+            if(n == 2) x2 = DrawString(x + x2,  y + 3 * 150 - 48 + 4, "LIBFS");
+        } else x2 = DrawString(x + x2,  y + 3 * 150 - 48 + 4, "Game ISO");
 
 
     }
@@ -6193,7 +6206,7 @@ void draw_options(float x, float y, int index)
     
     y2+= 48;
 
-    DrawButton1_UTF8(x + 32, y2, 320, /*language[GLOBAL_RETURN]*/"Game Update", (directories[currentgamedir].title_id[0] == 0 || 
+    DrawButton1_UTF8(x + 32, y2, 320, language[DRAWGMOPT_GAMEUPDATE], (directories[currentgamedir].title_id[0] == 0 || 
         mode_homebrew == HOMEBREW_MODE) ? -1 : (flash && select_option == 7));
     
     y2+= 48;
@@ -6667,7 +6680,7 @@ void draw_iso_options(float x, float y, int index)
     y2+= 48;
 
     if(select_option == o &&(directories[currentgamedir].flags & ((1<<24) | (1<<23))) == ((1<<24) | (1<<23))) select_option++;
-    DrawButton1_UTF8(x + 32, y2, 320, "Game Update", 
+    DrawButton1_UTF8(x + 32, y2, 320, language[DRAWGMOPT_GAMEUPDATE], 
         ((directories[currentgamedir].flags & ((1<<24) | (1<<23))) == ((1<<24) | (1<<23))) ? -1 : (flash && select_option == o));
     max_op++; o++;
 
@@ -7680,12 +7693,17 @@ void draw_toolsoptions(float x, float y)
 
     y2+= 48;
 
-    DrawButton1_UTF8((848 - 520) / 2, y2, 520, "Control Fan & USB Wakeup"/*language[DRAWTOOLS_ARCHIVEMAN]*/, (flash && select_option == 6));
+    DrawButton1_UTF8((848 - 520) / 2, y2, 520, "Control Fan & USB Wakeup", (flash && select_option == 6));
 
     y2+= 48;
 
-    DrawButton1_UTF8((848 - 520) / 2, y2, 520, language[GLOBAL_RETURN], (flash && select_option == 7));
+    DrawButton1_UTF8((848 - 520) / 2, y2, 520, language[DRAWTOOLS_COVERSDOWN], (flash && select_option == 7));
+
+    y2+= 48;
+
+    DrawButton1_UTF8((848 - 520) / 2, y2, 520, language[GLOBAL_RETURN], (flash && select_option == 8));
     
+    /*
     y2+= 48;
     
     for(n = 0; n < 1; n++) {
@@ -7694,6 +7712,7 @@ void draw_toolsoptions(float x, float y)
     
         y2+= 48;
     }
+    */
 
 
     SetCurrentFont(FONT_TTF);
@@ -7813,6 +7832,18 @@ void draw_toolsoptions(float x, float y)
 
             case 7:
                 select_option = 0;
+                menu_screen = 0;
+                n = covers_update(0);
+                if(n == -1) n = covers_update(1); // try again
+                wait_event_thread();
+                get_games();
+                if(n == 0)    DrawDialogOKTimer("Covers Downloaded\n\nCaratulas Descargadas", 2000.0f);
+                if(n == -1)   DrawDialogOKTimer("Some Covers Cannot Be Downloaded\n\nAlgunas Caratulas No Pueden Descargarse", 2000.0f);
+                if(n == -555) DrawDialogOKTimer("Aborted By User\n\nAbortado por el Usuario", 2000.0f);
+                return;
+
+            case 8:
+                select_option = 0;
                 menu_screen = 0; 
                 return;
 
@@ -7831,7 +7862,7 @@ void draw_toolsoptions(float x, float y)
 
         frame_count = 32;
 
-        ROT_DEC(select_option, 0, 7);
+        ROT_DEC(select_option, 0, 8);
         
     }
 
@@ -7839,7 +7870,7 @@ void draw_toolsoptions(float x, float y)
 
         frame_count = 32;
         
-        ROT_INC(select_option, 7, 0);
+        ROT_INC(select_option, 8, 0);
         
     }
     

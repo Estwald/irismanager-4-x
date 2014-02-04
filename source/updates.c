@@ -9,6 +9,20 @@
 #include <sys/file.h>
 
 #include "language.h"
+#include "main.h"
+#include "gfx.h"
+
+#include "sysregistry.h"
+#include "ttf_render.h"
+
+#define FS_S_IFMT 0170000
+
+extern volatile int dialog_action ;
+void my_dialog(msgButton button, void *userdata);
+
+
+void get_games();
+int LoadTextureJPG(char * filename, int index);
 
 extern char temp_buffer[8192];
 extern int firmware;
@@ -271,8 +285,16 @@ static int download_update(char *url, char *file, int mode, u64 *size)
 	
     int acum = 0;
 	while (recv != 0 && length != 0ULL) {
-        memset(buffer, 0x0, sizeof(buffer));
-		if (httpRecvResponse(transID, buffer, sizeof(buffer) - 1, &recv) < 0) {fclose(fp); ret = -5; goto err;}
+        int n;
+
+        for(n = 0; n < 5; n++) {
+            memset(buffer, 0x0, sizeof(buffer));
+		    if (httpRecvResponse(transID, buffer, sizeof(buffer) - 1, &recv) < 0) {
+                if(n == 4) {fclose(fp); ret = -5; goto err;} 
+                else sleep(1);
+            } else break;
+        }
+        
 		if (recv == 0) break;
 		if (recv > 0) {
 			//if(fwrite(buffer, 1, recv, fp) != recv) {fclose(fp); fp = NULL; ret = -6; goto err;}
@@ -370,8 +392,6 @@ err:
     return ret;
 }
 
-
-#if 0
 static int download_file(char *url, char *file, int mode, u64 *size)
 {
     int flags = 0;
@@ -389,6 +409,9 @@ static int download_file(char *url, char *file, int mode, u64 *size)
     float parts = 0;
     float cpart;
     char buffer[16384];
+
+    int no_len_flag = (mode & 128) != 0;
+    mode &= 127;
 
     use_async_fd = 128;
     my_f_async.flags = 0;
@@ -411,7 +434,7 @@ static int download_file(char *url, char *file, int mode, u64 *size)
     if(ret < 0) goto err;
     flags|= 2;
 
-    httpClientSetConnTimeout(clientID, 10000000);
+    httpClientSetConnTimeout(clientID, 20000000);
 
 	ret = httpUtilParseUri(NULL, url, NULL, 0, &pool_size);
 	if (ret < 0) goto err;
@@ -436,15 +459,24 @@ static int download_file(char *url, char *file, int mode, u64 *size)
 		
 	if (code == 404 || code == 403) {ret=-4; goto err;}
 
-	ret = httpResponseGetContentLength(transID, &length);
-	if (ret < 0) {
-		if (ret == HTTP_STATUS_CODE_No_Content) {
-            length = 0ULL;
-            ret = 0;
-		} else goto err;
-	}
+    
+    ret = httpResponseGetContentLength(transID, &length);
+    
+    if (ret < 0) {
 
-    if(size) *size = length;
+        if(!no_len_flag) {
+            
+            if (ret == HTTP_STATUS_CODE_No_Content) {
+                length = 0ULL;
+                ret = 0;
+            } else goto err;
+            
+        } else {
+            if(size) *size = 0;
+            length = 65536; // set length to a default value
+        }
+    } else 
+        if(size) *size = length;
 
     if(mode == 1) goto err; // get only the size
 
@@ -455,11 +487,22 @@ static int download_file(char *url, char *file, int mode, u64 *size)
     
     fp = fopen(file, "wb");
 	if(!fp) goto err;
+
+    if(!strncmp(file, "/dev_hdd0", 9)) sysFsChmod(file, FS_S_IFMT | 0777);
 	
     int acum = 0;
+    int acum2 = 0;
 	while (recv != 0 && length != 0ULL) {
-        memset(buffer, 0x0, sizeof(buffer));
-		if (httpRecvResponse(transID, buffer, sizeof(buffer) - 1, &recv) < 0) {fclose(fp); ret = -5; goto err;}
+        int n;
+
+        for(n = 0; n < 5; n++) {
+            memset(buffer, 0x0, sizeof(buffer));
+		    if (httpRecvResponse(transID, buffer, sizeof(buffer) - 1, &recv) < 0) {
+                if(n == 4) {fclose(fp); ret = -5; goto err;} 
+                else sleep(1);
+            } else break;
+        }
+
 		if (recv == 0) break;
 		if (recv > 0) {
 			//if(fwrite(buffer, 1, recv, fp) != recv) {fclose(fp); fp = NULL; ret = -6; goto err;}
@@ -501,6 +544,7 @@ static int download_file(char *url, char *file, int mode, u64 *size)
             ///////////////////
             length -= recv;
             acum+= recv;
+            acum2+= recv;
 		}
 
         if(mode == 2 && progress_action == 2) {ret = -0x555; goto err;}
@@ -520,8 +564,13 @@ static int download_file(char *url, char *file, int mode, u64 *size)
         }
 	}
 
- 
 	ret = 0;
+
+    if(no_len_flag) { // return size readed
+
+        if(size) *size = (u64) acum2;
+
+    }
 	
 err:
 
@@ -541,7 +590,9 @@ err:
     }
 
     if(fp) {
+        struct stat s;
         fclose(fp);
+        if(ret == 0 && !stat(file, &s) && s.st_size == 0) ret = -4;
         if(ret < 0) unlink_secure(file);
     }
 
@@ -553,7 +604,334 @@ err:
     return ret;
 }
 
-#endif
+extern char hdd_folder[64];
+
+static int game_up_mode = 0;
+
+int cover_update(char *title_id)
+{
+    int ret;
+    struct stat s;
+
+    char id[10];
+    memcpy(id, title_id, 4);
+    id[4] = title_id[5]; id[5] = title_id[6]; id[6] = title_id[7]; id[7] = title_id[8]; id[8] = title_id[9]; id[9] = 0;
+
+    // covers
+   
+    sprintf(temp_buffer + 1024, "%s/COVERS/%s.PNG", self_path, title_id);
+    if(stat(temp_buffer + 1024, &s)<0) {
+        sprintf(temp_buffer, "%s/covers", self_path);
+        sprintf(temp_buffer + 1024, "%s/covers/%s.JPG", self_path, id);
+       // get covers from GAMES or GAME
+        if(stat(temp_buffer + 1024, &s)<0) {
+            
+            if(!strcmp(hdd_folder, "dev_hdd0_2")) {
+                sprintf(temp_buffer, "/dev_hdd0/GAMES/covers");
+                sprintf(temp_buffer + 1024, "/dev_hdd0/GAMES/covers/%s.JPG", id);
+            } else if(!strcmp(hdd_folder, "dev_hdd0")) {
+                sprintf(temp_buffer, "/dev_hdd0/%s/covers", __MKDEF_GAMES_DIR);
+                sprintf(temp_buffer + 1024, "/dev_hdd0/%s/covers/%s.JPG", __MKDEF_GAMES_DIR, id);
+            } else {
+                sprintf(temp_buffer, "/dev_hdd0/game/%s/%s/covers", hdd_folder, __MKDEF_GAMES_DIR);
+                sprintf(temp_buffer + 1024, "/dev_hdd0/game/%s/%s/covers/%s.JPG", hdd_folder, __MKDEF_GAMES_DIR, id);
+            }
+        }
+
+        ret = stat(temp_buffer + 1024, &s);
+
+        if(ret < 0 || !game_up_mode) {
+
+            if(ret != 0) game_up_mode = 1;
+
+            if(stat(temp_buffer, &s)) {
+                mkdir_secure(temp_buffer);
+                if(stat(temp_buffer, &s)) {
+                    sprintf(temp_buffer, "%s/covers", self_path);
+                    sprintf(temp_buffer + 1024, "%s/covers/%s.JPG", self_path, id);
+
+                    mkdir_secure(temp_buffer);
+                }
+            }
+                
+            char region[17][4] = {
+             "EN",
+             "ES",
+             "DE",
+             "FR",
+             "IT",
+             "US",
+             "AU",
+             "NL",
+             "PT",
+             "SE",
+             "DK",
+             "NO",
+             "FI",
+             "TR",
+             "KO",
+             "RU",
+             "JA",
+            };
+
+            u8 *mem = NULL;
+
+            /*
+           
+            if(ret == -4) {
+                sprintf(temp_buffer, "http://art.gametdb.com/ps3/coverM/ES/%s.jpg", id);
+                ret = download_file(temp_buffer, temp_buffer + 1024, 0, NULL);
+            }
+            */
+
+            sprintf(temp_buffer, "http://www.gametdb.com/PS3/%s.html", id);
+            sprintf(temp_buffer + 3072, "%s/tmp_cover.html", self_path);
+            ret = download_file(temp_buffer, temp_buffer + 3072, 128, NULL);
+            if(ret) {sleep(1); ret = download_file(temp_buffer, temp_buffer + 3072, 128, NULL);} // try again
+
+            //sprintf(temp_buffer + 4096, "err: %i %x\n", ret, ret);
+            //DrawDialogOKTimer(temp_buffer + 4096, 2000.0f);
+
+            if(ret == 0) {
+                int file_size = 0;
+                u8 *mem = (u8 *) LoadFile(temp_buffer + 3072, &file_size);
+
+                if(mem && file_size != 0) {
+                    int n, m, l;
+                    mem[file_size - 1] = 0;
+
+                    unlink_secure(temp_buffer + 3072); // remove temp html page
+
+                    n = -1;
+
+                    switch(sys_language) {
+                        case LANG_GERMAN:
+                            n = 2; break;
+                        case LANG_ENGLISH:
+                        case LANG_ENGLISHUK:
+                            n = (id[2] == 'U') * 5; break;
+                        case LANG_SPANISH:
+                            n = 1; break;
+                        case LANG_FRENCH:
+                            n = 3; break;
+                        case LANG_ITALIAN:
+                            n = 4; break;
+                        case LANG_DUTCH:
+                            n = 7; break;
+                        case LANG_PORTUGUESEB:
+                        case LANG_PORTUGUESE:
+                            n = 8; break;
+                        case LANG_RUSSIAN:
+                            n = 15; break;
+                        case LANG_JAPANESE:
+                            n = 16; break;
+                        case LANG_KOREAN:
+                            n = 14; break;    
+                        case LANG_FINNISH:
+                            n = 12; break;
+                        case LANG_SWEDISH:
+                            n = 9; break;
+                        case LANG_DANISH:
+                            n = 2; break;
+                        case LANG_NORWEGIAN:
+                            n = 11; break;
+                    }
+
+                    // find from LANGUAGE cover link
+                    if(n >= 0) {
+                        sprintf(temp_buffer, "http://art.gametdb.com/ps3/coverM/%s/%s.jpg", &region[n][0], id);
+                        
+                        l = strlen(temp_buffer);
+                        for(m = 0; m < file_size - l; m++) {
+                            if(!memcmp(mem + m, temp_buffer, l)) goto match;
+                        }
+                        
+                    }
+
+                    // find JAPAN cover link
+                    if(id[2] == 'J') {
+                        sprintf(temp_buffer, "http://art.gametdb.com/ps3/coverM/JA/%s.jpg", id);
+                        
+                        l = strlen(temp_buffer);
+                        for(m = 0; m < file_size - l; m++) {
+                            if(!memcmp(mem + m, temp_buffer, l)) goto match;
+                        }
+                        
+                    }
+
+                    // find USA cover link
+                    if(id[2] == 'U') {
+                        sprintf(temp_buffer, "http://art.gametdb.com/ps3/coverM/US/%s.jpg", id);
+                        
+                        l = strlen(temp_buffer);
+                        for(m = 0; m < file_size - l; m++) {
+                            if(!memcmp(mem + m, temp_buffer, l)) goto match;
+                        }
+                        
+                    }
+
+                    // find a valid cover link
+                    for (n = 0; n <17; n++) {
+                        sprintf(temp_buffer, "http://art.gametdb.com/ps3/coverM/%s/%s.jpg", &region[n][0], id);
+                        l = strlen(temp_buffer);
+                        for(m = 0; m < file_size - l; m++) {
+                            if(!memcmp(mem + m, temp_buffer, l)) goto match;
+                        }
+
+                    }
+
+                    free(mem);
+
+                    return -1;
+                }
+            }
+
+            match:
+                
+            if(mem) free(mem);
+            
+            if(!game_up_mode) {
+                sprintf(temp_buffer + 3072, "%s/tmp_cover.png", self_path);
+                ret = download_file(temp_buffer, temp_buffer + 3072, 0, NULL);
+                
+                if(ret == 0) {
+
+                    if(LoadTextureJPG(temp_buffer + 3072, 1) < 0) {
+                        unlink_secure(temp_buffer + 3072);
+                        return -2;
+                    } else {
+                        LoadTextureJPG(temp_buffer + 1024, 0);
+                        
+                        dialog_action = 0;
+
+                        msgType mdialogyesno3 = MSG_DIALOG_NORMAL | MSG_DIALOG_BTN_TYPE_YESNO | MSG_DIALOG_DISABLE_CANCEL_ON | MSG_DIALOG_DEFAULT_CURSOR_NO | MSG_DIALOG_BKG_INVISIBLE;
+                        msgDialogOpen2(mdialogyesno3, "Replace Left Cover with Right Cover?\n\nReemplazar Caratula Izquierda por Caratula Derecha?", my_dialog, (void*)  0x0000aaaa, NULL );
+
+                        while(!dialog_action) {
+
+                            cls();
+
+                            set_ttf_window(848/2 - 200 - 32, (512 - 230)/2 - 32, 200, 32, WIN_AUTO_LF);
+                            display_ttf_string(0, 0, (char *) "       OLD COVER", 0xffffffff, 0, 16, 32);
+
+                            if(Png_offset[0]) {
+
+                                tiny3d_SetTextureWrap(0, Png_offset[0], Png_datas[0].width, 
+                                                     Png_datas[0].height, Png_datas[0].wpitch, 
+                                                     TINY3D_TEX_FORMAT_A8R8G8B8,  TEXTWRAP_CLAMP, TEXTWRAP_CLAMP,1);
+
+                                DrawTextBox(848/2 - 200 - 32, (512 - 230)/2 , 0, 200, 230, 0x8f8f8fff);
+
+                                
+                            }
+
+                            set_ttf_window(848/2 + 32, (512 - 230)/2 - 32, 200, 32, WIN_AUTO_LF);
+                            display_ttf_string(0, 0, (char *) "       NEW COVER", 0xffffffff, 0, 16, 32);
+                            
+                            if(Png_offset[1]) {
+
+                                tiny3d_SetTextureWrap(0, Png_offset[1], Png_datas[1].width, 
+                                                     Png_datas[1].height, Png_datas[1].wpitch, 
+                                                     TINY3D_TEX_FORMAT_A8R8G8B8,  TEXTWRAP_CLAMP, TEXTWRAP_CLAMP,1);
+
+                                DrawTextBox(848/2 + 32, (512 - 230)/2 , 0, 200, 230, 0x8f8f8fff);
+                            }
+
+                            sysUtilCheckCallback();
+                            tiny3d_Flip();
+                        }
+
+                        msgDialogAbort();
+                        usleep(100000);
+        
+                        if(dialog_action != 1) {
+                            wait_event_thread();
+                            get_games();
+                            unlink_secure(temp_buffer + 3072); return -1;
+                        }
+
+                        unlink_secure(temp_buffer + 1024);
+                        sysLv2FsRename(temp_buffer + 3072, temp_buffer + 1024);
+
+                        return 0;
+                    }
+                }
+   
+            } else {
+                ret = download_file(temp_buffer, temp_buffer + 1024, 0, NULL);
+
+                if(ret == 0) {
+
+                    JpgDatas jpg;
+
+                    if(LoadJPG(&jpg, temp_buffer + 1024) < 0) {
+                        unlink_secure(temp_buffer + 1024);
+                        return -2;
+                    } else {
+                        
+                        free(jpg.bmp_out);
+
+                        return 0;
+                    }
+                }
+            }
+
+        }
+    }
+  
+    return -1;
+}
+
+
+int covers_update(int pass)
+{
+    int n;
+    int count = 0;
+
+    float parts = 0;
+    float cpart;
+    int ret = 0, result = 0;
+
+    for(n = 0; n < ndirectories; n++) {
+        if((directories[n].flags & ((1<<31) | (1<<23))) == 0)  count++;
+    }
+
+    if(count == 0) {
+        DrawDialogOKTimer("PS3 Games Not Found", 2000.0f);
+        return 0;
+    }
+
+    parts = (count == 0) ? 0.0f : 100.0f / ((double) count);
+    cpart = 0;
+
+
+    if(pass == 0) single_bar("Downloading Covers...");
+    else single_bar("Downloading Covers #2...");
+
+    for(n = 0; n < ndirectories; n++) {
+        if((directories[n].flags & ((1<<31) | (1<<23))) != 0)  continue;
+
+        if(progress_action == 2) {result = -555; break;}
+
+        game_up_mode = 1;
+        ret = cover_update(directories[n].title_id);
+        game_up_mode = 0;
+
+        if(ret == -2) result = -1;
+
+        cpart += parts;
+        if(cpart >= 1.0f) {
+            update_bar((u32) cpart);
+            cpart-= (float) ((u32) cpart); 
+        }
+
+    }
+
+    msgDialogAbort();
+
+    return result;
+}
+
 
 int locate_xml(u8 *mem, int pos, int size, char *key, int *last)
 {
@@ -619,6 +997,7 @@ int locate_xml(u8 *mem, int pos, int size, char *key, int *last)
     return start;
 }
 
+
 int game_update(char *title_id) 
 {
     char id[10];
@@ -633,15 +1012,21 @@ int game_update(char *title_id)
 
     int ret;
 
-    //sprintf(temp_buffer, "http://www.covers-examples.com/ps3/%s.jpg", id);
-    //sprintf(temp_buffer + 1024, "%s/temp.jpg", self_path);
-
-    //download_file(temp_buffer, temp_buffer + 1024, 0, NULL);
-
-    if(DrawDialogYesNo("Want you update the Game?") != 1) return 0;
-
     memcpy(id, title_id, 4);
     id[4] = title_id[5]; id[5] = title_id[6]; id[6] = title_id[7]; id[7] = title_id[8]; id[8] = title_id[9]; id[9] = 0;
+
+    game_up_mode = 0;
+    ret = cover_update(title_id);
+   
+    if(ret == 0) {
+        wait_event_thread();
+        get_games();
+
+        DrawDialogOKTimer("Cover Downloaded", 2000.0f);
+    } else if (ret == -2) DrawDialogOKTimer("Invalid Cover", 2000.0f);
+
+                    
+    if(DrawDialogYesNo("Want you update the Game?") != 1) return 0;
 
     strcpy(ver_app, "00.00");
     

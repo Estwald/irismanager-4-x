@@ -933,6 +933,10 @@ void fill_iso_entries_from_device(char *path, u32 flag, t_directories *list, int
         }
         else {
             strncpy(list[*max ].title_id, mem + 256, 63);
+
+            if(strncmp(list[*max ].path_name, "/ntfs", 5) && strncmp(list[*max ].path_name, "/ext", 4))
+                sysLv2FsChmod(list[*max ].path_name, FS_S_IFMT | 0777);
+
             int fd = ps3ntfs_open(list[*max ].path_name, O_RDONLY, 0);
             if(fd >= 0) {
                 u32 flba;
@@ -1153,7 +1157,7 @@ void fill_entries_from_device(char *path, t_directories *list, int *max, u32 fla
         if(entry->d_name[0]=='.') continue;
 
         if(!(entry->d_type & DT_DIR)) continue;
-        if(!strcmp(entry->d_name, "covers")) continue; // skip global covers folder
+        if(!strncmp(entry->d_name, "covers", 6)) continue; // skip global covers folder
         
         list[*max ].flags=flag;
 
