@@ -525,7 +525,9 @@ static int download_file(char *url, char *file, int mode, u64 *size)
                 if(!(my_f_async.flags & ASYNC_ENABLE)) {
 
                     if(my_f_async.flags & ASYNC_ERROR) {
-                        fclose(fp); fp = NULL; ret = -6; goto err;
+                        fclose(fp); fp = NULL;
+                        if(ret < 0) unlink_secure(file);
+                        ret = -6; goto err;
                     }
                    
                     my_f_async.flags = 0;
@@ -864,12 +866,14 @@ int cover_update(char *title_id)
 
                     JpgDatas jpg;
 
+                    memset(&jpg, 0, sizeof(JpgDatas));
                     if(LoadJPG(&jpg, temp_buffer + 1024) < 0) {
+                        if(jpg.bmp_out) free(jpg.bmp_out);
                         unlink_secure(temp_buffer + 1024);
                         return -2;
                     } else {
                         
-                        free(jpg.bmp_out);
+                        if(jpg.bmp_out) free(jpg.bmp_out);
 
                         return 0;
                     }

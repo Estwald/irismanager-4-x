@@ -50,6 +50,10 @@
 
 #define TICKS_PER_SEC 0x4c1a6bdULL
 
+static u16 wstring[1024];
+
+static char temp_string[1024];
+
 static inline u64 get_ticks(void)
 {
     u64 ticks;
@@ -397,15 +401,16 @@ int get_iso_file_pos(FILE *fp, char *path, u32 *flba, u64 *size)
     folder_split[nfolder_split][2] = i - folder_split[nfolder_split][1];
     nfolder_split++;
 
+
     #ifdef USE_64BITS_LSEEK
-    if(ps3ntfs_seek64(fd, 0x8000LL, SEEK_SET)<0) goto err; 
+    if(ps3ntfs_seek64(fd, 0x8800LL, SEEK_SET)!=0x8800LL) goto err; 
     if(ps3ntfs_read(fd, (void *) &sect_descriptor, sizeof(struct iso_primary_descriptor)) != sizeof(struct iso_primary_descriptor)) goto err;      
     #else
-    if(fseek(fp, 0x8000, SEEK_SET)!=0) goto err;
+    if(fseek(fp, 0x8800, SEEK_SET)!=0) goto err;
     if(fread((void *) &sect_descriptor, 1, sizeof(struct iso_primary_descriptor), fp) != sizeof(struct iso_primary_descriptor)) goto err;
     #endif
 
-    if(sect_descriptor.type[0]!=1 || strncmp((void *) sect_descriptor.id, "CD001", 5)) goto err;
+    if(sect_descriptor.type[0]!=2 || strncmp((void *) sect_descriptor.id, "CD001", 5)) goto err;
 
     u32 lba0 = isonum_731(&sect_descriptor.type_l_path_table[0]); // lba
     u32 size0 = isonum_733(&sect_descriptor.path_table_size[0]); // tamaño
@@ -419,8 +424,10 @@ int get_iso_file_pos(FILE *fp, char *path, u32 *flba, u64 *size)
     sectors = malloc(size1 + 2048);
     if(!sectors) return -3;
 
+    memset(sectors, 0, size1 + 2048);
+
     #ifdef USE_64BITS_LSEEK
-    if(ps3ntfs_seek64(fd, ((s64) lba0) * 2048LL, SEEK_SET)<0) goto err; 
+    if(ps3ntfs_seek64(fd, ((s64) lba0) * 2048LL, SEEK_SET) != ((s64) lba0) * 2048LL) goto err; 
     if(ps3ntfs_read(fd, (void *) sectors, size1) != size1) goto err;
     #else
     if(fseek(fp, lba0 * 2048, SEEK_SET)!=0) goto err;
@@ -447,13 +454,18 @@ int get_iso_file_pos(FILE *fp, char *path, u32 *flba, u64 *size)
         p+=2;
         lba = isonum_731(&sectors[p]);
         p+=4;
-        u32 parent_name =isonum_721(&sectors[p]);
+        u32 parent_name = isonum_721(&sectors[p]);
         p+=2;
+
+        memset(wstring, 0, 512 * 2);
+        memcpy(wstring, &sectors[p], snamelen);
+
+        UTF16_to_UTF8(wstring, (u8 *) temp_string);
 
         if(cur_parent==1 && folder_split[nsplit][0] == 0 && nsplit==0) {lba_folder = lba; break;}
 
-        if(last_parent == parent_name && snamelen == folder_split[nsplit][2] 
-            && !strncmp((void *) &sectors[p], &path[folder_split[nsplit][1]], snamelen)) {
+        if(last_parent == parent_name && strlen(temp_string) == folder_split[nsplit][2] 
+            && !strncmp((void *) temp_string, &path[folder_split[nsplit][1]], folder_split[nsplit][2])) {
             
             //DPrintf("p: %s %u %u\n", &path[folder_split[nsplit][1]], folder_split[nsplit][2], snamelen);
             last_parent = cur_parent;
@@ -468,9 +480,11 @@ int get_iso_file_pos(FILE *fp, char *path, u32 *flba, u64 *size)
     }
     
     if(lba_folder == 0xffffffff) goto err;
+
+    memset(sectors, 0, 4096);
     
     #ifdef USE_64BITS_LSEEK
-    if(ps3ntfs_seek64(fd, ((s64) lba_folder) * 2048LL, SEEK_SET)<0) goto err; 
+    if(ps3ntfs_seek64(fd, ((s64) lba_folder) * 2048LL, SEEK_SET)!=((s64) lba_folder) * 2048LL) goto err; 
     if(ps3ntfs_read(fd, (void *) sectors, 2048) != 2048) goto err;      
     #else
     if(fseek(fp, lba_folder * 2048, SEEK_SET)!=0) goto err;
@@ -497,24 +511,38 @@ int get_iso_file_pos(FILE *fp, char *path, u32 *flba, u64 *size)
             lba_folder++;
            
             #ifdef USE_64BITS_LSEEK
-            if(ps3ntfs_seek64(fd, ((s64) lba_folder) * 2048LL, SEEK_SET)<0) goto err;
+            if(ps3ntfs_seek64(fd, ((s64) lba_folder) * 2048LL, SEEK_SET)!=((s64) lba_folder) * 2048LL) goto err;
             if(ps3ntfs_read(fd, (void *) sectors, 2048) != 2048) goto err;
             #else
             if(fseek(fp, lba_folder * 2048, SEEK_SET)!=0) goto err;
             if(fread((void *) sectors, 1, 2048, fp) != 2048) goto err;
             #endif
-            p = 0; p2= (p2 & ~2047) + 2048; continue;
+
+            p = 0; p2= (p2 & ~2047) + 2048;
+            
+            idr = (struct iso_directory_record *) &sectors[p];
+            if((int) idr->length[0] == 0) break;
+            if((size_directory == -1 && idr->length[0] == 0) || (size_directory != -1 && p2 >= size_directory)) break;
+            continue;
         }
 
         if((size_directory == -1 && idr->length[0] == 0) || (size_directory != -1 && p2 >= size_directory)) break;
+
+        if((int) idr->length[0] == 0) break;
+
+        memset(wstring, 0, 512 * 2);
+        memcpy(wstring, (char *) idr->name, idr->name_len[0]);
+
+        UTF16_to_UTF8(wstring, (u8 *) temp_string);
     
-        if((int) idr->name_len[0] == folder_split[nsplit][2]
-            && !strncmp((char *) idr->name, &path[folder_split[nsplit][1]], (int) idr->name_len[0])) {
+        if(strlen(temp_string) == folder_split[nsplit][2]
+            && !strncmp((char *) temp_string, &path[folder_split[nsplit][1]], (int) folder_split[nsplit][2])) {
             if(file_lba == 0xffffffff) file_lba = isonum_733(&idr->extent[0]);
             
             *size+= (u64) (u32) isonum_733(&idr->size[0]);     
           
         } else if(file_lba != 0xffffffff) break;
+        
 
         p+= idr->length[0]; p2+= idr->length[0];
     }
@@ -524,7 +552,7 @@ int get_iso_file_pos(FILE *fp, char *path, u32 *flba, u64 *size)
     if(file_lba == 0xffffffff) goto err;
 
     #ifdef USE_64BITS_LSEEK
-    if(ps3ntfs_seek64(fd, ((s64) file_lba) * 2048LL, SEEK_SET)<0) goto err; 
+    if(ps3ntfs_seek64(fd, ((s64) file_lba) * 2048LL, SEEK_SET)!=((s64) file_lba) * 2048LL) goto err; 
     #else
     if(fseek(fp, file_lba * 2048, SEEK_SET)!=0) goto err;
     #endif
@@ -817,9 +845,6 @@ static int split_files = 0;
 static _directory_iso *directory_iso = NULL;
 static _directory_iso2 *directory_iso2 = NULL;
 
-static u16 wstring[1024];
-
-static char temp_string[1024];
 static char dbhead[64];
 
 static void memcapscpy(void *dest, void *src, int size)

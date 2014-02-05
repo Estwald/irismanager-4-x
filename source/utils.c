@@ -343,6 +343,8 @@ int mem_parse_param_sfo(u8 *mem, u32 len, char *title_name)
 {
     u32 pos, str;
 
+    if(mem[0] !=0 || mem[1] != 0x50 || mem[2] != 0x53 || mem[3] != 0x46) return -1; // unknown file!
+
     str= (mem[8]+(mem[9]<<8));
     pos=(mem[0xc]+(mem[0xd]<<8));
 
@@ -951,8 +953,8 @@ void fill_iso_entries_from_device(char *path, u32 flag, t_directories *list, int
                     re = ps3ntfs_read(fd, (void *) mem, size);
                     
                     if(re == size) {
-                        mem_parse_param_sfo((u8 *) mem, size, list[*max ].title);
-                        list[*max ].title[63]=0;
+                        if(mem_parse_param_sfo((u8 *) mem, size, list[*max ].title)==0)
+                            list[*max ].title[63]=0;
 
                     }
                     free(mem);
