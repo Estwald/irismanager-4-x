@@ -154,6 +154,229 @@ void DrawTextBoxLine(float x, float y, float z, float w, float h, u32 rgba, u32 
     tiny3d_End();
 }
 
+#define QUADPOLY(x1, y1, z1, w1, x2, y2, z2, w2, color, color2) \
+{\
+    tiny3d_VertexPos(x1     , y1, z1); \
+    tiny3d_VertexColor(color);         \
+    tiny3d_VertexPos(x1 + w1, y1, z1); \
+    tiny3d_VertexPos(x2 + w2, y2, z2); \
+    tiny3d_VertexColor(color2);        \
+    tiny3d_VertexPos(x2     , y2, z2); \
+}
+
+void DrawTextBoxCover(float x, float y, float z, float w, float h, u32 rgba, int type)
+{
+    u32 color = 0xc0c0c0c0;
+
+    if(type == 2) color = 0x0020c0c0;
+
+    if(type == 1 || type == 3) {
+        u32 color2 = 0x000000ff;
+
+        if(type == 3) color2 = 0x0020c0ff;
+
+        tiny3d_SetPolygon(TINY3D_QUADS);
+
+        QUADPOLY(x + 0.0f, y, z, w,
+                 x + 0.0f, y + h, z, w, 0xc0c0c060, 0xc0c0c060);
+
+        QUADPOLY(x + 0.0f, y + 2.0f, z, w/10.0f,
+                 x + 0.0f, y + h - 2.0f, z, w/10.0f, color2, color2);
+        tiny3d_End();
+
+        x+= w/10.0f;
+
+        w-= w/10.0f;
+
+    } else {
+
+        tiny3d_SetPolygon(TINY3D_QUADS);
+        QUADPOLY(x + 4.5f, y + 0.0f, z, w - 9.0f,
+                 x + 1.5f, y + 1.0f, z, w - 3.0f, color, color);
+        QUADPOLY(x + 1.5f, y + 1.0f, z, w - 3.0f,
+                 x + 1.5f, y + 1.5f, z, w - 3.0f, color, color);
+
+        QUADPOLY(x + 1.5f, y + 1.5f, z, w - 3.0f,
+                 x + 1.0f, y + 1.5f, z, w - 2.0f, color, color);
+
+        QUADPOLY(x + 1.0f, y + 1.5f, z, w - 2.0f,
+                 x + 0.0f, y + 4.5f, z, w - 0.0f, color, color);
+
+        //
+
+        QUADPOLY(x + 0.0f, y + 4.5f, z, w - 0.0f,
+                 x + 0.0f, y + h - 4.5f, z, w - 0.0f, color, color);
+
+        float y2 = y + h - 4.5f;
+
+        //
+        
+        QUADPOLY(x + 0.0f, y2 + 0.0f, z, w - 0.0f,
+                 x + 1.0f, y2 + 3.0f, z, w - 2.0f, color, color);
+
+        QUADPOLY(x + 1.0f, y2 + 3.0f, z, w - 2.0f,
+                 x + 1.5f, y2 + 3.0f, z, w - 3.0f, color, color);
+        
+        QUADPOLY(x + 1.5f, y2 + 3.0f, z, w - 3.0f,
+                 x + 1.5f, y2 + 3.5f, z, w - 3.0f, color, color);
+
+        QUADPOLY(x + 1.5f, y2 + 3.5f, z, w - 3.0f,
+                 x + 4.5f, y2 + 4.5f, z, w - 9.0f, color, color);
+
+        tiny3d_End();
+    }
+
+    float w2 = w;
+    
+    if(!type) {
+        y += h/40.0f * 3.0;
+        h -= h/10;
+        w -= w/45.0f;
+    } else if(type ==1 || type == 3) {
+        y += 2.0f;
+        h -= 4.0f;
+        w -= 2.0f;
+    } else  {
+        y +=  h/40.0f;
+        h -= h/20.0f;
+        w -= w/45.0f;
+    } 
+
+    // texture
+    
+    tiny3d_SetPolygon(TINY3D_QUADS);
+    
+    tiny3d_VertexPos(x    , y    , z);
+    tiny3d_VertexColor(rgba);
+    tiny3d_VertexTexture(0.0f , 0.0f);
+
+    tiny3d_VertexPos(x + w, y    , z);
+    tiny3d_VertexTexture(0.99f, 0.0f);
+
+    tiny3d_VertexPos(x + w, y + h, z);
+    tiny3d_VertexTexture(0.99f, 0.99f);
+
+    tiny3d_VertexPos(x    , y + h, z);
+    tiny3d_VertexTexture(0.0f , 0.99f);
+
+    tiny3d_End();
+
+    if(type) return;
+
+    tiny3d_SetPolygon(TINY3D_LINES);
+       
+    tiny3d_VertexPos(x     , y - 3.0f, z);
+    tiny3d_VertexColor(0xa0a0a0c0);
+    tiny3d_VertexPos(x + w2, y - 3.0f, z);
+
+    tiny3d_VertexPos(x     , y - 1.0f, z);
+    tiny3d_VertexPos(x + w2, y - 1.0f, z);
+
+    tiny3d_VertexPos(x + w + 2.0f , y       , z);
+    tiny3d_VertexPos(x + w + 2.0f , y + h   , z);
+    
+    tiny3d_End();
+
+    
+}
+
+void DrawTextBoxCoverShadow(float x, float y, float z, float w, float h, u32 rgba, int type)
+{
+    u32 color = 0x60606090;
+
+    if(type == 2) color = 0x00106090;
+
+    if(type == 1 || type == 3) {
+        u32 color2 = 0x00000060;
+
+        if(type == 3) color2 = 0x0020c060;
+
+        tiny3d_SetPolygon(TINY3D_QUADS);
+
+        QUADPOLY(x + 0.0f, y, z, w,
+                 x - 1.0f, y + h + 2.0f, z, w, 0xc0c0c060, 0x20202000);
+
+        QUADPOLY(x + 0.0f, y + 2.0f, z, w/10.0f,
+                 x - 1.0f, y + h, z, w/10.0f + 1.0f, color2, 0x20202000);
+        tiny3d_End();
+
+        x+= w/10.0f;
+
+        w-= w/10.0f;
+
+    } else {
+
+        tiny3d_SetPolygon(TINY3D_QUADS);
+        QUADPOLY(x + 4.5f, y + 0.0f, z, w - 9.0f,
+                 x + 1.5f, y + 1.0f, z, w - 3.0f, color, color);
+        QUADPOLY(x + 1.5f, y + 1.0f, z, w - 3.0f,
+                 x + 1.5f, y + 1.5f, z, w - 3.0f, color, color);
+
+        QUADPOLY(x + 1.5f, y + 1.5f, z, w - 3.0f,
+                 x + 1.0f, y + 1.5f, z, w - 2.0f, color, color);
+
+        QUADPOLY(x + 1.0f, y + 1.5f, z, w - 2.0f,
+                 x + 0.0f, y + 4.5f, z, w - 0.0f, color, color);
+
+
+        QUADPOLY(x + 0.0f, y + 4.5f, z, w - 0.0f,
+                 x - 1.0f, y + h - 4.5f, z, w + 2.0f, color, 0x20202000);
+
+        float y2 = y + h - 4.5f;
+
+        
+        QUADPOLY(x - 1.0f, y2 + 0.0f, z, w + 2.0f,
+                 x + 0.0f, y2 + 3.0f, z, w - 0.0f, 0x20202000, 0x20202000);
+
+        QUADPOLY(x + 0.0f, y2 + 3.0f, z, w - 0.0f,
+                 x + 0.5f, y2 + 3.0f, z, w - 1.0f, 0x20202000, 0x20202000);
+        
+        QUADPOLY(x + 0.5f, y2 + 3.0f, z, w - 1.0f,
+                 x + 0.5f, y2 + 3.5f, z, w - 1.0f, 0x20202000, 0x20202000);
+
+        QUADPOLY(x + 0.5f, y2 + 3.5f, z, w - 1.0f,
+                 x + 3.5f, y2 + 4.5f, z, w - 7.0f, 0x20202000, 0x20202000);
+        
+
+        tiny3d_End();
+    }
+
+    if(!type) {
+        y += h/40.0f * 3.0;
+        h -= h/10;
+        w -= w/45.0f;
+    } else if(type == 1 || type == 3) {
+        y += 2.0f;
+        h -= 4.0f;
+        w -= 2.0f;
+    } else  {
+        y +=  h/40.0f;
+        h -= h/20.0f;
+        w -= w/45.0f;
+    } 
+    
+    tiny3d_SetPolygon(TINY3D_QUADS);
+   
+    tiny3d_VertexPos(x    , y    , z);
+    tiny3d_VertexColor(rgba);
+    tiny3d_VertexTexture(0.0f , 0.99f);
+
+    tiny3d_VertexPos(x + w, y    , z);
+    tiny3d_VertexColor(rgba);
+    tiny3d_VertexTexture(0.99f, 0.99f);
+
+    rgba = 0x20202000;
+    tiny3d_VertexPos(x + w + 2, y + h, z);
+    tiny3d_VertexColor(rgba);
+    tiny3d_VertexTexture(0.99f, 0.00f);
+
+    tiny3d_VertexPos(x - 1   , y + h, z);
+    tiny3d_VertexColor(rgba);
+    tiny3d_VertexTexture(0.0f , 0.00f);
+
+    tiny3d_End();
+}
+
 
 void DrawTextBoxShadow(float x, float y, float z, float w, float h, u32 rgba)
 {

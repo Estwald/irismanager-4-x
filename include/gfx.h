@@ -14,6 +14,9 @@ void DrawBoxShadow(float x, float y, float z, float w, float h, u32 rgba);
 void DrawTextBoxShadow(float x, float y, float z, float w, float h, u32 rgba);
 void DrawLineBox(float x, float y, float z, float w, float h, u32 rgba);
 
+void DrawTextBoxCover(float x, float y, float z, float w, float h, u32 rgba, int type);
+void DrawTextBoxCoverShadow(float x, float y, float z, float w, float h, u32 rgba, int type);
+
 float DrawButton1(float x, float y, float w, char * t, int select);
 float DrawButton2(float x, float y, float w, char * t, int select);
 

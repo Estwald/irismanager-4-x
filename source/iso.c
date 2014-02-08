@@ -940,13 +940,13 @@ static int calc_entries(char *path, int parent)
     int cldir = 0;
     int ldir = sizeof(struct iso_directory_record) + 6; // ..
     ldir = (ldir + 7) & ~7;
-    ldir += sizeof(struct iso_directory_record); // .
+    ldir += sizeof(struct iso_directory_record) + 6; // .
     ldir += ldir & 1;
     
     int cwdir = 0;
     int wdir = sizeof(struct iso_directory_record) + 6; // ..
     wdir = (wdir + 7) & ~7;
-    wdir += sizeof(struct iso_directory_record); // .
+    wdir += sizeof(struct iso_directory_record) + 6; // .
     wdir += wdir & 1;
 
     cldir = ldir;
@@ -2541,7 +2541,7 @@ int makeps3iso(char *g_path, char *f_iso, int split)
     pos_wpath1 = wlba1 * 2048;
 
     path2[0] = 0;
-    fill_entries(path1, path2, 0);
+    ret = fill_entries(path1, path2, 0);
 
     if(ret < 0 ) {
         switch(ret) {

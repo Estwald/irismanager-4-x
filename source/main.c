@@ -357,7 +357,7 @@ int LoadTexturePNG(char * filename, int index)
     // here you can add more textures using 'texture_pointer'. It is returned aligned to 16 bytes
    
     if(filename) memset(&my_png_datas, 0, sizeof(PngDatas));
-	if(LoadPNG(&my_png_datas, filename) <0) memset(&my_png_datas, 0, sizeof(PngDatas));
+    if(LoadPNG(&my_png_datas, filename) <0) memset(&my_png_datas, 0, sizeof(PngDatas));
     
     my_png_datas.png_in = NULL;
     my_png_datas.png_size = 0;
@@ -415,7 +415,7 @@ int LoadTextureJPG(char * filename, int index)
     memset(&my_png_datas, 0, sizeof(PngDatas));
 
    
-	if(LoadJPG((JpgDatas *)&my_png_datas, filename) <0) memset(&my_png_datas, 0, sizeof(PngDatas));
+    if(LoadJPG((JpgDatas *)&my_png_datas, filename) <0) memset(&my_png_datas, 0, sizeof(PngDatas));
  
     Png_offset[index] = 0;
     memcpy(&Png_datas[index], &my_png_datas, sizeof(PngDatas));
@@ -491,19 +491,21 @@ int get_icon(char * path, const int num_dir)
          else {
             sprintf(path, "%s/COVERS/%s.PNG", self_path, directories[num_dir].title_id);
             if(stat(path, &s)<0) {
-                sprintf(path, "%s/covers/%c%c%c%c%s.JPG", self_path, directories[num_dir].title_id[0], directories[num_dir].title_id[1],
-                    directories[num_dir].title_id[2], directories[num_dir].title_id[3], &directories[num_dir].title_id[5]);
+                if(gui_mode != 0)
+                    sprintf(path, "%s/covers/%c%c%c%c%s.JPG", self_path, directories[num_dir].title_id[0], directories[num_dir].title_id[1],
+                        directories[num_dir].title_id[2], directories[num_dir].title_id[3], &directories[num_dir].title_id[5]);
                // get covers from GAMES or GAMEZ
                if(stat(path, &s)<0) {
-                 if(!strcmp(hdd_folder, "dev_hdd0_2"))
-                    sprintf(path, "/dev_hdd0/GAMES/covers/%c%c%c%c%s.JPG", directories[num_dir].title_id[0], directories[num_dir].title_id[1],
-                    directories[num_dir].title_id[2], directories[num_dir].title_id[3], &directories[num_dir].title_id[5]);
-                 else if(!strcmp(hdd_folder, "dev_hdd0"))
-                    sprintf(path, "/dev_hdd0/%s/covers/%c%c%c%c%s.JPG", __MKDEF_GAMES_DIR, directories[num_dir].title_id[0], directories[num_dir].title_id[1],
-                    directories[num_dir].title_id[2], directories[num_dir].title_id[3], &directories[num_dir].title_id[5]);
-                 else sprintf(path, "/dev_hdd0/game/%s/%s/covers/%c%c%c%c%s.JPG", hdd_folder, __MKDEF_GAMES_DIR, directories[num_dir].title_id[0], directories[num_dir].title_id[1],
-                    directories[num_dir].title_id[2], directories[num_dir].title_id[3], &directories[num_dir].title_id[5]);
-
+                 if(gui_mode != 0) {
+                     if(!strcmp(hdd_folder, "dev_hdd0_2"))
+                        sprintf(path, "/dev_hdd0/GAMES/covers/%c%c%c%c%s.JPG", directories[num_dir].title_id[0], directories[num_dir].title_id[1],
+                        directories[num_dir].title_id[2], directories[num_dir].title_id[3], &directories[num_dir].title_id[5]);
+                     else if(!strcmp(hdd_folder, "dev_hdd0"))
+                        sprintf(path, "/dev_hdd0/%s/covers/%c%c%c%c%s.JPG", __MKDEF_GAMES_DIR, directories[num_dir].title_id[0], directories[num_dir].title_id[1],
+                        directories[num_dir].title_id[2], directories[num_dir].title_id[3], &directories[num_dir].title_id[5]);
+                     else sprintf(path, "/dev_hdd0/game/%s/%s/covers/%c%c%c%c%s.JPG", hdd_folder, __MKDEF_GAMES_DIR, directories[num_dir].title_id[0], directories[num_dir].title_id[1],
+                        directories[num_dir].title_id[2], directories[num_dir].title_id[3], &directories[num_dir].title_id[5]);
+                 }
 
                  if(stat(path, &s)<0) {
                      strcpy(path, directories[num_dir].path_name);
@@ -539,19 +541,22 @@ int get_icon(char * path, const int num_dir)
 
     sprintf(path, "%s/COVERS/%s.PNG", self_path, directories[num_dir].title_id);
     if(stat(path, &s)<0) {
-       sprintf(path, "%s/covers/%c%c%c%c%s.JPG", self_path, directories[num_dir].title_id[0], directories[num_dir].title_id[1],
-            directories[num_dir].title_id[2], directories[num_dir].title_id[3], &directories[num_dir].title_id[5]);
-       // get covers from GAMES or GAMEZ
-       if(stat(path, &s)<0) {
-            if(!strcmp(hdd_folder, "dev_hdd0_2"))
-                sprintf(path, "/dev_hdd0/GAMES/covers/%c%c%c%c%s.JPG", directories[num_dir].title_id[0], directories[num_dir].title_id[1],
+        if(gui_mode != 0)
+            sprintf(path, "%s/covers/%c%c%c%c%s.JPG", self_path, directories[num_dir].title_id[0], directories[num_dir].title_id[1],
                 directories[num_dir].title_id[2], directories[num_dir].title_id[3], &directories[num_dir].title_id[5]);
-            else if(!strcmp(hdd_folder, "dev_hdd0"))
-                sprintf(path, "/dev_hdd0/%s/covers/%c%c%c%c%s.JPG", __MKDEF_GAMES_DIR, directories[num_dir].title_id[0], directories[num_dir].title_id[1],
-                directories[num_dir].title_id[2], directories[num_dir].title_id[3], &directories[num_dir].title_id[5]);
-            else sprintf(path, "/dev_hdd0/game/%s/%s/covers/%c%c%c%c%s.JPG", hdd_folder, __MKDEF_GAMES_DIR, directories[num_dir].title_id[0], directories[num_dir].title_id[1],
-                directories[num_dir].title_id[2], directories[num_dir].title_id[3], &directories[num_dir].title_id[5]);
-       }
+        // get covers from GAMES or GAMEZ
+        if(stat(path, &s)<0) {
+            if(gui_mode != 0) {
+                if(!strcmp(hdd_folder, "dev_hdd0_2"))
+                    sprintf(path, "/dev_hdd0/GAMES/covers/%c%c%c%c%s.JPG", directories[num_dir].title_id[0], directories[num_dir].title_id[1],
+                    directories[num_dir].title_id[2], directories[num_dir].title_id[3], &directories[num_dir].title_id[5]);
+                else if(!strcmp(hdd_folder, "dev_hdd0"))
+                    sprintf(path, "/dev_hdd0/%s/covers/%c%c%c%c%s.JPG", __MKDEF_GAMES_DIR, directories[num_dir].title_id[0], directories[num_dir].title_id[1],
+                    directories[num_dir].title_id[2], directories[num_dir].title_id[3], &directories[num_dir].title_id[5]);
+                else sprintf(path, "/dev_hdd0/game/%s/%s/covers/%c%c%c%c%s.JPG", hdd_folder, __MKDEF_GAMES_DIR, directories[num_dir].title_id[0], directories[num_dir].title_id[1],
+                    directories[num_dir].title_id[2], directories[num_dir].title_id[3], &directories[num_dir].title_id[5]);
+            }
+        }
     }
 
     if(stat(path, &s)<0)
@@ -935,7 +940,7 @@ void cls0()
 void cls()
 {
     
-    if(gui_mode == 1)  {cls0();return;}
+    if(gui_mode == 1 || gui_mode == 3)  {cls0();return;}
     tiny3d_Clear(background_colors[background_sel & 7], TINY3D_CLEAR_ALL);
 
         
@@ -1551,7 +1556,7 @@ void init_music()
         MODPlay_Unload (&mod_track);
     } else {
         MODPlay_SetVolume( &mod_track, 6, 6); // fix the volume to 16 (max 64)
-	    MODPlay_Start (&mod_track); // Play the MOD
+        MODPlay_Start (&mod_track); // Play the MOD
         inited |= INITED_MODLIB;
         SND_Pause(1); //force pause here
     }
@@ -1743,7 +1748,7 @@ void locate_last_game()
 
         mode_favourites = 0;
 
-        if(gui_mode == 0) {
+        if(gui_mode == 0 || gui_mode == 2) {
             currentdir = (pos/12) * 12;
             select_py = ((pos - currentdir)/4);
             select_px = (pos - currentdir) % 4;
@@ -1853,7 +1858,7 @@ s32 main(s32 argc, const char* argv[])
     } else if(is_firm_355dex()) {
         firmware = 0x355D; 
         payload_mode = is_payload_loaded_355dex();
-	} else if(is_firm_421()) {
+    } else if(is_firm_421()) {
         firmware = 0x421C;
         payload_mode = is_payload_loaded_421();
     } else if(is_firm_421dex()) {
@@ -1865,28 +1870,28 @@ s32 main(s32 argc, const char* argv[])
     } else if(is_firm_431()) {
         firmware = 0x431C;
         payload_mode = is_payload_loaded_431();
-	} else if(is_firm_430dex()) {
+    } else if(is_firm_430dex()) {
         firmware = 0x430D;
         payload_mode = is_payload_loaded_430dex();
-	} else if(is_firm_440()) {
+    } else if(is_firm_440()) {
         firmware = 0x440C;
         payload_mode = is_payload_loaded_440();
     } else if(is_firm_441()) {
         firmware = 0x441C;
         payload_mode = is_payload_loaded_441();
-	} else if(is_firm_446()) {
+    } else if(is_firm_446()) {
         firmware = 0x446C;
         payload_mode = is_payload_loaded_446();
-	} else if(is_firm_450()) {
+    } else if(is_firm_450()) {
         firmware = 0x450C;
         payload_mode = is_payload_loaded_450();
-	} else if(is_firm_450dex()) {
+    } else if(is_firm_450dex()) {
         firmware = 0x450D;
         payload_mode = is_payload_loaded_450dex();
-	} else if(is_firm_453()) {
+    } else if(is_firm_453()) {
         firmware = 0x453C;
         payload_mode = is_payload_loaded_453();
-	}
+    }
 
     if(is_cobra_based()) use_cobra = 1;
 
@@ -1904,8 +1909,8 @@ s32 main(s32 argc, const char* argv[])
                     __asm__("sync");
                     sleep(1); /* maybe need it, maybe not */
                     break;
-        		case HERMES_PAYLOAD:
-        		    break;
+                case HERMES_PAYLOAD:
+                    break;
             }
             break;
         case 0x355C:
@@ -1914,21 +1919,21 @@ s32 main(s32 argc, const char* argv[])
             {
                 case WANIN_PAYLOAD:
                 case ZERO_PAYLOAD: //no payload installed
-            		install_new_poke(); /* need for patch lv2 */
+                    install_new_poke(); /* need for patch lv2 */
 
-            		if (!map_lv1()) {
-            			remove_new_poke();
+                    if (!map_lv1()) {
+                        remove_new_poke();
 
                         tiny3d_Init(1024*1024);
                         ioPadInit(7);
                         DrawDialogOK("Error Loading Payload: map failed?!");
-            			exit(0);
-            		}
+                        exit(0);
+                    }
 
-            		patch_lv2_protection(); /* yaw */
-            		remove_new_poke(); /* restore pokes */
+                    patch_lv2_protection(); /* yaw */
+                    remove_new_poke(); /* restore pokes */
         
-            		unmap_lv1();  /* 3.55 need unmap? */
+                    unmap_lv1();  /* 3.55 need unmap? */
                     
                     __asm__("sync");
                     sleep(1); /* dont touch! nein! */
@@ -1940,47 +1945,47 @@ s32 main(s32 argc, const char* argv[])
                         sprintf(temp_buffer, "WANINV2 DETECTED\nOLD SYSCALL 36 LOADED (mode=%i)\n\n - no big files allowed with this payload -", payload_mode);
                         sprintf(payload_str, "wanin cfw - old syscall36, no bigfiles allowed");
                     } else {
-		                load_payload_355(payload_mode);
+                        load_payload_355(payload_mode);
                        
                         __asm__("sync");
                         sleep(1); /* maybe need it, maybe not */
                     }
                     break;
-		        case SYS36_PAYLOAD:
+                case SYS36_PAYLOAD:
                     sys8_disable_all = 1;
                     sprintf(temp_buffer, "OLD SYSCALL 36 RESIDENT, RESPECT!\nNEW PAYLOAD NOT LOADED...\n\n - no big files allowed with this payload -");
                     sprintf(payload_str, "syscall36 resident - new payload no loaded, no bigfiles allowed");
                     break;
-        		case SKY10_PAYLOAD:
-        		    break;
+                case SKY10_PAYLOAD:
+                    break;
             }
             break;
         case 0x355D: //355dex
-			set_bdvdemu_355dex(payload_mode);
-			switch(payload_mode)
+            set_bdvdemu_355dex(payload_mode);
+            switch(payload_mode)
             {
                 case ZERO_PAYLOAD: //no payload installed
-					install_new_poke_355dex();
-            		if (!map_lv1_355dex()) {
-            			remove_new_poke_355dex();
+                    install_new_poke_355dex();
+                    if (!map_lv1_355dex()) {
+                        remove_new_poke_355dex();
 
                         tiny3d_Init(1024*1024);
                         ioPadInit(7);
                         DrawDialogOK("Error Loading Payload: map failed?!");
-            			exit(0);
-            		}
-            		patch_lv2_protection_355dex(); /* yaw */
-            		
-            		remove_new_poke_355dex(); /* restore pokes */
-            		unmap_lv1_355dex();  /* 3.55 need unmap? */
+                        exit(0);
+                    }
+                    patch_lv2_protection_355dex(); /* yaw */
+                    
+                    remove_new_poke_355dex(); /* restore pokes */
+                    unmap_lv1_355dex();  /* 3.55 need unmap? */
                     __asm__("sync");
                     
                     load_payload_355dex(payload_mode);
                     __asm__("sync");
                     sleep(1); /* maybe need it, maybe not */
                     break;
-        		case SKY10_PAYLOAD:
-        		    break;
+                case SKY10_PAYLOAD:
+                    break;
             }
             break;
         case 0x421C:
@@ -1992,12 +1997,12 @@ s32 main(s32 argc, const char* argv[])
                     __asm__("sync");
                     sleep(1); /* maybe need it, maybe not */
                     break;
-        		case SKY10_PAYLOAD:
-        		    break;
+                case SKY10_PAYLOAD:
+                    break;
             }
             break;
         case 0x421D: //4.21 dex
-			set_bdvdemu_421dex(payload_mode);
+            set_bdvdemu_421dex(payload_mode);
             switch(payload_mode)
             {
                 case ZERO_PAYLOAD: //no payload installed
@@ -2005,8 +2010,8 @@ s32 main(s32 argc, const char* argv[])
                     __asm__("sync");
                     sleep(1); /* maybe need it, maybe not */
                     break;
-        		case SKY10_PAYLOAD:
-        		    break;
+                case SKY10_PAYLOAD:
+                    break;
             }
             break;
         case 0x430C:
@@ -2018,8 +2023,8 @@ s32 main(s32 argc, const char* argv[])
                     __asm__("sync");
                     sleep(1); /* maybe need it, maybe not */
                     break;
-        		case SKY10_PAYLOAD:
-        		    break;
+                case SKY10_PAYLOAD:
+                    break;
             }
             break;
         case 0x431C:
@@ -2031,11 +2036,11 @@ s32 main(s32 argc, const char* argv[])
                     __asm__("sync");
                     sleep(1); /* maybe need it, maybe not */
                     break;
-        		case SKY10_PAYLOAD:
-        		    break;
+                case SKY10_PAYLOAD:
+                    break;
             }
             break;
-			        case 0x430D:
+                    case 0x430D:
             set_bdvdemu_430dex(payload_mode);
             switch(payload_mode)
             {
@@ -2044,11 +2049,11 @@ s32 main(s32 argc, const char* argv[])
                     __asm__("sync");
                     sleep(1); /* maybe need it, maybe not */
                     break;
-        		case SKY10_PAYLOAD:
-        		    break;
+                case SKY10_PAYLOAD:
+                    break;
             }
             break;
-		case 0x440C:
+        case 0x440C:
             set_bdvdemu_440(payload_mode);
             switch(payload_mode)
             {
@@ -2057,10 +2062,10 @@ s32 main(s32 argc, const char* argv[])
                     __asm__("sync");
                     sleep(1); /* maybe need it, maybe not */
                     break;
-        		case SKY10_PAYLOAD:
-        		    break;
+                case SKY10_PAYLOAD:
+                    break;
             }
-			break;
+            break;
         case 0x441C:
             set_bdvdemu_441(payload_mode);
             switch(payload_mode)
@@ -2070,10 +2075,10 @@ s32 main(s32 argc, const char* argv[])
                     __asm__("sync");
                     sleep(1); /* maybe need it, maybe not */
                     break;
-        		case SKY10_PAYLOAD:
-        		    break;
+                case SKY10_PAYLOAD:
+                    break;
             }
-			break;
+            break;
         case 0x446C:
             set_bdvdemu_446(payload_mode);
             switch(payload_mode)
@@ -2090,10 +2095,10 @@ s32 main(s32 argc, const char* argv[])
                     }
 
                     break;
-        		case SKY10_PAYLOAD:
-        		    break;
+                case SKY10_PAYLOAD:
+                    break;
             }
-			break;
+            break;
         case 0x450C:
             set_bdvdemu_450(payload_mode);
             switch(payload_mode)
@@ -2116,10 +2121,10 @@ s32 main(s32 argc, const char* argv[])
                     __asm__("sync");
                     sleep(1); /* maybe need it, maybe not */
                     break;
-        		case SKY10_PAYLOAD:
-        		    break;
+                case SKY10_PAYLOAD:
+                    break;
             }
-			break;
+            break;
         case 0x453C:
             set_bdvdemu_453(payload_mode);
             switch(payload_mode)
@@ -2145,7 +2150,7 @@ s32 main(s32 argc, const char* argv[])
             DrawDialogOK("Error: Unsupported firmware!");
             exit(0);
             break;
-	}
+    }
 
     usleep(250000);
 
@@ -2240,7 +2245,7 @@ s32 main(s32 argc, const char* argv[])
     mkdir_secure(temp_buffer);
     
         
-	// Load texture
+    // Load texture
 
     LoadTexture();
 
@@ -2260,7 +2265,7 @@ s32 main(s32 argc, const char* argv[])
 
     noBDVD = manager_cfg.noBDVD;
     gui_mode = manager_cfg.gui_mode & 15;
-    if(gui_mode == 1) sort_mode = (manager_cfg.gui_mode>>4); else sort_mode = 0;
+    if(gui_mode == 1 || gui_mode == 3) sort_mode = (manager_cfg.gui_mode>>4); else sort_mode = 0;
 
     if(noBDVD == 1) {
         use_cobra = 0; use_mamba = 0;
@@ -2347,9 +2352,9 @@ s32 main(s32 argc, const char* argv[])
     select_px = select_py = 0;
 
     fdevices=0;
-	fdevices_old=0;
-	forcedevices=0;
-	find_device=0;
+    fdevices_old=0;
+    forcedevices=0;
+    find_device=0;
 
     //syscall36("/dev_bdvd");
     add_sys8_bdvd(NULL, NULL);
@@ -2492,11 +2497,11 @@ s32 main(s32 argc, const char* argv[])
         int signal_force = fdevices == 0;
 
         if(forcedevices || (frame_count & 63)==0 || fdevices == 0)
-	    for(find_device = 0; find_device < 12; find_device++) {
+        for(find_device = 0; find_device < 12; find_device++) {
             
-			if(find_device==11) sprintf(filename, "/dev_bdvd");
-			else if(find_device==0) sprintf(filename, "/dev_hdd0");
-			else sprintf(filename, "/dev_usb00%c", 47+find_device);
+            if(find_device==11) sprintf(filename, "/dev_bdvd");
+            else if(find_device==0) sprintf(filename, "/dev_hdd0");
+            else sprintf(filename, "/dev_usb00%c", 47+find_device);
 
            
             if((!forcedevices || (fdevices & 2048)) && find_device == 11 && bdvd_notify == 0) {goto skip_bdvd;}
@@ -2510,7 +2515,7 @@ s32 main(s32 argc, const char* argv[])
             } else
                 ret= sysLv2FsStat(filename, &dstat);
 
-			if (ret == 0) {
+            if (ret == 0) {
 
                 // check bdemu
                 if((fdevices & (1<<find_device)) == 0 && find_device >= 0 && find_device < 11) 
@@ -2529,10 +2534,10 @@ s32 main(s32 argc, const char* argv[])
                     }
                 }
 
-				
+                
                 if(find_device == 11 && get_disc_ready()) bdvd_notify = 0;
-		    } else {
-		        // check psx
+            } else {
+                // check psx
                 if(find_device==11 && !noBDVD && (get_psx_region_cd() & 0x10) == 0x10) 
                     {bdvd_notify = 0;fdevices|= 1<<find_device; psx_inserted |= 0x100;}
                 else {
@@ -2544,20 +2549,20 @@ s32 main(s32 argc, const char* argv[])
             skip_bdvd:
             
 
-			// limit to 3 the devices selectables
-			if(((fdevices>>find_device) & 1) && find_device!=11) {
-			
+            // limit to 3 the devices selectables
+            if(((fdevices>>find_device) & 1) && find_device!=11) {
+            
                 count_devices++;
 
-				if(count_devices>3) fdevices&= ~ (1<<find_device);
+                if(count_devices>3) fdevices&= ~ (1<<find_device);
 
-			}
+            }
 
-			// bdvd
-			if(find_device==11) {
-				
-				if((fdevices!=fdevices_old || ((forcedevices>>find_device) & 1))) {
-				
+            // bdvd
+            if(find_device==11) {
+                
+                if((fdevices!=fdevices_old || ((forcedevices>>find_device) & 1))) {
+                
                     struct stat s;
                     found_game_insert = 1;
                     currentdir=0;
@@ -2583,22 +2588,22 @@ s32 main(s32 argc, const char* argv[])
                     }
                     else {
            
-					    sprintf(filename, "/dev_bdvd/PS3_GAME/PARAM.SFO");
-					    bluray_game[0]=0;
-					    // whatever... unused if -- remove later?
-					    if(parse_param_sfo("/dev_bdvd/PS3_GAME/PARAM.SFO", bluray_game)==-1);
-					    bluray_game[63]=0;
-					}
-					found_game_insert=1;		
-					if(((fdevices>>11) & 1)  && !mode_homebrew && !noBDVD) {
+                        sprintf(filename, "/dev_bdvd/PS3_GAME/PARAM.SFO");
+                        bluray_game[0]=0;
+                        // whatever... unused if -- remove later?
+                        if(parse_param_sfo("/dev_bdvd/PS3_GAME/PARAM.SFO", bluray_game)==-1);
+                        bluray_game[63]=0;
+                    }
+                    found_game_insert=1;        
+                    if(((fdevices>>11) & 1)  && !mode_homebrew && !noBDVD) {
 
-						if(ndirectories>=MAX_DIRECTORIES) ndirectories= MAX_DIRECTORIES-1;
-                        					
-						sprintf(directories[ndirectories].path_name, "/dev_bdvd");
-								
-					    memcpy(directories[ndirectories].title, bluray_game, 63);
-						directories[ndirectories].title[63]=0;
-						directories[ndirectories].flags=(1<<11) | ((psx_inserted & 0xff)<<16);
+                        if(ndirectories>=MAX_DIRECTORIES) ndirectories= MAX_DIRECTORIES-1;
+                                            
+                        sprintf(directories[ndirectories].path_name, "/dev_bdvd");
+                                
+                        memcpy(directories[ndirectories].title, bluray_game, 63);
+                        directories[ndirectories].title[63]=0;
+                        directories[ndirectories].flags=(1<<11) | ((psx_inserted & 0xff)<<16);
                         if(!psx_inserted) {
                             sprintf(filename, "%s/%s", directories[ndirectories].path_name, "PS3_DISC.SFB" );
                             parse_ps3_disc((char *) filename, directories[ndirectories].title_id);
@@ -2651,29 +2656,29 @@ s32 main(s32 argc, const char* argv[])
                         //parse_param_sfo_id(filename, directories[ndirectories].title_id);
                         //directories[ndirectories].title_id[63]=0;
                        
-						
+                        
 
-		    	    } else {
-						
+                    } else {
+                        
                         delete_entries(directories, &ndirectories, (1<<11));
                         found_game_remove=1;
                     }
 
-					sort_entries2(directories, &ndirectories, sort_mode);              
-				}
-				
-				forcedevices &= ~ (1<<find_device);
-				fdevices_old &= ~ (1<<find_device);
-				fdevices_old |= fdevices & (1<<find_device);
-			} else
-			// refresh list 
-			if(fdevices!=fdevices_old || ((forcedevices>>find_device) & 1)) {
-					
+                    sort_entries2(directories, &ndirectories, sort_mode);              
+                }
+                
+                forcedevices &= ~ (1<<find_device);
+                fdevices_old &= ~ (1<<find_device);
+                fdevices_old |= fdevices & (1<<find_device);
+            } else
+            // refresh list 
+            if(fdevices!=fdevices_old || ((forcedevices>>find_device) & 1)) {
+                    
                 currentdir=0;
-				found_game_insert = 1;	
-				forcedevices &= ~ (1<<find_device);
+                found_game_insert = 1;    
+                forcedevices &= ~ (1<<find_device);
 
-				if(find_device==0) {
+                if(find_device==0) {
                     if (!memcmp(hdd_folder,"dev_hdd0",9)) {
                         sprintf(filename, "/%s/" __MKDEF_GAMES_DIR,hdd_folder); 
                     } else if (!memcmp(hdd_folder,"dev_hdd0_2", 11)) {
@@ -2703,20 +2708,20 @@ s32 main(s32 argc, const char* argv[])
                     
                 }
 
-		        if(((fdevices>>find_device) & 1) && (!mode_homebrew || (mode_homebrew && find_device!=0)) ) {
+                if(((fdevices>>find_device) & 1) && (!mode_homebrew || (mode_homebrew && find_device!=0)) ) {
                     fill_entries_from_device(filename, directories, &ndirectories, (1<<find_device) | ((1<<31) * (mode_homebrew!=0)), 0 | (2 * (mode_homebrew!=0)));
                     found_game_insert=1;
                 } else {
                     delete_entries(directories, &ndirectories, (1<<find_device));
                     found_game_remove=1;
                 }
-				
+                
                 sort_entries2(directories, &ndirectories, sort_mode);
 
-				fdevices_old&= ~ (1<<find_device);
-				fdevices_old|= fdevices & (1<<find_device);
-			}
-		}
+                fdevices_old&= ~ (1<<find_device);
+                fdevices_old|= fdevices & (1<<find_device);
+            }
+        }
 
         // NTFS/EXTx
         if(noBDVD == 2 && use_cobra) {
@@ -2791,7 +2796,7 @@ s32 main(s32 argc, const char* argv[])
 
         /////////////////////////////////////
 
-        if(gui_mode == 1)
+        if(gui_mode == 1 || gui_mode == 3)
             cls0();
         else {
             cls();
@@ -2889,7 +2894,7 @@ s32 main(s32 argc, const char* argv[])
             
         switch(menu_screen) {
             case 0:
-                if(gui_mode == 0) draw_gui1(x, y);
+                if(gui_mode == 0 || gui_mode == 2) draw_gui1(x, y);
                 else draw_gui2(x, y);
                 gui_control();
                 break;
@@ -2934,7 +2939,7 @@ s32 main(s32 argc, const char* argv[])
         auto_ftp(); // auto enable the ftp
      }
      
-	return 0;
+    return 0;
 }
 
 // draw_cachesel
@@ -3322,6 +3327,8 @@ void draw_gui1(float x, float y)
             //draw Splited box
             //if(directories[currentgamedir].splitted)
             //    DrawBox(x + 198 * m, (y - 2) + n * 150, 0, 194, 144, 0x55ff3328 );
+
+            int set_ps3_cover = 0;
             
             if(Png_offset[i]) {
                
@@ -3350,7 +3357,19 @@ void draw_gui1(float x, float y)
                                              Png_datas[i].height, Png_datas[i].wpitch, 
                                              TINY3D_TEX_FORMAT_A8R8G8B8,  TEXTWRAP_CLAMP, TEXTWRAP_CLAMP,1);
 
-                if(Png_iscover[i] == -1)
+                if(Png_iscover[i] == 1) set_ps3_cover = 1; // PS3 cover
+                if((directories[get_currentdir(i)].flags  & ((1<<11) | (1<<23)))== ((1<<23))) {
+                    set_ps3_cover = 2; // PSX cover
+                    if((directories[get_currentdir(i)].flags  & (1<<24)) == (1<<24)) set_ps3_cover = 3 + 1 *(Png_iscover[i] < 0); // PS2 cover
+                }
+
+                if(set_ps3_cover && gui_mode != 0) {
+                    if(set_ps3_cover == 2 || set_ps3_cover == 4)
+                        DrawTextBoxCover(x + 16 + 200 * m - 4 * f2, y + n * 150 - 4 * f2, 0, 160 + 8 * f2, 142 + 8 * f2, (0xffffffff- (MAX_FLASH * 2 * f)) + (flash2 * 2 * f), set_ps3_cover - 1);
+                    else
+                        DrawTextBoxCover(x + 36 + 200 * m - 4 * f2, y + n * 150 - 4 * f2, 0, 124 + 8 * f2, 142 + 8 * f2, (0xffffffff- (MAX_FLASH * 2 * f)) + (flash2 * 2 * f), set_ps3_cover - 1);
+
+                } else if(Png_iscover[i] == -1)
                     DrawTextBox(x + 25 + 200 * m - 4 * f2, y + n * 150 - 4 * f2, 0, 142 + 8 * f2, 142 + 8 * f2, (0xffffffff- (MAX_FLASH * 2 * f)) + (flash2 * 2 * f));
                 else if(Png_iscover[i] == 1)
                     DrawTextBox(x + 36 + 200 * m - 4 * f2, y + n * 150 - 4 * f2, 0, 124 + 8 * f2, 142 + 8 * f2, (0xffffffff- (MAX_FLASH * 2 * f)) + (flash2 * 2 * f));
@@ -3599,6 +3618,10 @@ void draw_gui1(float x, float y)
 
 }
 
+static int anim_mode = 0, anim_step = 0;
+static int g_saved = 0;
+static int g_rel_posx[2];
+
 void draw_gui2(float x, float y)
 {
     int i, n, m;
@@ -3757,14 +3780,17 @@ void draw_gui2(float x, float y)
 
         if((select_px == m && select_py == n)) {
             centerx = relx;
-            if(Png_iscover[i] == -1) centerx+= (142 + 10)/2;
+            if(Png_iscover[i] == -1 && ((directories[get_currentdir(i)].flags  & ((1<<11) | (1<<23)))== ((1<<23)))) centerx+= (162 + 10)/2;
+            else if(Png_iscover[i] == -1) centerx+= (142 + 10)/2;
             else if(Png_iscover[i] == 1) centerx+= (124 + 10)/2;
             else centerx+= (162 + 10)/2;
         }
 
         if(Png_offset[i]) {
-
-            if(Png_iscover[i] == -1)
+            
+            if(Png_iscover[i] == -1 && ((directories[get_currentdir(i)].flags  & ((1<<11) | (1<<23)))== ((1<<23))))
+                {rel_posx[i] = relx; rel_widthx[i] = 162; relx+= rel_widthx[i] + 10;}
+            else if(Png_iscover[i] == -1)
                 {rel_posx[i] = relx; rel_widthx[i] = 142; relx+= rel_widthx[i] + 10;}
             else if(Png_iscover[i] == 1)
                 {rel_posx[i] = relx; rel_widthx[i] = 124; relx+= rel_widthx[i] + 10;}
@@ -3777,6 +3803,7 @@ void draw_gui2(float x, float y)
         i++;
     }
 
+    
     //////////////////////
 
     u32 color_line = 0x404040ff;
@@ -3786,6 +3813,39 @@ void draw_gui2(float x, float y)
     if(centerx < 848/2) centerx = -(848/2 - centerx); else centerx -= 848/2;
 
     if((rel_posx[0] - centerx) > 30)  centerx = -30;
+
+    // -> anim_mode
+    if(!anim_mode || !g_saved || gui_mode == 3) { // with gui_mode == 3 don´t scroll the covers
+        n = select_px + select_py *4;
+       
+        if((n - 1) < 0) g_rel_posx[0] = rel_posx[0] - centerx; else g_rel_posx[0] = rel_posx[n - 1] - centerx;
+        if((n + 1) > 11) g_rel_posx[1] = rel_posx[11] - centerx; else g_rel_posx[1] = rel_posx[n + 1] - centerx;
+          
+        anim_mode = 0;
+        g_saved = 1;
+
+    } else {
+        
+        if(anim_mode == 2) {
+
+            int a = g_rel_posx[1] - (rel_posx[select_px + select_py * 4] - centerx);
+
+            centerx -= (a * (4 - anim_step))/5;
+
+            anim_step++; if(anim_step > 4) {anim_mode = 0; g_saved = 0;}
+
+        } else if(anim_mode == 1) {
+
+            int a = g_rel_posx[0] - (rel_posx[select_px + select_py * 4] - centerx);
+
+            centerx -= (a * (4 - anim_step))/5;
+
+            anim_step++; if(anim_step > 4) {anim_mode = 0; g_saved = 0;}
+        }
+       
+    }
+
+    // -> end anim_mode
 
     float f3 = 0.0f;
     
@@ -3806,6 +3866,8 @@ void draw_gui2(float x, float y)
 
 
                 if(f) {f2 = 3 + 2 *f2; f3 = f2;}
+
+                int set_ps3_cover = 0;
                 
                 
                 if(Png_offset[i]) {
@@ -3829,20 +3891,34 @@ void draw_gui2(float x, float y)
                            tiny3d_SetTextureWrap(0, Png_res_offset[0], Png_res[0].width, 
                                                  Png_res[0].height, Png_res[0].wpitch, 
                                                  TINY3D_TEX_FORMAT_A8R8G8B8,  TEXTWRAP_CLAMP, TEXTWRAP_CLAMP,1);
-                    } else
+                    } else {
                         tiny3d_SetTextureWrap(0, Png_offset[i], Png_datas[i].width, 
                                                  Png_datas[i].height, Png_datas[i].wpitch, 
                                                  TINY3D_TEX_FORMAT_A8R8G8B8,  TEXTWRAP_CLAMP, TEXTWRAP_CLAMP,1);
+                    }
+
+                    if(Png_iscover[i] == 1) set_ps3_cover = 1; // PS3 cover
+                    
+                    if((directories[get_currentdir(i)].flags  & ((1<<11) | (1<<23)))== ((1<<23))) {
+                        set_ps3_cover = 2; // PSX cover
+                        if((directories[get_currentdir(i)].flags  & (1<<24)) == (1<<24)) set_ps3_cover = 3 + 1 *(Png_iscover[i] < 0); // PS2 cover
+                    }
 
 
-                    
-                    DrawBox(rel_posx[i] - centerx - 4 * f2, rel_posy[i] - 4 * f2, !f ? 100 : 0, rel_widthx[i] + 8 * f2, rel_widthy[i] + 8 * f2, 0x00000028);
-                    
-                    DrawTextBoxLine(rel_posx[i] - centerx - 4 * f2, rel_posy[i] - 4 * f2, !f ? 100 : 0, rel_widthx[i] + 8 * f2, rel_widthy[i] + 8 * f2, 0xffffffff, color_line);
+                    if(!set_ps3_cover)
+                        DrawBox(rel_posx[i] - centerx - 4 * f2, rel_posy[i] - 4 * f2, !f ? 100 : 0, rel_widthx[i] + 8 * f2, rel_widthy[i] + 8 * f2, 0x00000028);
 
-                    
-                    DrawBoxShadow(rel_posx[i] - centerx - 4 * f2, y + icony - 4 * f2 + 142 + 8 * f2 + 8, !f ? 100 : 0, rel_widthx[i] + 8 * f2, (rel_widthy[i]  * 5 / 8 + 8 * f2), 0x00000028);
-                    DrawTextBoxShadow(rel_posx[i] - centerx - 4 * f2, y + icony - 4 * f2 + 142 + 8 * f2 + 8, !f ? 100 : 0, rel_widthx[i] + 8 * f2, (rel_widthy[i]  * 5 / 8 + 8 * f2), 0x60606090);
+                    if(set_ps3_cover) 
+                        DrawTextBoxCover(rel_posx[i] - centerx - 4 * f2, rel_posy[i] - 4 * f2, !f ? 100 : 0, rel_widthx[i] + 8 * f2, rel_widthy[i] + 8 * f2, 0xffffffff, set_ps3_cover - 1);
+                    else
+                        DrawTextBoxLine(rel_posx[i] - centerx - 4 * f2, rel_posy[i] - 4 * f2, !f ? 100 : 0, rel_widthx[i] + 8 * f2, rel_widthy[i] + 8 * f2, 0xffffffff, color_line);
+
+                    if(!set_ps3_cover) {
+                        DrawBoxShadow(rel_posx[i] - centerx - 4 * f2, y + icony - 4 * f2 + 142 + 8 * f2 + 8, !f ? 100 : 0, rel_widthx[i] + 8 * f2, (rel_widthy[i]  * 5 / 8 + 8 * f2), 0x00000028);
+                        DrawTextBoxShadow(rel_posx[i] - centerx - 4 * f2, y + icony - 4 * f2 + 142 + 8 * f2 + 8, !f ? 100 : 0, rel_widthx[i] + 8 * f2, (rel_widthy[i]  * 5 / 8 + 8 * f2), 0x60606090);
+                    } else {
+                        DrawTextBoxCoverShadow(rel_posx[i] - centerx - 4 * f2, y + icony - 4 * f2 + 142 + 8 * f2 + 8, !f ? 100 : 0, rel_widthx[i] + 8 * f2, (rel_widthy[i]  * 5 / 8 + 8 * f2), 0x60606090, set_ps3_cover - 1);
+                    }
                  
                     
                    // if((mode_favourites !=0) && favourites.list[i].index < 0) exit(0);
@@ -3867,10 +3943,20 @@ void draw_gui2(float x, float y)
                             Png_res[ii].height, Png_res[ii].wpitch, 
                                 TINY3D_TEX_FORMAT_A8R8G8B8,  TEXTWRAP_CLAMP, TEXTWRAP_CLAMP,1);
 
+                            int x_cor = 0, y_cor = 0;
+
+                            if(set_ps3_cover == 1 || set_ps3_cover == 3) {
+                                x_cor = 0; y_cor = 16;
+                            }
+
+                            if(set_ps3_cover == 2 || set_ps3_cover == 4) {
+                                x_cor = 12; y_cor = 0;
+                            }
+
                             if(directories[get_currentdir(i)].splitted)
-                                DrawTextBoxLine(rel_posx[i] - centerx - 4 * f2 + 4, rel_posy[i] + 4 - 4 * f2, !f ? 100 : 0, 32, 24, 0xff9999aa, color_line);
+                                DrawTextBoxLine(x_cor + rel_posx[i] - centerx - 4 * f2 + 4, y_cor + rel_posy[i] + 4 - 4 * f2, !f ? 100 : 0, 32, 24, 0xff9999aa, color_line);
                             else
-                                DrawTextBoxLine(rel_posx[i] - centerx - 4 * f2 + 4, rel_posy[i] + 4 - 4 * f2, !f ? 100 : 0, 32, 24, 0xffffffcf, color_line);
+                                DrawTextBoxLine(x_cor + rel_posx[i] - centerx - 4 * f2 + 4, y_cor + rel_posy[i] + 4 - 4 * f2, !f ? 100 : 0, 32, 24, 0xffffffcf, color_line);
                             
                         }
                     }
@@ -4315,7 +4401,7 @@ void gui_control()
 
                 mode_favourites = 0;
 
-                if(gui_mode == 0) {
+                if(gui_mode == 0 || gui_mode == 2) {
                     currentdir = (pos/12) * 12;
                     select_py = ((pos - currentdir)/4);
                     select_px = (pos - currentdir) % 4;
@@ -4475,7 +4561,7 @@ void gui_control()
                         
                         if (blank_iso)
                         {
-                            files[0] = blank_iso;			
+                            files[0] = blank_iso;            
                             int ret = cobra_mount_ps3_disc_image(files, 1);
                             free(blank_iso);
                             
@@ -4486,7 +4572,7 @@ void gui_control()
                                 //DrawDialogOKTimer("PS3 Disc inserted", 2000.0f);
                               
                             }
-                        }	
+                        }    
                             
                     }
                 
@@ -5062,7 +5148,7 @@ void gui_control()
 /* GUI 0                                                                                                    */
 /************************************************************************************************************/
 
-    if(gui_mode == 0) {
+    if(gui_mode == 0 || gui_mode == 2) {
 
     AUTO_BUTTON_REP(auto_up, BUTTON_UP)
     AUTO_BUTTON_REP(auto_down, BUTTON_DOWN)
@@ -5191,6 +5277,8 @@ void gui_control()
         auto_up = 1;
         frame_count = 32;
 
+        anim_mode = 0; anim_step = 0;
+
         if(mode_favourites >= 65536) ;
         else if(mode_favourites) {
             mode_favourites = 0;
@@ -5213,6 +5301,8 @@ void gui_control()
 
         auto_down = 1;
         frame_count = 32;
+
+        anim_mode = 0; anim_step = 0;
         
         if(mode_favourites >= 65536) ;
         else if(mode_favourites) {
@@ -5305,7 +5395,10 @@ void gui_control()
                 event_thread_send(0x555ULL, (u64) get_games_3, 0);
 
             } else get_games();
+
         }
+
+        anim_mode = 1; anim_step = 0;
 
         return;
     }
@@ -5366,7 +5459,10 @@ void gui_control()
                 event_thread_send(0x555ULL, (u64) get_games_3, 1ULL);
 
             } else get_games();
+
         }
+
+        anim_mode = 2; anim_step = 0;
         
 
         return;
@@ -5376,6 +5472,8 @@ void gui_control()
     {
         
         frame_count = 32;
+
+        anim_mode = 0; anim_step = 0;
             
         if(mode_favourites >= 65536) ;
         else if(mode_favourites) {mode_favourites = 0; select_px = select_py = 0;get_games();}
@@ -5391,6 +5489,8 @@ void gui_control()
     {
         //maybe wait some seconds here...
         frame_count = 32;
+
+        anim_mode = 0; anim_step = 0;
             
         if(mode_favourites >= 65536) ;
         else if(mode_favourites) {if(currentdir >= ndirectories) {currentdir = 0; select_px = select_py = 0;} mode_favourites = 0; get_games();}
@@ -5411,6 +5511,8 @@ void gui_control()
         select_px = select_py = 0;
         select_option = 0;
         menu_screen = 0;
+
+        anim_mode = 0; anim_step = 0;
         
         ndirectories = 0;
 
@@ -5446,6 +5548,8 @@ void gui_control()
         menu_screen = 0;
         
         ndirectories = 0;
+
+        anim_mode = 0; anim_step = 0;
 
         fdevices=0;
         fdevices_old=0;
@@ -7496,7 +7600,8 @@ void draw_gbloptions(float x, float y)
 
             case 1:
                 //set_last_game();
-                gui_mode = gui_mode==0;
+                gui_mode++;
+                if(gui_mode > 3) gui_mode = 0;
                 manager_cfg.gui_mode = ((sort_mode & 0xf)<<4) | (gui_mode & 0xf);
                 select_option = 0;
                 menu_screen = 0; 
@@ -7833,6 +7938,22 @@ void draw_toolsoptions(float x, float y)
             case 7:
                 select_option = 0;
                 menu_screen = 0;
+
+                int r= ftp_net_status();
+
+                if(r == -1) {
+                   ftp_net_init();
+                   r = ftp_net_status();
+                } 
+
+                if(r == -4) {
+                   ftp_net_deinit();
+                   ftp_net_init();
+                   r = ftp_net_status();
+                }
+
+               if(r != 0) break;
+
                 n = covers_update(0);
                 if(n == -1) n = covers_update(1); // try again
                 wait_event_thread();

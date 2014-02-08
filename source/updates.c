@@ -19,6 +19,7 @@
 
 extern volatile int dialog_action ;
 void my_dialog(msgButton button, void *userdata);
+extern int gui_mode;
 
 
 void get_games();
@@ -48,7 +49,7 @@ static void progress_callback(msgButton button, void *userdata)
             break;
         default:
             
-		    break;
+            break;
     }
 }
 
@@ -74,53 +75,53 @@ static void single_bar(char *caption)
 
 int param_sfo_app_ver(char * path, char *app_ver)
 {
-	s32 fd;
+    s32 fd;
     u64 bytes;
     u64 position = 0LL;
     
     unsigned char *mem = NULL;
-	
+    
     if(!sysLv2FsOpen(path, 0, &fd, S_IRWXU | S_IRWXG | S_IRWXO, NULL, 0)) {
-		unsigned len, pos, str;
-		
+        unsigned len, pos, str;
+        
 
         sysLv2FsLSeek64(fd, 0, 2, &position);
-		len = (u32) position;
+        len = (u32) position;
 
-		mem = (unsigned char *) malloc(len+16);
-		if(!mem) {sysLv2FsClose(fd); return -2;}
+        mem = (unsigned char *) malloc(len+16);
+        if(!mem) {sysLv2FsClose(fd); return -2;}
 
-		memset(mem, 0, len+16);
+        memset(mem, 0, len+16);
 
-		sysLv2FsLSeek64(fd, 0, 0, &position);
-		
+        sysLv2FsLSeek64(fd, 0, 0, &position);
+        
         if(sysLv2FsRead(fd, mem, len, &bytes)!=0) bytes =0LL;
 
         len = (u32) bytes;
 
-		sysLv2FsClose(fd);
+        sysLv2FsClose(fd);
 
-		str= (mem[8]+(mem[9]<<8));
-		pos= (mem[0xc]+(mem[0xd]<<8));
+        str= (mem[8]+(mem[9]<<8));
+        pos= (mem[0xc]+(mem[0xd]<<8));
 
-		int indx=0;
+        int indx=0;
 
-		while(str<len) {
-			if(mem[str]==0) break;
+        while(str<len) {
+            if(mem[str]==0) break;
 
             if(!strcmp((char *) &mem[str], "APP_VER")) {
                
-				strncpy(app_ver, (char *) &mem[pos], 5);
+                strncpy(app_ver, (char *) &mem[pos], 5);
                 app_ver[5] = 0;
 
                 break;
                 
-			}
+            }
 
-			while(mem[str]) str++;str++;
-			pos+=(mem[0x1c+indx]+(mem[0x1d+indx]<<8));
-			indx+=16;
-		}
+            while(mem[str]) str++;str++;
+            pos+=(mem[0x1c+indx]+(mem[0x1d+indx]<<8));
+            indx+=16;
+        }
 
     if(mem) free(mem);
 
@@ -128,7 +129,7 @@ int param_sfo_app_ver(char * path, char *app_ver)
         
     }
 
-	return -1;
+    return -1;
 
 }
 
@@ -178,7 +179,7 @@ static int download_update(char *url, char *file, int mode, u64 *size)
     int flags = 0;
     int ret = 0;
     void *http_p = NULL;
-	void *ssl_p = NULL;
+    void *ssl_p = NULL;
     void *uri_p = NULL;
     void *cert_buffer = NULL;
     httpUri uri;
@@ -211,7 +212,7 @@ static int download_update(char *url, char *file, int mode, u64 *size)
     if(!ssl_p) {ret= -2; goto err;}
 
     ret = httpInit(http_p, 0x10000);
-	if(ret < 0) goto err;
+    if(ret < 0) goto err;
     flags|= 1;
 
     ret = sslInit(ssl_p, 0x40000);
@@ -230,7 +231,7 @@ static int download_update(char *url, char *file, int mode, u64 *size)
     httpsData caList;
 
     caList.ptr = cert_buffer;
-	caList.size = cert_size;
+    caList.size = cert_size;
 
     ret = httpsInit(1, (const httpsData *) &caList);
     if(ret < 0) goto err;
@@ -240,36 +241,36 @@ static int download_update(char *url, char *file, int mode, u64 *size)
     if(ret < 0) goto err;
     flags|= 8;
 
-	ret = httpUtilParseUri(NULL, url, NULL, 0, &pool_size);
-	if (ret < 0) goto err;
+    ret = httpUtilParseUri(NULL, url, NULL, 0, &pool_size);
+    if (ret < 0) goto err;
 
-	uri_p = malloc(pool_size);
-	if (!uri_p) goto err;
+    uri_p = malloc(pool_size);
+    if (!uri_p) goto err;
 
-	ret = httpUtilParseUri(&uri, url, uri_p, pool_size, NULL);
-	if (ret < 0) goto err;
+    ret = httpUtilParseUri(&uri, url, uri_p, pool_size, NULL);
+    if (ret < 0) goto err;
 
     ret = httpCreateTransaction(&transID, clientID, HTTP_METHOD_GET, &uri);
-	if (ret < 0) goto err;
+    if (ret < 0) goto err;
     
     free(uri_p); 
     uri_p = NULL;
 
-	ret = httpSendRequest(transID, NULL, 0, NULL);
-	if (ret < 0) goto err;
-		
+    ret = httpSendRequest(transID, NULL, 0, NULL);
+    if (ret < 0) goto err;
+        
     ret = httpResponseGetStatusCode(transID, &code);
     if (ret < 0) goto err;
-		
-	if (code == 404 || code == 403) {ret=-4; goto err;}
+        
+    if (code == 404 || code == 403) {ret=-4; goto err;}
 
-	ret = httpResponseGetContentLength(transID, &length);
-	if (ret < 0) {
-		if (ret == HTTP_STATUS_CODE_No_Content) {
+    ret = httpResponseGetContentLength(transID, &length);
+    if (ret < 0) {
+        if (ret == HTTP_STATUS_CODE_No_Content) {
             length = 0ULL;
             ret = 0;
-		} else goto err;
-	}
+        } else goto err;
+    }
 
     if(size) *size = length;
 
@@ -281,23 +282,23 @@ static int download_update(char *url, char *file, int mode, u64 *size)
     }
     
     fp = fopen(file, "wb");
-	if(!fp) goto err;
-	
+    if(!fp) goto err;
+    
     int acum = 0;
-	while (recv != 0 && length != 0ULL) {
+    while (recv != 0 && length != 0ULL) {
         int n;
 
         for(n = 0; n < 5; n++) {
             memset(buffer, 0x0, sizeof(buffer));
-		    if (httpRecvResponse(transID, buffer, sizeof(buffer) - 1, &recv) < 0) {
+            if (httpRecvResponse(transID, buffer, sizeof(buffer) - 1, &recv) < 0) {
                 if(n == 4) {fclose(fp); ret = -5; goto err;} 
                 else sleep(1);
             } else break;
         }
         
-		if (recv == 0) break;
-		if (recv > 0) {
-			//if(fwrite(buffer, 1, recv, fp) != recv) {fclose(fp); fp = NULL; ret = -6; goto err;}
+        if (recv == 0) break;
+        if (recv > 0) {
+            //if(fwrite(buffer, 1, recv, fp) != recv) {fclose(fp); fp = NULL; ret = -6; goto err;}
             ///////////////////
 
         loop_write:
@@ -336,7 +337,7 @@ static int download_update(char *url, char *file, int mode, u64 *size)
             ///////////////////
             length -= recv;
             acum+= recv;
-		}
+        }
 
         if(mode == 2 && progress_action == 2) {ret = -0x555; goto err;}
 
@@ -353,11 +354,11 @@ static int download_update(char *url, char *file, int mode, u64 *size)
                 }
             }
         }
-	}
+    }
 
  
-	ret = 0;
-	
+    ret = 0;
+    
 err:
 
     if(my_f_async.flags & ASYNC_ENABLE){
@@ -427,7 +428,7 @@ static int download_file(char *url, char *file, int mode, u64 *size)
     if(!http_p) {ret= -1; goto err;}
 
     ret = httpInit(http_p, 0x10000);
-	if(ret < 0) goto err;
+    if(ret < 0) goto err;
     flags|= 1;
 
     ret = httpCreateClient(&clientID);
@@ -436,28 +437,28 @@ static int download_file(char *url, char *file, int mode, u64 *size)
 
     httpClientSetConnTimeout(clientID, 20000000);
 
-	ret = httpUtilParseUri(NULL, url, NULL, 0, &pool_size);
-	if (ret < 0) goto err;
+    ret = httpUtilParseUri(NULL, url, NULL, 0, &pool_size);
+    if (ret < 0) goto err;
 
-	uri_p = malloc(pool_size);
-	if (!uri_p) goto err;
+    uri_p = malloc(pool_size);
+    if (!uri_p) goto err;
 
-	ret = httpUtilParseUri(&uri, url, uri_p, pool_size, NULL);
-	if (ret < 0) goto err;
+    ret = httpUtilParseUri(&uri, url, uri_p, pool_size, NULL);
+    if (ret < 0) goto err;
 
     ret = httpCreateTransaction(&transID, clientID, HTTP_METHOD_GET, &uri);
-	if (ret < 0) goto err;
+    if (ret < 0) goto err;
     
     free(uri_p); 
     uri_p = NULL;
 
-	ret = httpSendRequest(transID, NULL, 0, NULL);
-	if (ret < 0) goto err;
-		
+    ret = httpSendRequest(transID, NULL, 0, NULL);
+    if (ret < 0) goto err;
+        
     ret = httpResponseGetStatusCode(transID, &code);
     if (ret < 0) goto err;
-		
-	if (code == 404 || code == 403) {ret=-4; goto err;}
+        
+    if (code == 404 || code == 403) {ret=-4; goto err;}
 
     
     ret = httpResponseGetContentLength(transID, &length);
@@ -486,26 +487,26 @@ static int download_file(char *url, char *file, int mode, u64 *size)
     }
     
     fp = fopen(file, "wb");
-	if(!fp) goto err;
+    if(!fp) goto err;
 
     if(!strncmp(file, "/dev_hdd0", 9)) sysFsChmod(file, FS_S_IFMT | 0777);
-	
+    
     int acum = 0;
     int acum2 = 0;
-	while (recv != 0 && length != 0ULL) {
+    while (recv != 0 && length != 0ULL) {
         int n;
 
         for(n = 0; n < 5; n++) {
             memset(buffer, 0x0, sizeof(buffer));
-		    if (httpRecvResponse(transID, buffer, sizeof(buffer) - 1, &recv) < 0) {
+            if (httpRecvResponse(transID, buffer, sizeof(buffer) - 1, &recv) < 0) {
                 if(n == 4) {fclose(fp); ret = -5; goto err;} 
                 else sleep(1);
             } else break;
         }
 
-		if (recv == 0) break;
-		if (recv > 0) {
-			//if(fwrite(buffer, 1, recv, fp) != recv) {fclose(fp); fp = NULL; ret = -6; goto err;}
+        if (recv == 0) break;
+        if (recv > 0) {
+            //if(fwrite(buffer, 1, recv, fp) != recv) {fclose(fp); fp = NULL; ret = -6; goto err;}
             ///////////////////
 
         loop_write:
@@ -547,7 +548,7 @@ static int download_file(char *url, char *file, int mode, u64 *size)
             length -= recv;
             acum+= recv;
             acum2+= recv;
-		}
+        }
 
         if(mode == 2 && progress_action == 2) {ret = -0x555; goto err;}
 
@@ -564,16 +565,16 @@ static int download_file(char *url, char *file, int mode, u64 *size)
                 }
             }
         }
-	}
+    }
 
-	ret = 0;
+    ret = 0;
 
     if(no_len_flag) { // return size readed
 
         if(size) *size = (u64) acum2;
 
     }
-	
+    
 err:
 
     if(my_f_async.flags & ASYNC_ENABLE){
@@ -1020,15 +1021,17 @@ int game_update(char *title_id)
     id[4] = title_id[5]; id[5] = title_id[6]; id[6] = title_id[7]; id[7] = title_id[8]; id[8] = title_id[9]; id[9] = 0;
 
     game_up_mode = 0;
-    ret = cover_update(title_id);
-   
-    if(ret == 0) {
-        wait_event_thread();
-        get_games();
 
-        DrawDialogOKTimer("Cover Downloaded", 2000.0f);
-    } else if (ret == -2) DrawDialogOKTimer("Invalid Cover", 2000.0f);
+    if(gui_mode != 0) {
+        ret = cover_update(title_id);
+       
+        if(ret == 0) {
+            wait_event_thread();
+            get_games();
 
+            DrawDialogOKTimer("Cover Downloaded", 2000.0f);
+        } else if (ret == -2) DrawDialogOKTimer("Invalid Cover", 2000.0f);
+    }
                     
     if(DrawDialogYesNo("Want you update the Game?") != 1) return 0;
 
@@ -1219,17 +1222,17 @@ int copy_async_gbl(char *path1, char *path2, u64 size, char *progress_string1, c
     cpart = 0;
     
     fp = fopen(path1, "rb");
-	if(!fp) {ret = -1; goto err;}
+    if(!fp) {ret = -1; goto err;}
     fp2 = fopen(path2, "wb");
-	if(!fp2) {ret = -2; goto err;}
-	
+    if(!fp2) {ret = -2; goto err;}
+    
     int acum = 0;
-	while (size != 0ULL) {
+    while (size != 0ULL) {
         int recv = (size > 16384) ? 16384 : size;
 
         recv = fread(buffer, 1, recv, fp);
-		if (recv <= 0) break;
-		if (recv > 0) {
+        if (recv <= 0) break;
+        if (recv > 0) {
 
         loop_write:
             if(use_async_fd == 128) {
@@ -1267,7 +1270,7 @@ int copy_async_gbl(char *path1, char *path2, u64 size, char *progress_string1, c
             ///////////////////
             size -= recv;
             acum+= recv;
-		}
+        }
 
         if(progress_action == 2) {ret = -0x555; goto err;}
 
@@ -1284,11 +1287,11 @@ int copy_async_gbl(char *path1, char *path2, u64 size, char *progress_string1, c
                 }
             }
         }
-	}
+    }
 
  
-	ret = 0;
-	
+    ret = 0;
+    
 err:
 
     if(my_f_async.flags & ASYNC_ENABLE){
