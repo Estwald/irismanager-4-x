@@ -28,4 +28,10 @@ void update_twat();
 void draw_twat(float x, float y, float angle);
 void draw_twat2(float x, float y, float angle);
 
+
+extern int GFX1_mode;
+extern int GFX1_counter;
+
+void GFX1_background();
+
 #endif

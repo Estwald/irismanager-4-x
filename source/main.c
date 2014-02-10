@@ -895,13 +895,14 @@ u32 background_colors2[16] = {
 
 };
 
-
 void cls0()
 {
     cls2();
 
     u32 color1; //0x002088ff;
     u32 color2;
+
+    if(gui_mode == 4) {GFX1_background(); return;}
 
     color1 = background_colors2[(background_sel & 7) << 1];
     color2 = background_colors2[((background_sel & 7) << 1) + 1];
@@ -935,12 +936,13 @@ void cls0()
 
     tiny3d_End();
 
+    
 }
 
 void cls()
 {
     
-    if(gui_mode == 1 || gui_mode == 3)  {cls0();return;}
+    if(gui_mode == 1 || gui_mode == 3 || gui_mode == 4)  {cls0();return;}
     tiny3d_Clear(background_colors[background_sel & 7], TINY3D_CLEAR_ALL);
 
         
@@ -2265,7 +2267,7 @@ s32 main(s32 argc, const char* argv[])
 
     noBDVD = manager_cfg.noBDVD;
     gui_mode = manager_cfg.gui_mode & 15;
-    if(gui_mode == 1 || gui_mode == 3) sort_mode = (manager_cfg.gui_mode>>4); else sort_mode = 0;
+    if(gui_mode == 1 || gui_mode == 3 || gui_mode == 4) sort_mode = (manager_cfg.gui_mode>>4); else sort_mode = 0;
 
     if(noBDVD == 1) {
         use_cobra = 0; use_mamba = 0;
@@ -2796,7 +2798,7 @@ s32 main(s32 argc, const char* argv[])
 
         /////////////////////////////////////
 
-        if(gui_mode == 1 || gui_mode == 3)
+        if(gui_mode == 1 || gui_mode == 3 || gui_mode == 4)
             cls0();
         else {
             cls();
@@ -5399,6 +5401,7 @@ void gui_control()
         }
 
         anim_mode = 1; anim_step = 0;
+        GFX1_mode = 2; GFX1_counter = 20;
 
         return;
     }
@@ -5463,7 +5466,7 @@ void gui_control()
         }
 
         anim_mode = 2; anim_step = 0;
-        
+        GFX1_mode = 1; GFX1_counter = 20;
 
         return;
     }
@@ -5482,6 +5485,8 @@ void gui_control()
         else {mode_favourites = (!mode_favourites && havefavourites); currentdir = ndirectories - 12; 
         if(currentdir < 0) currentdir = 0; if(currentdir >= 3) {select_px = 3; currentdir-= 3;} else select_px = currentdir; select_py = 0; get_games();}
 
+        GFX1_mode = 2; GFX1_counter = 20;
+
         return;
     }
     
@@ -5498,7 +5503,7 @@ void gui_control()
              select_px = select_py = 0; if(currentdir >= 3) {select_px = 3; currentdir-= 3;} else select_px = currentdir; get_games();}
         else {mode_favourites = (!mode_favourites && havefavourites); currentdir = 0; get_games();}
 
-
+        GFX1_mode = 1; GFX1_counter = 20;
 
         return;
     }
@@ -7601,7 +7606,7 @@ void draw_gbloptions(float x, float y)
             case 1:
                 //set_last_game();
                 gui_mode++;
-                if(gui_mode > 3) gui_mode = 0;
+                if(gui_mode > 4) gui_mode = 0;
                 manager_cfg.gui_mode = ((sort_mode & 0xf)<<4) | (gui_mode & 0xf);
                 select_option = 0;
                 menu_screen = 0; 

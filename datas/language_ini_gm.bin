@@ -57,6 +57,8 @@ DRAWGMOPT_CPYOK         = Erfolgreich kopiert!
 DRAWGMOPT_CPYERR        = Fehler beim Kopieren
 DRAWGMOPT_CPYNOTFND     = nicht gefunden
 
+DRAWGMOPT_GAMEUPDATE    = Game Update
+
 # DRAW CONFIGS
 DRAWGMCFG_CFGS          = Spiel konfigurieren
 DRAWGMCFG_DSK           = Disk wird benötigt
@@ -97,7 +99,7 @@ DRAWTOOLS_WITHBDVD      = BDVD Controller AN
 DRAWTOOLS_NOBDVD        = BDVD Controller Aus
 DRAWTOOLS_NOBDVD2       = Disk - ohne Payload
 DRAWTOOLS_ARCHIVEMAN    = Archiv Manager
-
+DRAWTOOLS_COVERSDOWN    = Covers Download
 
 # MAIN - OTHERS
 DRAWCACHE_CACHE         = Cache Tool löschen

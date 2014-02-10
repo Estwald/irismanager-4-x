@@ -1,6 +1,6 @@
 [Language]
-VERSION = 2
-DESCRIPTION = 繁體中文
+VERSION = 2.86
+DESCRIPTION = 簡體中文
 
 # VIDEO - ADJUST
 VIDEOADJUST_POSITION    = 使用 左 (-X) / 右 (+X) / 上 (-Y) / 下 (+Y) 調整屏幕範圍
@@ -46,11 +46,12 @@ DRAWGMOPT_TSTGAME       = 驗證遊戲
 DRAWGMOPT_CPYEBOOTGAME  = 導入EBOOT
 DRAWGMOPT_CPYTOFAV      = 添加到收藏夾
 DRAWGMOPT_DELFMFAV      = 從收藏夾中刪除
-DRAWGMOPT_EXTRACTISO    = Extract ISO
-DRAWGMOPT_BUILDISO      = Build ISO
-DRAWGMOPT_MKISO         = Select a device to Build the ISO
-DRAWGMOPT_XTISO         = Select a device to Extract the ISO
-DRAWGMOPT_CPYISO        = Select a device to Copy the ISO
+DRAWGMOPT_EXTRACTISO    = 提取ISO
+DRAWGMOPT_BUILDISO      = 建立ISO
+DRAWGMOPT_MKISO         = 選擇設備建立ISO
+DRAWGMOPT_XTISO         = 選擇設備提取ISO
+DRAWGMOPT_CPYISO        = 選擇設備複製ISO
+DRAWGMOPT_GAMEUPDATE    = 遊戲更新
 
 DRAWGMOPT_FIXCOMPLETE   = 修復權限完成!
 DRAWGMOPT_CPYOK         = 複製成功
@@ -107,6 +108,7 @@ DRAWTOOLS_WITHBDVD      = 正常光驅模式
 DRAWTOOLS_NOBDVD        = 屏蔽光驅模式
 DRAWTOOLS_NOBDVD2       = 虛擬光驅模式
 DRAWTOOLS_ARCHIVEMAN    = 文件管理器
+DRAWTOOLS_COVERSDOWN    = 封面下載
 
 
 # MAIN - OTHERS
@@ -135,7 +137,7 @@ FASTCPPTC_OPENERROR     = 錯誤!!!!!!!!!!!!!!!!!!!!!!!!!@打開文件 %i@ 等�
 
 # GAME TEST FILES
 GAMETESTS_FOUNDINSTALL  = 找到 %s@@要安裝?
-GAMETESTS_BIGFILE       = 大于4GB文件
+GAMETESTS_BIGFILE       = 大於4GB文件
 GAMETESTS_TESTFILE      = 測試文件
 GAMETESTS_CHECKSIZE     = 檢查文件大小
 

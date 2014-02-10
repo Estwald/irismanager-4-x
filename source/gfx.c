@@ -737,3 +737,228 @@ void draw_twat2(float x, float y, float angle)
 
 }
 
+// GUI alternative
+
+static struct {
+
+    float x, y;
+    float dx, dy;
+    float rad;
+    float rot;
+    int sides;
+    u32 color;
+    u32 color2;
+} bubble[32];
+
+int GFX1_mode = 0;
+int GFX1_counter = 0;
+
+static void DrawBubble(float x, float y, float layer, float dx, float dy, u32 rgba, u32 rgba2, float angle, int sides)
+{
+    dx /= 2.0f; dy /= 2.0f;
+
+    int n;
+
+    MATRIX matrix;
+    
+    // rotate and translate the sprite
+    matrix = MatrixRotationZ(angle);
+    matrix = MatrixMultiply(matrix, MatrixTranslation(x, y, 0.0f));
+    
+    // fix ModelView Matrix
+    tiny3d_SetMatrixModelView(&matrix);
+   
+    tiny3d_SetPolygon(TINY3D_TRIANGLE_FAN);
+
+    tiny3d_VertexPos(0, 0, layer);
+    tiny3d_VertexColor(rgba);
+
+    float ang = 0.0f, ang2 = 6.2831853071796 / (float) sides;
+
+    for(n = 0; n <= sides; n++) {
+        tiny3d_VertexPos(dx * sinf(ang), dy * cosf(ang), layer);
+        tiny3d_VertexColor(rgba2);
+        ang+= ang2;
+
+    }
+    
+    tiny3d_End();
+
+    // hack for Tiny3D (force to change the shader)
+    tiny3d_SetPolygon(TINY3D_POINTS);
+        tiny3d_VertexPos(0.0f, 0.0f, 0.0f);
+        tiny3d_VertexColor(0);
+        tiny3d_VertexTexture(0.0f , 0.0f);
+    tiny3d_End();
+
+
+    tiny3d_SetMatrixModelView(NULL); // set matrix identity
+
+}
+
+
+static void DrawGFX1(float x, float y, float layer, float dx, float dy, u32 rgba, u32 rgba2, float angle)
+{
+    dx /= 2.0f; dy /= 2.0f;
+
+    int n;
+
+    MATRIX matrix;
+    
+    // rotate and translate the sprite
+    matrix = MatrixRotationZ(angle);
+    matrix = MatrixMultiply(matrix, MatrixTranslation(x, y, 0.0f));
+    
+    // fix ModelView Matrix
+    tiny3d_SetMatrixModelView(&matrix);
+   
+    tiny3d_SetPolygon(TINY3D_TRIANGLE_FAN);
+
+    tiny3d_VertexPos(0, 0, layer);
+    tiny3d_VertexColor(rgba);
+
+    float ang = 0.0f, ang2 = 6.2831853071796 / 20.0;
+
+    for(n = 0; n <= 20; n++) {
+        float m = (float) ((1 + rand() % 10))/10.0f;
+
+        tiny3d_VertexPos(dx * sinf(ang) * m, dy * cosf(ang) * m, layer);
+        tiny3d_VertexColor(rgba2);
+        ang+= ang2;
+
+    }
+    
+    tiny3d_End();
+
+    // hack for Tiny3D (force to change the shader)
+    tiny3d_SetPolygon(TINY3D_POINTS);
+        tiny3d_VertexPos(0.0f, 0.0f, 0.0f);
+        tiny3d_VertexColor(0);
+        tiny3d_VertexTexture(0.0f , 0.0f);
+    tiny3d_End();
+
+
+    tiny3d_SetMatrixModelView(NULL); // set matrix identity
+
+}
+
+extern int background_sel;
+
+void GFX1_background()
+{
+    //
+    static int one = 1;
+    int n;
+
+    if(one) {
+
+        srand(1);
+        
+        for(n = 0; n < 32; n++) {
+            bubble[n].x = rand() % 848;
+            bubble[n].y = rand() % 512;
+            bubble[n].rad = (4 + (rand() % 56));
+
+            do {
+                bubble[n].dx = (((float) (rand() % 32) - 16.0f)/32.0f) * 2.0f;
+            } while(!bubble[n].dx);
+            
+            do {
+                bubble[n].dy = (((float) (rand() % 32) - 16.0f)/32.0f) * 2.0f;
+            } while(!bubble[n].dy);
+
+            bubble[n].sides = 5 + (rand() & 0x7);
+
+            bubble[n].rot = 0;
+            switch(n & 3) {
+                case 0:
+                    bubble[n].color = 0x80008f30;
+                    bubble[n].color2 = 0x40008030;
+                break;
+                case 1:
+                    bubble[n].color = 0x0010ff30;
+                    bubble[n].color2 = 0x00208030;
+                break;
+                case 2:
+                    bubble[n].color = 0x8f600030;
+                    bubble[n].color2 = 0x40200030;
+                break;
+                case 3:
+                    bubble[n].color = 0x80108f30;
+                    bubble[n].color2 = 0x30200030;
+                break;
+            }
+
+        }
+        one = 0;
+    }
+
+
+    static float rot = 0.0f;
+
+    static u32 counter = 0;
+    counter++;
+    u32 col1 = (((counter>>4) & 0xf) * 0x40 / 0xf);
+    u32 col2 = (((counter>>4) & 0xf) * 0x30 / 0xf);
+    u32 col3 = ((0xf - ((counter>>4) & 0xf)) * 0x40 / 0xf);
+    u32 col4 = ((0xf - ((counter>>4) & 0xf)) * 0x30 / 0xf);
+    //u32 col5 = (((counter>>4) & 0xf) * 0x30 / 0xf) << 24;
+
+    u32 col5 = (counter>>4); col5 = (col5 & 0x10) ? 0xf - (col5 & 0xf) : (col5 & 0xf);
+
+    col5 = (col5 * 0x30 / 0xf) << 24;
+
+    if(background_sel & 1) DrawBubble(256, 128, 1000, 256 * 7, 256 * 7, 0x052010ff | col5, 0x030010ff | col5, rot, 8);
+    else DrawBubble(256, 128, 1000, 256 * 7, 256 * 7, 0x050020ff | col5, 0x031010ff | col5, rot, 8);
+
+    int sel = background_sel >> 1;
+    
+    if(!(sel & 2)) {
+        if(counter & 0x100) {
+            DrawGFX1(128, 128 - 64, 1000, 256 * 2, (256 - (counter & 0x1f)) * 2, 0xc0004000 + col1, 0x40001000 + col2, rot);
+            DrawGFX1(848 - 128, 256 + 128, 1000, 256 * 2, 256 * 2, 0xc000c000 + col1, 0x40004000 + col2, -rot);
+            DrawGFX1(128 + 128, 256 + 128, 1000, 256 * 2, 256 * 2, 0xc0c00000 + col3, 0x40100000 + col4, rot);
+            DrawGFX1(848 - 128 - 128, 256 - 128, 1000, 256 * 2, (256 - (counter & 0x1f)) * 2, 0x40c00000 + col3, 0x40400000 + col4, -rot);
+        } else {
+            DrawGFX1(128, 128, 1000, 256 * 2, (256 - (counter & 0x1f)) * 2, 0xc000c000 + col1, 0x40004000 + col2, rot);
+            DrawGFX1(848 - 128, 256 + 128, 1000, 256 * 2, 256 * 2, 0xc0004000 + col1, 0x40001000 + col2, -rot);
+            DrawGFX1(128 + 128 - 32, 256 + 128 + 16, 1000, 256 * 2, 256 * 2, 0x40c00000 + col3, 0x40400000 + col4, rot);
+            DrawGFX1(848 - 128 - 128, 256 - 192, 1000, 256 * 2, (256 - (counter & 0x1f)) * 2, 0xc0c00000 + col3, 0x40100000 + col4, -rot);
+        }
+    }
+
+    rot+= 0.01f;
+    if(rot > 6.2831853071796) rot -= 6.2831853071796;
+
+    for(n = 0; n < 32; n++) {
+
+        int sides = bubble[n].sides > 11 ? 20 : bubble[n].sides;
+
+        if(sel & 1) sides = (n & 3) + 3;
+
+        DrawBubble(bubble[n].x, bubble[n].y, 1000, bubble[n].rad, bubble[n].rad, bubble[n].color, bubble[n].color2, bubble[n].rot, sides);
+
+        if(GFX1_mode == 1) {bubble[n].x+= -fabs(bubble[n].dx * 20.0f); bubble[n].y+= bubble[n].dy * 5.0f;  bubble[n].rot += .075f;}
+        else if(GFX1_mode == 2) {bubble[n].x+= fabs(bubble[n].dx * 20.0f); bubble[n].y+= bubble[n].dy * 5.0f; bubble[n].rot += -.075f;}
+        else {
+            bubble[n].x+= bubble[n].dx;
+            bubble[n].y+= bubble[n].dy;
+            bubble[n].rot += -bubble[n].dx/32.0f;
+        }
+
+
+        if(bubble[n].rot < -6.2831853071796) bubble[n].rot+= 6.2831853071796;
+        if(bubble[n].rot > 6.2831853071796) bubble[n].rot -= 6.2831853071796;
+
+        if(bubble[n].x + bubble[n].rad/2.0f < -10.0f || bubble[n].x > 860.0f || bubble[n].y + bubble[n].rad/2.0f < -10.0f || bubble[n].y > 520.0f) {
+            bubble[n].sides = 5 + (rand() & 0x7);
+            if(GFX1_mode == 1) bubble[n].x = 848; 
+            else if(GFX1_mode == 2) bubble[n].x = 0;
+            else bubble[n].x = 848/2 + (n-16) * 16; bubble[n].y = 512/2;
+        }
+        
+    }
+
+    if(!GFX1_counter) GFX1_mode= 0; else GFX1_counter --;
+
+}
