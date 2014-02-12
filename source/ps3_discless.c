@@ -24,6 +24,7 @@
 #include "ps3_storage_bin.h"
 #include "mamba_4_46_lz_bin.h"
 #include "mamba_4_53_lz_bin.h"
+#include "mamba_4_55_lz_bin.h"
 
 int zlib_decompress(char *source, char *dest, int in_size, int *out_size);
 
@@ -367,6 +368,8 @@ void load_ps3_mamba_payload()
         zlib_decompress((char *) mamba_4_46_lz_bin, (char *) addr, mamba_4_46_lz_bin_size, &out_size);
     else if(firmware == 0x453C)
         zlib_decompress((char *) mamba_4_53_lz_bin, (char *) addr, mamba_4_53_lz_bin_size, &out_size);
+    else if(firmware == 0x455C)
+        zlib_decompress((char *) mamba_4_55_lz_bin, (char *) addr, mamba_4_55_lz_bin_size, &out_size);
     else {
         DrawDialogOK("MAMBA is not supported for this CFW");
         free(addr);

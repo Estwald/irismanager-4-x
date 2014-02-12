@@ -128,7 +128,7 @@ int test_controlfan_compatibility()
 {
     if(firmware == 0x341C || firmware == 0x355C || firmware == 0x355D|| firmware == 0x421C || firmware == 0x421D ||
          firmware == 0x430C || firmware == 0x430D ||  firmware == 0x431C || firmware == 0x440C || firmware == 0x441C ||
-         firmware == 0x446C || firmware == 0x450C || firmware == 0x450D || firmware == 0x453C) return 1;
+         firmware == 0x446C || firmware == 0x450C || firmware == 0x450D || firmware == 0x453C || firmware == 0x455C) return 1;
 
     return 0;
 }
@@ -400,6 +400,21 @@ int load_ps3_controlfan_payload()
 
         // enables sys_set_leds
         lv2poke32(0x800000000000A3ECULL, 0x38600001); // sys 386
+        
+        ret = 1;
+    }  else if(firmware == 0x455C) { // firmware 4.55
+
+        // enables sys_game_get_temperature
+        lv2poke32(0x800000000000C6A8ULL, 0x38600000); // sys 383
+
+        // enables sys_sm_get_fan_policy
+        lv2poke32(0x8000000000009E38ULL, 0x38600001); // sys 409
+
+        // enables sys_sm_set_fan_policy
+        lv2poke32(0x800000000000A334ULL, 0x38600001); // sys 389
+
+        // enables sys_set_leds
+        lv2poke32(0x800000000000A3FCULL, 0x38600001); // sys 386
         
         ret = 1;
     }

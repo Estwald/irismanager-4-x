@@ -58,6 +58,7 @@
 #include "payload450/payload_450.h"
 #include "payload450dex/payload_450dex.h"
 #include "payload453/payload_453.h"
+#include "payload455/payload_455.h"
 
 #include "spu_soundmodule.bin.h" // load SPU Module
 #include "spu_soundlib.h"
@@ -1893,6 +1894,9 @@ s32 main(s32 argc, const char* argv[])
     } else if(is_firm_453()) {
         firmware = 0x453C;
         payload_mode = is_payload_loaded_453();
+    } else if(is_firm_455()) {
+        firmware = 0x455C;
+        payload_mode = is_payload_loaded_455();
     }
 
     if(is_cobra_based()) use_cobra = 1;
@@ -2141,6 +2145,26 @@ s32 main(s32 argc, const char* argv[])
                         load_ps3_mamba_payload();
                         use_mamba = 1;
                     }
+                    break;
+                case SKY10_PAYLOAD:
+                    break;
+            }
+            break;
+        case 0x455C:
+            set_bdvdemu_455(payload_mode);
+            switch(payload_mode)
+            {
+                case ZERO_PAYLOAD: //no payload installed
+                    load_payload_455(payload_mode);
+                    __asm__("sync");
+                    sleep(1); /* maybe need it, maybe not */
+                    
+                    if(!use_cobra) {
+
+                        load_ps3_mamba_payload();
+                        use_mamba = 1;
+                    }
+                    
                     break;
                 case SKY10_PAYLOAD:
                     break;
