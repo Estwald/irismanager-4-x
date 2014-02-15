@@ -313,9 +313,8 @@ static int lv2_patch_storage_455(void)
 
     //search bin "5F 6F 66 5F 70 72 6F 64  75 63 74 5F 6D 6F 64 65" to find
     // LV2 enable syscall storage
-    save_lv2_storage_patch= peekq(0x80000000002EB800ULL);
-    pokeq32(0x80000000002EB800ULL, 0x40000000);
-
+    save_lv2_storage_patch= peekq(0x80000000002EB898ULL);
+    pokeq32(0x80000000002EB898ULL, 0x40000000);
     
     regs_i.reg3 = 0x16fa60; regs_i.reg4 = 0x7f83e37860000000ULL;
     regs_i.reg11 = 0xB6; 
@@ -351,7 +350,7 @@ static int lv2_unpatch_storage_455(void)
 
     //search bin "5F 6F 66 5F 70 72 6F 64  75 63 74 5F 6D 6F 64 65" to find
     // LV2 disable syscall storage
-    pokeq(0x80000000002EB800ULL, save_lv2_storage_patch);
+    pokeq(0x80000000002EB898ULL, save_lv2_storage_patch);
 
     regs_i.reg11 = 0xB7;
 
