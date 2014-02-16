@@ -276,8 +276,8 @@ void DrawTextBoxCover(float x, float y, float z, float w, float h, u32 rgba, int
     tiny3d_VertexPos(x     , y - 1.0f, z);
     tiny3d_VertexPos(x + w2, y - 1.0f, z);
 
-    tiny3d_VertexPos(x + w + 2.0f , y       , z);
-    tiny3d_VertexPos(x + w + 2.0f , y + h   , z);
+    //tiny3d_VertexPos(x + w + 2.0f , y       , z);
+    //tiny3d_VertexPos(x + w + 2.0f , y + h   , z);
     
     tiny3d_End();
 
