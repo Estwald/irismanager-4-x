@@ -47,6 +47,7 @@
 #include "iso.h"
 #include "ftp/ftp.h"
 #include "modules.h"
+#include "main.h"
 
 #define MAX_SECTIONS	((0x10000-sizeof(rawseciso_args))/8)
 
@@ -2257,7 +2258,7 @@ read_file:
 
     tiny3d_Project2D();
     cls2();
-    update_twat();
+    update_twat(0);
 
     DrawBox(0, 0, 0, 848, 32,0x20a0a8ff);
     DrawBox2(0, 32, 0, 848, 448);
@@ -3986,7 +3987,7 @@ void archive_manager(char *pathw1, char *pathw2)
 
     tiny3d_Project2D();
     cls2();
-    update_twat();
+    update_twat(0);
 
     static int counter_internal = 0;
 
@@ -4339,7 +4340,7 @@ void archive_manager(char *pathw1, char *pathw2)
 
         tick1_move = 0; 
    
-        if(signal && !LoadTexturePNG(temp_buffer, 12)) {
+        if(signal && !LoadTexturePNG(temp_buffer, BIG_PICT)) {
             
             png_signal = 120;
             
@@ -4360,7 +4361,7 @@ void archive_manager(char *pathw1, char *pathw2)
 
         tick2_move = 0; 
    
-        if(signal && !LoadTexturePNG(temp_buffer, 12)) {
+        if(signal && !LoadTexturePNG(temp_buffer, BIG_PICT)) {
             
             png_signal = 120;
         }
@@ -4370,12 +4371,12 @@ void archive_manager(char *pathw1, char *pathw2)
     if(png_signal) {
         int h;
         
-        if(Png_offset[12]) {
-            tiny3d_SetTextureWrap(0, Png_offset[12], Png_datas[12].width, 
-             Png_datas[12].height, Png_datas[12].wpitch, 
+        if(Png_offset[BIG_PICT]) {
+            tiny3d_SetTextureWrap(0, Png_offset[BIG_PICT], Png_datas[BIG_PICT].width, 
+             Png_datas[BIG_PICT].height, Png_datas[BIG_PICT].wpitch, 
              TINY3D_TEX_FORMAT_A8R8G8B8,  TEXTWRAP_CLAMP, TEXTWRAP_CLAMP,1);
 
-            h = 150 * Png_datas[12].height / Png_datas[12].width  * 512/480;
+            h = 150 * Png_datas[BIG_PICT].height / Png_datas[BIG_PICT].width  * 512/480;
             DrawBox((!archive_manager || !use_split) ? 848 - 150 : 0, use_split ? 512 - h - 32 :
                 (archive_manager ? 256 - h : 512 - h), 0, 150, h, 0xffffff40);
 
@@ -5075,7 +5076,7 @@ void archive_manager(char *pathw1, char *pathw2)
                     
                     sprintf(temp_buffer, "%s/%s", path1, entries1[sel1].d_name);
                
-                    if(!LoadTextureJPG(temp_buffer, 12)) {
+                    if(!LoadTextureJPG(temp_buffer, BIG_PICT)) {
                        
                         png_signal = 120;
                     }
@@ -5084,7 +5085,7 @@ void archive_manager(char *pathw1, char *pathw2)
                     
                     sprintf(temp_buffer, "%s/%s", path1, entries1[sel1].d_name);
                
-                    if(!LoadTexturePNG(temp_buffer, 12)) {
+                    if(!LoadTexturePNG(temp_buffer, BIG_PICT)) {
                        
                         png_signal = 120;
                     }
@@ -5260,7 +5261,7 @@ void archive_manager(char *pathw1, char *pathw2)
                     
                     sprintf(temp_buffer, "%s/%s", path2, entries2[sel2].d_name);
                
-                    if(!LoadTextureJPG(temp_buffer, 12)) {
+                    if(!LoadTextureJPG(temp_buffer, BIG_PICT)) {
                        
                         png_signal = 120;
                     }
@@ -5269,7 +5270,7 @@ void archive_manager(char *pathw1, char *pathw2)
                     
                     sprintf(temp_buffer, "%s/%s", path2, entries2[sel2].d_name);
                
-                    if(!LoadTexturePNG(temp_buffer, 12)) {             
+                    if(!LoadTexturePNG(temp_buffer, BIG_PICT)) {             
                     
                         png_signal = 120;
                     }

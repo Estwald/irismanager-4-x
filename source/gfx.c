@@ -6,6 +6,10 @@
 #include <math.h>
 #include "utils.h"
 #include "ttf_render.h"
+#include "main.h"
+
+
+extern int background_sel;
 
 struct {
     float x, y, dx, dy, r, rs;
@@ -578,10 +582,20 @@ void init_twat()
     m_twat[3].r = m_twat[4].r = m_twat[5].r = 0.0f;
 }
 
-void update_twat()
+void update_twat(int background)
 {
     
     float x = 840.0f - 170.0f, y = 512.0f - 180.0f;
+
+    if(background && Png_offset[BIG_PICT + 1]) {
+        int i = BIG_PICT + 1;
+        tiny3d_SetTextureWrap(0, Png_offset[i], Png_datas[i].width, 
+            Png_datas[i].height, Png_datas[i].wpitch, 
+            TINY3D_TEX_FORMAT_A8R8G8B8,  TEXTWRAP_CLAMP, TEXTWRAP_CLAMP,1);
+
+        DrawTextBox(-1, -1, 128000.0f, 850, 514, (background_sel & 1) ? 0xffffffff : 0xcfcfcfff);
+        //return;
+    }
 
     m_twat[0].r += .01f;
     m_twat[1].r -= .01f;
@@ -842,8 +856,6 @@ static void DrawGFX1(float x, float y, float layer, float dx, float dy, u32 rgba
 
 }
 
-extern int background_sel;
-
 void GFX1_background()
 {
     //
@@ -908,8 +920,18 @@ void GFX1_background()
 
     col5 = (col5 * 0x30 / 0xf) << 24;
 
-    if(background_sel & 1) DrawBubble(256, 128, 1000, 256 * 7, 256 * 7, 0x052010ff | col5, 0x030010ff | col5, rot, 8);
-    else DrawBubble(256, 128, 1000, 256 * 7, 256 * 7, 0x050020ff | col5, 0x031010ff | col5, rot, 8);
+    if(Png_offset[BIG_PICT + 1]) {
+        int i = BIG_PICT + 1;
+        tiny3d_SetTextureWrap(0, Png_offset[i], Png_datas[i].width, 
+                                             Png_datas[i].height, Png_datas[i].wpitch, 
+                                             TINY3D_TEX_FORMAT_A8R8G8B8,  TEXTWRAP_CLAMP, TEXTWRAP_CLAMP,1);
+
+        DrawTextBox(-1, -1, 1000, 850, 514, (background_sel & 1) ? 0xffffffff : 0xcfcfcfff);
+    } else {
+
+        if(background_sel & 1) DrawBubble(256, 128, 1000, 256 * 7, 256 * 7, 0x052010ff | col5, 0x030010ff | col5, rot, 8);
+        else DrawBubble(256, 128, 1000, 256 * 7, 256 * 7, 0x050020ff | col5, 0x031010ff | col5, rot, 8);
+    }
 
     int sel = background_sel >> 1;
     

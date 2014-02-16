@@ -24,7 +24,7 @@ float DrawButton1_UTF8(float x, float y, float w, char * t, int select);
 float DrawButton2_UTF8(float x, float y, float w, char * t, int select);
 
 void init_twat();
-void update_twat();
+void update_twat(int background);
 void draw_twat(float x, float y, float angle);
 void draw_twat2(float x, float y, float angle);
 

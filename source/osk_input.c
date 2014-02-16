@@ -353,7 +353,7 @@ int Get_OSK_String(char *caption, char *str, int len)
 
         cls();
 
-        update_twat();
+        update_twat(1);
         
 
         SetCurrentFont(FONT_TTF);

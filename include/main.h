@@ -51,10 +51,18 @@ int LoadJPG(JpgDatas *jpg, char *filename);
 
 void load_gamecfg (int current_dir);
 
+#define EXPAND_GRID
+
+#define BIG_PICT 32
+
+extern int scr_grid_games;
+extern int scr_grid_w;
+extern int scr_grid_h;
+
 extern u8 * png_texture;
-extern PngDatas Png_datas[24];
-extern u32 Png_offset[24];
-extern int Png_iscover[24];
+extern PngDatas Png_datas[BIG_PICT + 2];
+extern u32 Png_offset[BIG_PICT + 2];
+extern int Png_iscover[BIG_PICT + 2];
 
 extern PngDatas Png_res[24];
 extern u32 Png_res_offset[24];

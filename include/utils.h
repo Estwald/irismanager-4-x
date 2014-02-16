@@ -53,6 +53,11 @@ typedef struct {
     entry_favourites list[12];
 } tfavourites;
 
+typedef struct {
+    u32 version;
+    entry_favourites list[32];
+} tfavourites2;
+
 #define MAX_DIRECTORIES 512
 #define MAX_CFGLINE_LEN 256
 
@@ -121,7 +126,7 @@ void DeleteDirectory(const char* path);
 
 void FixDirectory(const char* path);
 
-extern tfavourites favourites;
+extern tfavourites2 favourites;
 extern int havefavourites;
 
 int getConfigMemValueInt (char* mem, int size, char* pchSection, char* pchKey, int iDefaultValue);

@@ -202,7 +202,7 @@ void draw_psx_options(float x, float y, int index)
 
     float y2, x2;
 
-    int selected = select_px + select_py * 4;
+    int selected = select_px + select_py * scr_grid_w;
 
     char *mc_name = NULL;
     int is_ntfs = 0;
@@ -449,7 +449,7 @@ void draw_psx_options(float x, float y, int index)
                     }
                 }
                 if(psx_vm1) free(psx_vm1); psx_vm1 = NULL;
-                Png_offset[12] = 0;
+                Png_offset[BIG_PICT] = 0;
 
                 if(directories[currentgamedir].flags & 2048) {
                     pause_music(1);
@@ -494,7 +494,7 @@ void draw_psx_options(float x, float y, int index)
                 }*/
 
                 if(psx_vm1) free(psx_vm1); psx_vm1 = NULL;
-                Png_offset[12] = 0;
+                Png_offset[BIG_PICT] = 0;
 
                  i = selected;
 
@@ -552,9 +552,9 @@ void draw_psx_options(float x, float y, int index)
                     
                     get_icon(path_name, currentgamedir);
                     if(!strncmp(path_name + strlen(path_name) -4, ".JPG", 4) || !strncmp(path_name + strlen(path_name) -4, ".jpg", 4))
-                        LoadTextureJPG(path_name, 12);
+                        LoadTextureJPG(path_name, BIG_PICT);
                         else
-                            if(LoadTexturePNG(path_name, 12) < 0) ;
+                            if(LoadTexturePNG(path_name, BIG_PICT) < 0) ;
                     get_games();
                     select_option = 0;
                     menu_screen = 0;
@@ -571,7 +571,7 @@ void draw_psx_options(float x, float y, int index)
                     }
                 }
                 if(psx_vm1) free(psx_vm1); psx_vm1 = NULL;
-                Png_offset[12] = 0;
+                Png_offset[BIG_PICT] = 0;
                 select_option = 0;
                 menu_screen = 0;
                 return;
@@ -679,7 +679,7 @@ void draw_psx_options(float x, float y, int index)
          }
 
         if(psx_vm1) free(psx_vm1); psx_vm1 = NULL;
-        Png_offset[12] = 0; menu_screen = 0; select_option = 0; return;
+        Png_offset[BIG_PICT] = 0; menu_screen = 0; select_option = 0; return;
     }
    
 
@@ -1693,7 +1693,7 @@ int psx_iso_prepare(char *path, char *name)
             frame_count++;
             cls();
 
-            update_twat();
+            update_twat(1);
             
 
             SetCurrentFont(FONT_TTF);

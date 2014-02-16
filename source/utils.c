@@ -30,6 +30,7 @@ Credits:
 #include <sys/file.h>
 #include "ntfs.h"
 #include "iso.h"
+#include "main.h"
 
 #define FS_S_IFMT 0170000
 #define FS_S_IFDIR 0040000
@@ -4278,15 +4279,15 @@ void convertStringEndl(char* string, int iSize)
 /*******************************************************************************************************************************************************/
 
 int havefavourites = 0;
-tfavourites favourites;
+tfavourites2 favourites;
 
-static tfavourites favourites_gamebase;
-static tfavourites favourites_homebrew;
+static tfavourites2 favourites_gamebase;
+static tfavourites2 favourites_homebrew;
 
 void LoadFavourites(char * path, int mode)
 {
     int n, mode_flag;
-    tfavourites * pfavourites = NULL;
+    tfavourites2 * pfavourites = NULL;
 
     if(mode == GAMEBASE_MODE) {
         pfavourites = &favourites_gamebase;
@@ -4305,13 +4306,15 @@ void LoadFavourites(char * path, int mode)
     char *file = LoadFile(path, &file_size);
 
     if(file) {
-        tfavourites *fav = (tfavourites *) file;
-        if(file_size == sizeof(*pfavourites) && fav->version == 100)
+        tfavourites2 *fav = (tfavourites2 *) file;
+        if(file_size == sizeof(tfavourites) && fav->version == 100)
+            memcpy(pfavourites, file, sizeof(tfavourites));
+        if(file_size == sizeof(*pfavourites) && fav->version == 101)
             memcpy(pfavourites, file, sizeof(*pfavourites));
         free(file);
     }
 
-    for(n = 0; n < 12; n++) {
+    for(n = 0; n < 32; n++) {
         pfavourites->list[n].index  = -1;
         pfavourites->list[n].flags &=  mode_flag;
     }
@@ -4320,7 +4323,7 @@ void LoadFavourites(char * path, int mode)
 
 void SaveFavourites(char * path, int mode)
 {
-    favourites.version = 100;
+    favourites.version = 101;
     if(mode == GAMEBASE_MODE) {
         strcat(path, "favourites.bin");
         favourites_gamebase =favourites;
@@ -4355,7 +4358,7 @@ void UpdateFavourites(t_directories *list, int nlist)
 
     havefavourites = 0;
 
-    for(m = 0; m < 12; m++) {
+    for(m = 0; m < scr_grid_games; m++) {
         favourites.list[m].index = -1;
 
         for(n = 0; n < nlist; n++) {
@@ -4374,16 +4377,17 @@ void UpdateFavourites(t_directories *list, int nlist)
             }
         }
     }
+
 }
 
 
 int TestFavouritesExits(char *id)
 {
     int m;
-    for(m = 0; m < 12; m++) {
+    for(m = 0; m < 32; m++) {
         if(!strncmp(favourites.list[m].title_id, id, 64)) return 1;
     }
-    
+
     return 0;
 }
 
@@ -4400,7 +4404,7 @@ void AddFavourites(int indx, t_directories *list, int position_list)
 int DeleteFavouritesIfExits(char *id)
 {
     int m;
-    for(m = 0; m < 12; m++) {
+    for(m = 0; m < 32; m++) {
         if(!strcmp(favourites.list[m].title_id, id)) {
             memset(favourites.list[m].title_id, 0, 64);
             memset(favourites.list[m].title, 0, 64);
@@ -4410,7 +4414,7 @@ int DeleteFavouritesIfExits(char *id)
     
     havefavourites = 0;
 
-    for(m = 0; m < 12; m++) {
+    for(m = 0; m < 32; m++) {
         if(favourites.list[m].index >= 0) havefavourites = 1;
     }
 

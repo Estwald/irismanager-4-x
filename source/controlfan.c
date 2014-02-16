@@ -658,7 +658,7 @@ void draw_controlfan_options()
     x= 28; y= 0;
     cls();
 
-    update_twat();
+    update_twat(1);
 
     SetCurrentFont(FONT_TTF);
 
