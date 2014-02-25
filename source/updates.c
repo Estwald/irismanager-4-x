@@ -241,6 +241,8 @@ static int download_update(char *url, char *file, int mode, u64 *size)
     if(ret < 0) goto err;
     flags|= 8;
 
+    httpClientSetUserAgent(clientID, "Mozilla/5.0 (Windows NT 6.1; rv:21.0) Gecko/20100101 Firefox/27.0");
+
     ret = httpUtilParseUri(NULL, url, NULL, 0, &pool_size);
     if (ret < 0) goto err;
 
@@ -437,6 +439,8 @@ static int download_file(char *url, char *file, int mode, u64 *size)
 
     httpClientSetConnTimeout(clientID, 20000000);
 
+    httpClientSetUserAgent(clientID, TITLE_APP);
+
     ret = httpUtilParseUri(NULL, url, NULL, 0, &pool_size);
     if (ret < 0) goto err;
 
@@ -620,6 +624,29 @@ int cover_update(char *title_id)
     memcpy(id, title_id, 4);
     id[4] = title_id[5]; id[5] = title_id[6]; id[6] = title_id[7]; id[7] = title_id[8]; id[8] = title_id[9]; id[9] = 0;
 
+    { // checking ID from gametdb list
+
+    sprintf(temp_buffer + 3072, "%s/ps3tdb.txt ", self_path);
+    int file_size = 0;
+    u8 *mem = (u8 *) LoadFile(temp_buffer + 3072, &file_size);
+
+    if(mem && file_size != 0) {
+        int n, f = 0;
+
+        for(n = 0; n < file_size - 9; n++) {
+            if(!memcmp((char *) &mem[n], id, 9)) {f = 1; break;}
+        }
+
+        free(mem);
+
+        if(!f) {
+          
+            return -1;
+        }
+    }
+    
+    }
+
     // covers
    
     sprintf(temp_buffer + 1024, "%s/COVERS/%s.PNG", self_path, title_id);
@@ -678,14 +705,6 @@ int cover_update(char *title_id)
             };
 
             u8 *mem = NULL;
-
-            /*
-           
-            if(ret == -4) {
-                sprintf(temp_buffer, "http://art.gametdb.com/ps3/coverM/ES/%s.jpg", id);
-                ret = download_file(temp_buffer, temp_buffer + 1024, 0, NULL);
-            }
-            */
 
             sprintf(temp_buffer, "http://www.gametdb.com/PS3/%s.html", id);
             sprintf(temp_buffer + 3072, "%s/tmp_cover.html", self_path);
@@ -909,6 +928,14 @@ int covers_update(int pass)
     parts = (count == 0) ? 0.0f : 100.0f / ((double) count);
     cpart = 0;
 
+    for(n = 0; n < 10; n++) {
+        if(n) sleep(1);
+        sprintf(temp_buffer, "http://www.gametdb.com/ps3tdb.txt");
+        sprintf(temp_buffer + 3072, "%s/ps3tdb.txt ", self_path);
+        ret = download_file(temp_buffer, temp_buffer + 3072, 0, NULL);
+        if(ret == 0) break; else {unlink_secure(temp_buffer + 3072);}
+
+    }
 
     if(pass == 0) single_bar("Downloading Covers...");
     else single_bar("Downloading Covers #2...");
@@ -1023,6 +1050,16 @@ int game_update(char *title_id)
     game_up_mode = 0;
 
     if(gui_mode != 0) {
+        int n;
+
+        for(n = 0; n < 10; n++) {
+            if(n) sleep(1);
+            sprintf(temp_buffer, "http://www.gametdb.com/ps3tdb.txt");
+            sprintf(temp_buffer + 3072, "%s/ps3tdb.txt ", self_path);
+            ret = download_file(temp_buffer, temp_buffer + 3072, 0, NULL);
+            if(ret == 0) break; else {unlink_secure(temp_buffer + 3072);}
+
+        }
         ret = cover_update(title_id);
        
         if(ret == 0) {

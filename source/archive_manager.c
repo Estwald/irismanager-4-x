@@ -3161,7 +3161,7 @@ read_file:
 /* COBRA ISO                                                                                               */
 /***********************************************************************************************************/
 
-int launch_iso_game(char *path)
+int launch_iso_game(char *path, int mtype)
 {
     int type = EMU_DVD;
 
@@ -3207,6 +3207,14 @@ int launch_iso_game(char *path)
 
         if(type == EMU_PS2_DVD) {
             if(strstr(path, "/BDISO/")) type = EMU_BD;
+        }
+
+        if(mtype >= 0) {
+
+            type = mtype;
+
+            is_ps2_game = (mtype == EMU_PS2_DVD);
+
         }
    
         if(!strncmp(path, "/ntfs", 5) || !strncmp(path, "/ext", 4)) {
@@ -5070,7 +5078,7 @@ void archive_manager(char *pathw1, char *pathw2)
                     || !strcmpext(entries1[sel1].d_name, ".iso.0") || !strcmpext(entries1[sel1].d_name, ".ISO.0"))) {
 
                     sprintf(temp_buffer, "%s/%s", path1, entries1[sel1].d_name);
-                    launch_iso_game(temp_buffer);
+                    launch_iso_game(temp_buffer, -1);
                     
                 } else if(!(entries1[sel1].d_type & 2) && (!strcmp(ext, ".jpg") || !strcmp(ext, ".JPG"))) {
                     
@@ -5254,7 +5262,7 @@ void archive_manager(char *pathw1, char *pathw2)
                     || !strcmpext(entries2[sel2].d_name, ".iso.0")|| !strcmpext(entries2[sel2].d_name, ".ISO.0"))) {
 
                     sprintf(temp_buffer, "%s/%s", path2, entries2[sel2].d_name);
-                    launch_iso_game(temp_buffer);
+                    launch_iso_game(temp_buffer, -1);
                     
 
                 } else if(!(entries2[sel2].d_type & 2) && (!strcmp(ext, ".jpg") || !strcmp(ext, ".JPG"))) {

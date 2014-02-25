@@ -85,6 +85,7 @@
 #include "font_b.h"
 
 #include "bluray_png_bin.h"
+#include "dvd_png_bin.h"
 #include "direct_png_bin.h"
 #include "usb_png_bin.h"
 #include "usb_png2_bin.h"
@@ -343,9 +344,10 @@ void Load_PNG_resources()
     Png_res[14].png_in   = (void *) usb_png2_bin;
     Png_res[14].png_size = usb_png2_bin_size;
 
-    
+    Png_res[15].png_in   = (void *) dvd_png_bin;
+    Png_res[15].png_size = dvd_png_bin_size;
 
-  
+
     // load PNG from memory
 
     for(i = 0; i < 16; i++)
@@ -487,8 +489,29 @@ int get_icon(char * path, const int num_dir)
 {
     struct stat s;
 
-    if((directories[num_dir].flags & ((1<<24) | (1<<31) | (1<<11))) == (1<<24)) { // PS3 / PS2 Isos
-         if(directories[num_dir].flags & (1<<23)) {
+    // bluray /dvd / mkv in Homebrew mode
+    if((directories[num_dir].flags & D_FLAG_HOMEB_GROUP) > D_FLAG_HOMEB) {
+        strcpy(path, directories[num_dir].path_name);
+        if(path[strlen(path) - 1]=='0') path[strlen(path) - 6] = 0; else path[strlen(path) - 4] = 0;
+        int n = strlen(path);
+        strcat(path, ".jpg");
+        if(!stat(path, &s)) return 1;
+        path[n] = 0;
+        strcat(path, ".JPG");
+        if(!stat(path, &s)) return 1;
+        path[n] = 0;
+        strcat(path, ".png");
+        if(!stat(path, &s)) return 1;
+        path[n] = 0;
+        strcat(path, ".PNG");
+        if(!stat(path, &s)) return 1;
+        
+        return -1;
+    
+    }
+
+    if((directories[num_dir].flags & D_FLAG_MASK_ISO) == D_FLAG_PS3_ISO) { // PS3 / PS2 Isos
+         if(directories[num_dir].flags & D_FLAG_PSX_ISO) { // PS2
              strcpy(path, directories[num_dir].path_name);
              if(path[strlen(path) - 1]=='0') path[strlen(path) - 6] = 0; else path[strlen(path) - 4] = 0;
              int n = strlen(path);
@@ -551,7 +574,7 @@ int get_icon(char * path, const int num_dir)
          }
     }
     
-    if(directories[num_dir].flags & (1<<23)) { // add PSX iso
+    if(directories[num_dir].flags & D_FLAG_PSX_ISO) { // add PSX iso
         sprintf(path, "%s/COVER.JPG", directories[num_dir].path_name);
         if(stat(path, &s)<0) {sprintf(path, "%s/cover.jpg", directories[num_dir].path_name);if(stat(path, &s)<0) return 0; else return 2;}
         else return 2;
@@ -579,7 +602,7 @@ int get_icon(char * path, const int num_dir)
 
     if(stat(path, &s)<0)
     {
-        sprintf(path, "%s%sICON0.PNG", directories[num_dir].path_name, &folder_mode[!((directories[num_dir].flags>>31) & 1)][0]);
+        sprintf(path, "%s%sICON0.PNG", directories[num_dir].path_name, &folder_mode[!((directories[num_dir].flags>>D_FLAG_HOMEB_DPL) & 1)][0]);
         return 0;
     }
     else
@@ -608,9 +631,9 @@ void get_games_2(void *empty)
 
                 if(!Png_offset[n]) {
 
-                    if(f == 0 && !(directories[favourites.list[n].index].flags & 1)) continue; // HDD Only
-                    if(f == 1 && (directories[favourites.list[n].index].flags & 2049)) continue; // USB Only
-                    if(f == 2 && !(directories[favourites.list[n].index].flags & 2048)) continue; // BDVD Only
+                    if(f == 0 && !(directories[favourites.list[n].index].flags & D_FLAG_HDD0)) continue; // HDD Only
+                    if(f == 1 && (directories[favourites.list[n].index].flags & (D_FLAG_HDD0 | D_FLAG_BDVD))) continue; // USB Only
+                    if(f == 2 && !(directories[favourites.list[n].index].flags & D_FLAG_BDVD)) continue; // BDVD Only
 
 
                     int r = get_icon(path_name, favourites.list[n].index);
@@ -662,9 +685,9 @@ void get_games_2(void *empty)
             
             if(!Png_offset[n]) {
 
-                if(f == 0 && !(directories[(int_currentdir + n)].flags & 1)) continue; // HDD Only
-                if(f == 1 && (directories[(int_currentdir + n)].flags & 2049)) continue; // USB Only
-                if(f == 2 && !(directories[(int_currentdir + n)].flags & 2048)) continue; // BDVD Only
+                if(f == 0 && !(directories[(int_currentdir + n)].flags & D_FLAG_HDD0)) continue; // HDD Only
+                if(f == 1 && (directories[(int_currentdir + n)].flags & (D_FLAG_HDD0 | D_FLAG_BDVD))) continue; // USB Only
+                if(f == 2 && !(directories[(int_currentdir + n)].flags & D_FLAG_BDVD)) continue; // BDVD Only
 
                 int r = get_icon(path_name, (int_currentdir + n));
 
@@ -1741,14 +1764,14 @@ void locate_last_game()
                 if(!strcmp(directories[i].title_id, last_game_id)) {
                     f = directories[i].flags;
 
-                    if(f & 1) {
+                    if(f & D_FLAG_HDD0) {
                         flags = f;
                         pos = n; 
                         break;
-                    } else if((f & (1<<15)) && !(flags & 1)) {
+                    } else if((f & D_FLAG_NTFS) && !(flags & D_FLAG_HDD0)) {
                         flags = f;
                         pos = n;
-                    } else if(!(flags & ((1<<15) | 1))) {
+                    } else if(!(flags & (D_FLAG_NTFS | D_FLAG_HDD0))) {
                         flags = f;
                         pos = n;
                     }
@@ -1779,13 +1802,13 @@ void locate_last_game()
                 flags = f;
                 pos = n; 
                 break;
-            } else if(f & 1) {
+            } else if(f & D_FLAG_HDD0) {
                 flags = f;
                 pos = n; 
-            } else if((f & (1<<15)) && !(flags & 1)) {
+            } else if((f & D_FLAG_NTFS) && !(flags & D_FLAG_HDD0)) {
                 flags = f;
                 pos = n;
-            } else if(!(flags & ((1<<15) | 1))) {
+            } else if(!(flags & (D_FLAG_NTFS | D_FLAG_HDD0))) {
                 flags = f;
                 pos = n;
             }
@@ -2489,6 +2512,11 @@ s32 main(s32 argc, const char* argv[])
 
     LoadFavourites(temp_buffer, HOMEBREW_MODE);
 
+    sprintf(temp_buffer, "%s/config/", self_path);
+
+    LoadFavourites(temp_buffer, HOMEBREW_MODE + 1);
+
+
     GetFavourites(mode_homebrew);
 
     sys_fs_umount("/dev_rewrite");
@@ -2686,11 +2714,11 @@ s32 main(s32 argc, const char* argv[])
                                 
                         memcpy(directories[ndirectories].title, bluray_game, 63);
                         directories[ndirectories].title[63]=0;
-                        directories[ndirectories].flags=(1<<11) | ((psx_inserted & 0xff)<<16);
+                        directories[ndirectories].flags= D_FLAG_BDVD | ((psx_inserted & 0xff)<<16);
                         if(!psx_inserted) {
                             sprintf(filename, "%s/%s", directories[ndirectories].path_name, "PS3_DISC.SFB" );
                             parse_ps3_disc((char *) filename, directories[ndirectories].title_id);
-                            directories[ndirectories].title_id[63]=0;
+                            directories[ndirectories].title_id[63]= 0;
                         } else
                             strncpy(directories[ndirectories].title_id, "PSX-GAME", 64);
 
@@ -2720,7 +2748,7 @@ s32 main(s32 argc, const char* argv[])
                                 ndirectories--;
                                 
                                 psx_inserted = 0;
-                                fdevices&= ~ (1<<11);
+                                fdevices&= ~ D_FLAG_BDVD;
                                 goto skip_bdvd;
                             
                             } else {counter = 0;
@@ -2743,7 +2771,7 @@ s32 main(s32 argc, const char* argv[])
 
                     } else {
                         
-                        delete_entries(directories, &ndirectories, (1<<11));
+                        delete_entries(directories, &ndirectories, D_FLAG_BDVD);
                         found_game_remove=1;
                     }
 
@@ -2791,8 +2819,31 @@ s32 main(s32 argc, const char* argv[])
                     
                 }
 
-                if(((fdevices>>find_device) & 1) && (!mode_homebrew || (mode_homebrew && find_device!=0)) ) {
-                    fill_entries_from_device(filename, directories, &ndirectories, (1<<find_device) | ((1<<31) * (mode_homebrew!=0)), 0 | (2 * (mode_homebrew!=0)));
+                // BDISO, DVDISO, MKV
+                if(mode_homebrew!=0 && use_cobra && noBDVD == 2 &&
+                    ((fdevices>>find_device) & 1) && find_device==0) { // isos BR-DVD
+                    int n;
+                    char file[0x420];
+
+                    delete_entries(directories, &ndirectories, (1<<find_device));
+
+                    strncpy(file, filename, 0x420);
+                    n=1;while(file[n]!='/' && file[n]!=0)  n++;
+                    
+                    file[n]=0; strcat(file, "/BDISO");
+                    
+                    fill_iso_entries_from_device(file, D_FLAG_HOMEB | D_FLAG_HOMEB_BD | (1<<find_device), directories, &ndirectories);
+
+                    file[n]=0; strcat(file, "/DVDISO");
+                    
+                    fill_iso_entries_from_device(file, D_FLAG_HOMEB | D_FLAG_HOMEB_DVD | (1<<find_device), directories, &ndirectories);
+
+                    file[n]=0; strcat(file, "/MKV");
+                    
+                    fill_iso_entries_from_device(file, D_FLAG_HOMEB | D_FLAG_HOMEB_MKV | (1<<find_device), directories, &ndirectories);
+                    found_game_insert=1;
+                } else if(((fdevices>>find_device) & 1) && (!mode_homebrew || (mode_homebrew && find_device!=0)) ) {
+                    fill_entries_from_device(filename, directories, &ndirectories, (1<<find_device) | (D_FLAG_HOMEB * (mode_homebrew!=0)), 0 | (2 * (mode_homebrew!=0)));
                     found_game_insert=1;
                 } else {
                     delete_entries(directories, &ndirectories, (1<<find_device));
@@ -2817,10 +2868,10 @@ s32 main(s32 argc, const char* argv[])
 
             if(old_ntfs_ports != ports_plug_cnt || forcedevices || signal_force) {
                 if(old_ntfs_ports == ports_plug_cnt) old_ntfs_ports = 0;
-                if(delete_entries(directories, &ndirectories, (1<<15)))
+                if(delete_entries(directories, &ndirectories, D_FLAG_NTFS))
                     found_game_remove=1;
 
-                if((mode_homebrew != HOMEBREW_MODE) && automountCount[0]==0 && automountCount[1]==0 && automountCount[2]==0 && automountCount[3]==0 && 
+                if(automountCount[0]==0 && automountCount[1]==0 && automountCount[2]==0 && automountCount[3]==0 && 
                     automountCount[4]==0 && automountCount[5]==0 && automountCount[6]==0 && automountCount[7]==0) {
                     for(find_device = 0; find_device < 8; find_device++) {
                         
@@ -2828,15 +2879,26 @@ s32 main(s32 argc, const char* argv[])
                             int k;
                             for (k = 0; k < mountCount[find_device]; k++) {
                                 if((mounts[find_device]+k)->name[0]) {
-                                    sprintf(filename, "/%s:/PS3ISO", (mounts[find_device]+k)->name); 
-                                    if(game_list_category != 2) {
-                                        fill_iso_entries_from_device(filename, (1<<15), directories, &ndirectories);
-                                        found_game_insert=1;
-                                    }
-                                    sprintf(filename, "/%s:/PSXGAMES", (mounts[find_device]+k)->name);
 
-                                    if(mode_homebrew ==0  && game_list_category != 1) {
-                                        fill_psx_iso_entries_from_device(filename, (1<<15), directories, &ndirectories);
+                                    if(mode_homebrew == GAMEBASE_MODE) {
+                                        sprintf(filename, "/%s:/PS3ISO", (mounts[find_device]+k)->name); 
+                                        if(game_list_category != 2) {
+                                            fill_iso_entries_from_device(filename, D_FLAG_NTFS, directories, &ndirectories);
+                                            found_game_insert=1;
+                                        }
+                                        sprintf(filename, "/%s:/PSXGAMES", (mounts[find_device]+k)->name);
+
+                                        if(mode_homebrew ==0  && game_list_category != 1) {
+                                            fill_psx_iso_entries_from_device(filename, D_FLAG_NTFS, directories, &ndirectories);
+                                            found_game_insert=1;
+                                        }
+                                    } else {
+                                        sprintf(filename, "/%s:/BDISO", (mounts[find_device]+k)->name);
+                                        fill_iso_entries_from_device(filename, D_FLAG_HOMEB | D_FLAG_HOMEB_BD | D_FLAG_NTFS, directories, &ndirectories);
+                                        sprintf(filename, "/%s:/DVDISO", (mounts[find_device]+k)->name);
+                                        fill_iso_entries_from_device(filename, D_FLAG_HOMEB | D_FLAG_HOMEB_DVD | D_FLAG_NTFS, directories, &ndirectories);
+                                        sprintf(filename, "/%s:/MKV", (mounts[find_device]+k)->name);
+                                        fill_iso_entries_from_device(filename, D_FLAG_HOMEB | D_FLAG_HOMEB_MKV | D_FLAG_NTFS, directories, &ndirectories);
                                         found_game_insert=1;
                                     }
                                 }
@@ -3244,20 +3306,20 @@ void get_pict(int *index)
     
     if(!mode_favourites || (mode_favourites != 0 && favourites.list[i].index >= 0)) {
         sprintf(dir, "%s%s", directories[get_int_currentdir(i)].path_name, 
-            &folder_mode[!((directories[get_int_currentdir(i)].flags>>31) & 1)][0]);
+            &folder_mode[!((directories[get_int_currentdir(i)].flags >> D_FLAG_HOMEB_DPL) & 1)][0]);
 
         sprintf(dir2, "%s%s", directories[(mode_favourites != 0) 
                 ? favourites.list[i].index : (int_currentdir + i)].path_name, 
                 &folder_mode[!((directories[(mode_favourites != 0) 
-                    ? favourites.list[i].index : (int_currentdir + i)].flags>>31) & 1)][0]);
+                    ? favourites.list[i].index : (int_currentdir + i)].flags >> D_FLAG_HOMEB_DPL) & 1)][0]);
 
         int ind = (mode_favourites != 0) ? favourites.list[i].index : (int_currentdir + i);
 
         // ISOS
 
-        if((directories[ind].flags & ((1<<24) | (1<<31) | (1<<11))) == (1<<24)) {
+        if((directories[ind].flags & D_FLAG_MASK_ISO) == D_FLAG_PS3_ISO) {
 
-            if(directories[ind].flags & (1<<23)) { // PS2
+            if(directories[ind].flags & D_FLAG_PSX_ISO) { // PS2
             } else { // PS3
                 //
                 int fd = ps3ntfs_open(directories[ind].path_name, O_RDONLY, 0);
@@ -3323,9 +3385,9 @@ void draw_gui1(float x, float y)
     float x2;
 
     //static char str_home[2][16]={" Homebrew",""};
-    static char str_home[4][16]={" Homebrew", "", " PS3", " PSX"};
+    static char str_home[5][16]={" Homebrew", "", " PS3", " PSX", " Films"};
 
-    int str_type = (mode_homebrew == HOMEBREW_MODE) ? 0 : 1 + game_list_category;
+    int str_type = (mode_homebrew != GAMEBASE_MODE) ? ((mode_homebrew == HOMEBREW_MODE) ? 0 : 4) : 1 + game_list_category;
 
     int selected = select_px + select_py * scr_grid_w;
 
@@ -3366,7 +3428,7 @@ void draw_gui1(float x, float y)
             for(i = 0; i < 11; i++)
                 if((directories[(mode_favourites !=0) ? favourites.list[m].index : (currentdir + m)].flags & GAMELIST_FILTER)== (1<<i)) break;
             if(i==11) 
-                if((directories[(mode_favourites !=0) ? favourites.list[m].index : (currentdir + m)].flags & GAMELIST_FILTER)== (1<<15)) 
+                if((directories[(mode_favourites !=0) ? favourites.list[m].index : (currentdir + m)].flags & GAMELIST_FILTER)== D_FLAG_NTFS) 
                     {i = 15;
                      strcpy(temp_buffer, directories[(mode_favourites !=0) ? favourites.list[m].index : (currentdir + m)].path_name);
                     }
@@ -3449,15 +3511,23 @@ void draw_gui1(float x, float y)
             int set_ps3_cover = 0;
             
             if(Png_offset[i]) {
-               
-                if((directories[get_currentdir(i)].flags  & ((1<<11) | (1<<23)))== ((1<<11) | (1<<23))) {
+
+                if(Png_iscover[i] < 1 && (directories[get_currentdir(i)].flags  & D_FLAG_HOMEB_GROUP) > D_FLAG_HOMEB) {
+                    if(directories[get_currentdir(i)].flags & D_FLAG_HOMEB_DVD) tiny3d_SetTextureWrap(0, Png_res_offset[15], Png_res[15].width, 
+                                             Png_res[15].height, Png_res[15].wpitch, 
+                                             TINY3D_TEX_FORMAT_A8R8G8B8,  TEXTWRAP_CLAMP, TEXTWRAP_CLAMP,1);
+                    else tiny3d_SetTextureWrap(0, Png_res_offset[0], Png_res[0].width, 
+                                             Png_res[0].height, Png_res[0].wpitch, 
+                                             TINY3D_TEX_FORMAT_A8R8G8B8,  TEXTWRAP_CLAMP, TEXTWRAP_CLAMP,1);
+                    
+                } else if((directories[get_currentdir(i)].flags  & (D_FLAG_BDVD | D_FLAG_PSX_ISO))== (D_FLAG_BDVD | D_FLAG_PSX_ISO)) {
                     Png_iscover[i] = -1;
                     tiny3d_SetTextureWrap(0, Png_res_offset[5], Png_res[5].width, 
                                              Png_res[5].height, Png_res[5].wpitch, 
                                              TINY3D_TEX_FORMAT_A8R8G8B8,  TEXTWRAP_CLAMP, TEXTWRAP_CLAMP,1);
-                } else if(Png_iscover[i] < 1 && (directories[get_currentdir(i)].flags  & (1<<23))) { // add PSX iso
+                } else if(Png_iscover[i] < 1 && (directories[get_currentdir(i)].flags  & D_FLAG_PSX_ISO)) { // add PSX iso
                     Png_iscover[i] = -1;
-                    if(directories[get_currentdir(i)].flags  & (1<<24)) 
+                    if(directories[get_currentdir(i)].flags  & D_FLAG_PS3_ISO) 
                         tiny3d_SetTextureWrap(0, Png_res_offset[13], Png_res[13].width, 
                                              Png_res[13].height, Png_res[13].wpitch, 
                                              TINY3D_TEX_FORMAT_A8R8G8B8,  TEXTWRAP_CLAMP, TEXTWRAP_CLAMP,1);
@@ -3466,7 +3536,7 @@ void draw_gui1(float x, float y)
                         tiny3d_SetTextureWrap(0, Png_res_offset[6], Png_res[6].width, 
                                              Png_res[6].height, Png_res[6].wpitch, 
                                              TINY3D_TEX_FORMAT_A8R8G8B8,  TEXTWRAP_CLAMP, TEXTWRAP_CLAMP,1);
-                } else if(Png_iscover[i] < 1 && (directories[get_currentdir(i)].flags  & ((1<<24) | (1<<11))) == (1<<24)) { 
+                } else if(Png_iscover[i] < 1 && (directories[get_currentdir(i)].flags  & (D_FLAG_PS3_ISO | D_FLAG_BDVD)) == D_FLAG_PS3_ISO) { 
                            tiny3d_SetTextureWrap(0, Png_res_offset[0], Png_res[0].width, 
                                                  Png_res[0].height, Png_res[0].wpitch, 
                                                  TINY3D_TEX_FORMAT_A8R8G8B8,  TEXTWRAP_CLAMP, TEXTWRAP_CLAMP,1);
@@ -3476,13 +3546,20 @@ void draw_gui1(float x, float y)
                                              TINY3D_TEX_FORMAT_A8R8G8B8,  TEXTWRAP_CLAMP, TEXTWRAP_CLAMP,1);
 
                 if(Png_iscover[i] == 1) set_ps3_cover = 1; // PS3 cover
-                if((directories[get_currentdir(i)].flags  & ((1<<11) | (1<<23)))== ((1<<23))) {
+                if((directories[get_currentdir(i)].flags  & (D_FLAG_BDVD | D_FLAG_PSX_ISO))== D_FLAG_PSX_ISO) {
                     set_ps3_cover = 2; // PSX cover
-                    if((directories[get_currentdir(i)].flags  & (1<<24)) == (1<<24)) set_ps3_cover = 3 + 1 *(Png_iscover[i] < 0); // PS2 cover
+                    if((directories[get_currentdir(i)].flags & D_FLAG_PS3_ISO) == D_FLAG_PS3_ISO) set_ps3_cover = 3 + 1 *(Png_iscover[i] < 0); // PS2 cover
                 }
 
-              
-                if(set_ps3_cover && gui_mode != 0) {
+                if((directories[get_currentdir(i)].flags  & D_FLAG_HOMEB_GROUP) > D_FLAG_HOMEB) {
+                    set_ps3_cover = 3;
+                    if(Png_iscover[i] < 0) set_ps3_cover = 1;
+                    else if(directories[get_currentdir(i)].flags & D_FLAG_HOMEB_DVD) set_ps3_cover = 1;
+                    if(set_ps3_cover == 2 || set_ps3_cover == 4)
+                        DrawTextBoxCover(xx + FIX_X(16) + ww * m - 4 * f2, yy + n * hh - 4 * f2, 0, FIX_X(160) + 8 * f2, (hh-8) + 8 * f2, (0xffffffff- (MAX_FLASH * 2 * f)) + (flash2 * 2 * f), set_ps3_cover - 1);
+                    else
+                        DrawTextBoxCover(xx + FIX_X(36) + ww * m - 4 * f2, yy + n * hh - 4 * f2, 0, FIX_X(124) + 8 * f2, (hh-8) + 8 * f2, (0xffffffff- (MAX_FLASH * 2 * f)) + (flash2 * 2 * f), set_ps3_cover - 1);
+                } else if(set_ps3_cover && gui_mode != 0) {
                     if(set_ps3_cover == 2 || set_ps3_cover == 4)
                         DrawTextBoxCover(xx + FIX_X(16) + ww * m - 4 * f2, yy + n * hh - 4 * f2, 0, FIX_X(160) + 8 * f2, (hh-8) + 8 * f2, (0xffffffff- (MAX_FLASH * 2 * f)) + (flash2 * 2 * f), set_ps3_cover - 1);
                     else
@@ -3501,9 +3578,9 @@ void draw_gui1(float x, float y)
 
                 if(!mode_favourites || ((mode_favourites !=0) && favourites.list[i].index >= 0)) {
                     // ignore bluray icon
-                    if((directories[get_currentdir(i)].flags  & ((1<<11) | (1<<23)))== ((1<<11) | (1<<23))) ;
+                    if((directories[get_currentdir(i)].flags  & (D_FLAG_BDVD | D_FLAG_PSX_ISO))== (D_FLAG_BDVD | D_FLAG_PSX_ISO)) ;
                     // draw Bluray icon
-                    else if((directories[get_currentdir(i)].flags  & GAMELIST_FILTER)== (1<<11)) {
+                    else if((directories[get_currentdir(i)].flags  & GAMELIST_FILTER)== D_FLAG_BDVD) {
                         tiny3d_SetTextureWrap(0, Png_res_offset[0], Png_res[0].width, 
                                                  Png_res[0].height, Png_res[0].wpitch, 
                                                  TINY3D_TEX_FORMAT_A8R8G8B8,  TEXTWRAP_CLAMP, TEXTWRAP_CLAMP,1);
@@ -3511,7 +3588,7 @@ void draw_gui1(float x, float y)
                     } else 
                     // draw Usb icon    
                     if((directories[get_currentdir(i)].flags  & GAMELIST_FILTER)> 1) {
-                        int ii = 1 + 13 * ((directories[get_currentdir(i)].flags & (1<<15)) != 0);
+                        int ii = 1 + 13 * ((directories[get_currentdir(i)].flags & D_FLAG_NTFS) != 0);
                         tiny3d_SetTextureWrap(0, Png_res_offset[ii], Png_res[ii].width, 
                         Png_res[ii].height, Png_res[ii].wpitch, 
                             TINY3D_TEX_FORMAT_A8R8G8B8,  TEXTWRAP_CLAMP, TEXTWRAP_CLAMP,1);
@@ -3668,7 +3745,7 @@ void draw_gui1(float x, float y)
                 update_title_utf8 = 1;
             }
 
-        } else if((directories[(currentdir + i)].flags  & GAMELIST_FILTER)== (1<<11)) {
+        } else if((directories[(currentdir + i)].flags  & GAMELIST_FILTER)== D_FLAG_BDVD) {
          
             str_color = 0xafd836ee;
             if(strncmp((char *) string_title_utf8, bluray_game, 64)) {
@@ -3699,22 +3776,36 @@ void draw_gui1(float x, float y)
 
         load_gamecfg (get_currentdir(i)); // refresh game info
 
-        if((game_cfg.useBDVD) || (game_cfg.direct_boot == 2) || (directories[get_currentdir(i)].flags  & GAMELIST_FILTER)== (1<<15))
-        {
-            tiny3d_SetTextureWrap(0, Png_res_offset[0], Png_res[0].width, 
-                Png_res[0].height, Png_res[0].wpitch, 
-                TINY3D_TEX_FORMAT_A8R8G8B8,  TEXTWRAP_CLAMP, TEXTWRAP_CLAMP,1);
+        // BD, DVD, MKV
 
-            DrawTextBox(xx + ww * select_px + ww - 52 + 8, yy + select_py * hh - 4 + hh - 36, 0, 32, 32, 0xffffff99);
-        }
-        
-        if(game_cfg.direct_boot  && (directories[get_currentdir(i)].flags  & GAMELIST_FILTER)!= (1<<15))
-        {
-            tiny3d_SetTextureWrap(0, Png_res_offset[3], Png_res[3].width, 
-                Png_res[3].height, Png_res[3].wpitch, 
-                TINY3D_TEX_FORMAT_A8R8G8B8,  TEXTWRAP_CLAMP, TEXTWRAP_CLAMP,1);
+        if((directories[get_currentdir(i)].flags  & D_FLAG_HOMEB_GROUP) > D_FLAG_HOMEB) {
+             if(directories[get_currentdir(i)].flags & D_FLAG_HOMEB_DVD) 
+                 tiny3d_SetTextureWrap(0, Png_res_offset[15], Png_res[15].width, 
+                    Png_res[15].height, Png_res[15].wpitch, 
+                    TINY3D_TEX_FORMAT_A8R8G8B8,  TEXTWRAP_CLAMP, TEXTWRAP_CLAMP,1);
+             else tiny3d_SetTextureWrap(0, Png_res_offset[0], Png_res[0].width, 
+                    Png_res[0].height, Png_res[0].wpitch, 
+                    TINY3D_TEX_FORMAT_A8R8G8B8,  TEXTWRAP_CLAMP, TEXTWRAP_CLAMP,1);
+             DrawTextBox(xx + ww * select_px + ww - 52 + 8, yy + select_py * hh - 4 + hh - 36, 0, 32, 32, 0xffffff99);
+        } else {
 
-            DrawTextBox(xx + ww * select_px + ww - 52  + 8, yy + select_py * hh - 4 + hh - 36, 0, 32, 32, 0xffffffff);        
+            if((game_cfg.useBDVD) || (game_cfg.direct_boot == 2) || (directories[get_currentdir(i)].flags  & GAMELIST_FILTER) == D_FLAG_NTFS)
+            {
+                tiny3d_SetTextureWrap(0, Png_res_offset[0], Png_res[0].width, 
+                    Png_res[0].height, Png_res[0].wpitch, 
+                    TINY3D_TEX_FORMAT_A8R8G8B8,  TEXTWRAP_CLAMP, TEXTWRAP_CLAMP,1);
+
+                DrawTextBox(xx + ww * select_px + ww - 52 + 8, yy + select_py * hh - 4 + hh - 36, 0, 32, 32, 0xffffff99);
+            }
+            
+            if(game_cfg.direct_boot  && (directories[get_currentdir(i)].flags  & GAMELIST_FILTER)!= D_FLAG_NTFS)
+            {
+                tiny3d_SetTextureWrap(0, Png_res_offset[3], Png_res[3].width, 
+                    Png_res[3].height, Png_res[3].wpitch, 
+                    TINY3D_TEX_FORMAT_A8R8G8B8,  TEXTWRAP_CLAMP, TEXTWRAP_CLAMP,1);
+
+                DrawTextBox(xx + ww * select_px + ww - 52  + 8, yy + select_py * hh - 4 + hh - 36, 0, 32, 32, 0xffffffff);        
+            }
         }
 
     }
@@ -3754,9 +3845,9 @@ void draw_gui2(float x, float y)
 
     float x2;
 
-    static char str_home[4][16]={" Homebrew", "", " PS3", " PSX"};
+    static char str_home[5][16]={" Homebrew", "", " PS3", " PSX", " Films"};
 
-    int str_type = (mode_homebrew == HOMEBREW_MODE) ? 0 : 1 + game_list_category;
+    int str_type = (mode_homebrew != GAMEBASE_MODE) ? ((mode_homebrew == HOMEBREW_MODE) ? 0 : 4) : 1 + game_list_category;
 
     int selected = select_px + select_py * 4;
 
@@ -3831,7 +3922,7 @@ void draw_gui2(float x, float y)
             for(i = 0; i < 11; i++)
                 if((directories[(mode_favourites !=0) ? favourites.list[m].index : (currentdir + m)].flags & GAMELIST_FILTER)== (1<<i)) break;
             if(i==11) 
-                if((directories[(mode_favourites !=0) ? favourites.list[m].index : (currentdir + m)].flags & GAMELIST_FILTER)== (1<<15)) 
+                if((directories[(mode_favourites !=0) ? favourites.list[m].index : (currentdir + m)].flags & GAMELIST_FILTER)== D_FLAG_NTFS) 
                     {i = 15;
                      strcpy(temp_buffer, directories[(mode_favourites !=0) ? favourites.list[m].index : (currentdir + m)].path_name);
                     }
@@ -3897,7 +3988,7 @@ void draw_gui2(float x, float y)
         rel_widthy[i] = 142;
         rel_posy[i] = y + icony;
         if(Png_offset[i]) {
-            if((directories[get_currentdir(i)].flags  & ((1<<11) | (1<<23)))== ((1<<11) | (1<<23))) 
+            if((directories[get_currentdir(i)].flags  & (D_FLAG_BDVD | D_FLAG_PSX_ISO))== (D_FLAG_BDVD | D_FLAG_PSX_ISO)) 
                 {Png_iscover[i] = -1;}
         else if(Png_iscover[i] < 1 && (directories[get_currentdir(i)].flags  & (1<<23))) 
             {Png_iscover[i] = -1;}
@@ -3906,7 +3997,7 @@ void draw_gui2(float x, float y)
 
         if((select_px == m && select_py == n)) {
             centerx = relx;
-            if(Png_iscover[i] == -1 && ((directories[get_currentdir(i)].flags  & ((1<<11) | (1<<23)))== ((1<<23)))) centerx+= (162 + 10)/2;
+            if(Png_iscover[i] == -1 && ((directories[get_currentdir(i)].flags  & (D_FLAG_BDVD | D_FLAG_PSX_ISO))== D_FLAG_PSX_ISO)) centerx+= (162 + 10)/2;
             else if(Png_iscover[i] == -1) centerx+= (142 + 10)/2;
             else if(Png_iscover[i] == 1) centerx+= (124 + 10)/2;
             else centerx+= (162 + 10)/2;
@@ -3914,7 +4005,7 @@ void draw_gui2(float x, float y)
 
         if(Png_offset[i]) {
             
-            if(Png_iscover[i] == -1 && ((directories[get_currentdir(i)].flags  & ((1<<11) | (1<<23)))== ((1<<23))))
+            if(Png_iscover[i] == -1 && ((directories[get_currentdir(i)].flags  & (D_FLAG_BDVD | D_FLAG_PSX_ISO))== D_FLAG_PSX_ISO))
                 {rel_posx[i] = relx; rel_widthx[i] = 162; relx+= rel_widthx[i] + 10;}
             else if(Png_iscover[i] == -1)
                 {rel_posx[i] = relx; rel_widthx[i] = 142; relx+= rel_widthx[i] + 10;}
@@ -3998,38 +4089,52 @@ void draw_gui2(float x, float y)
                 
                 if(Png_offset[i]) {
                    
-                    if((directories[get_currentdir(i)].flags  & ((1<<11) | (1<<23)))== ((1<<11) | (1<<23))) {
+                    if(Png_iscover[i] < 1 && (directories[get_currentdir(i)].flags  & D_FLAG_HOMEB_GROUP) > D_FLAG_HOMEB) {
+                        if(directories[get_currentdir(i)].flags & D_FLAG_HOMEB_DVD) tiny3d_SetTextureWrap(0, Png_res_offset[15], Png_res[15].width, 
+                                                Png_res[15].height, Png_res[15].wpitch, 
+                                                TINY3D_TEX_FORMAT_A8R8G8B8,  TEXTWRAP_CLAMP, TEXTWRAP_CLAMP,1);
+                        else tiny3d_SetTextureWrap(0, Png_res_offset[0], Png_res[0].width, 
+                                                Png_res[0].height, Png_res[0].wpitch, 
+                                                TINY3D_TEX_FORMAT_A8R8G8B8,  TEXTWRAP_CLAMP, TEXTWRAP_CLAMP,1);
+                        
+                    } else if((directories[get_currentdir(i)].flags  & (D_FLAG_BDVD | D_FLAG_PSX_ISO))== (D_FLAG_BDVD | D_FLAG_PSX_ISO)) {
                         //Png_iscover[i] = -1;
                         tiny3d_SetTextureWrap(0, Png_res_offset[5], Png_res[5].width, 
-                                                 Png_res[5].height, Png_res[5].wpitch, 
-                                                 TINY3D_TEX_FORMAT_A8R8G8B8,  TEXTWRAP_CLAMP, TEXTWRAP_CLAMP,1);
-                    } else if(Png_iscover[i] < 1 && (directories[get_currentdir(i)].flags  & (1<<23))) { // add PSX iso
+                                                Png_res[5].height, Png_res[5].wpitch, 
+                                                TINY3D_TEX_FORMAT_A8R8G8B8,  TEXTWRAP_CLAMP, TEXTWRAP_CLAMP,1);
+                    } else if(Png_iscover[i] < 1 && (directories[get_currentdir(i)].flags  & D_FLAG_PSX_ISO)) { // add PSX iso
                         //Png_iscover[i] = -1;
-                        if(directories[get_currentdir(i)].flags  & (1<<24)) 
+                        if(directories[get_currentdir(i)].flags  & D_FLAG_PS3_ISO) 
                             tiny3d_SetTextureWrap(0, Png_res_offset[13], Png_res[13].width, 
-                                                 Png_res[13].height, Png_res[13].wpitch, 
-                                                 TINY3D_TEX_FORMAT_A8R8G8B8,  TEXTWRAP_CLAMP, TEXTWRAP_CLAMP,1);
+                                                Png_res[13].height, Png_res[13].wpitch, 
+                                                TINY3D_TEX_FORMAT_A8R8G8B8,  TEXTWRAP_CLAMP, TEXTWRAP_CLAMP,1);
                         else
                             tiny3d_SetTextureWrap(0, Png_res_offset[6], Png_res[6].width, 
-                                                 Png_res[6].height, Png_res[6].wpitch, 
-                                                 TINY3D_TEX_FORMAT_A8R8G8B8,  TEXTWRAP_CLAMP, TEXTWRAP_CLAMP,1);
-                    } else if(Png_iscover[i] < 1 && (directories[get_currentdir(i)].flags  & ((1<<24) | (1<<11))) == (1<<24)) { 
+                                                Png_res[6].height, Png_res[6].wpitch, 
+                                                TINY3D_TEX_FORMAT_A8R8G8B8,  TEXTWRAP_CLAMP, TEXTWRAP_CLAMP,1);
+                    } else if(Png_iscover[i] < 1 && (directories[get_currentdir(i)].flags  & (D_FLAG_PS3_ISO | D_FLAG_BDVD)) == D_FLAG_PS3_ISO) { 
                            tiny3d_SetTextureWrap(0, Png_res_offset[0], Png_res[0].width, 
-                                                 Png_res[0].height, Png_res[0].wpitch, 
-                                                 TINY3D_TEX_FORMAT_A8R8G8B8,  TEXTWRAP_CLAMP, TEXTWRAP_CLAMP,1);
+                                                Png_res[0].height, Png_res[0].wpitch, 
+                                                TINY3D_TEX_FORMAT_A8R8G8B8,  TEXTWRAP_CLAMP, TEXTWRAP_CLAMP,1);
                     } else {
                         tiny3d_SetTextureWrap(0, Png_offset[i], Png_datas[i].width, 
-                                                 Png_datas[i].height, Png_datas[i].wpitch, 
-                                                 TINY3D_TEX_FORMAT_A8R8G8B8,  TEXTWRAP_CLAMP, TEXTWRAP_CLAMP,1);
+                                                Png_datas[i].height, Png_datas[i].wpitch, 
+                                                TINY3D_TEX_FORMAT_A8R8G8B8,  TEXTWRAP_CLAMP, TEXTWRAP_CLAMP,1);
                     }
 
                     if(Png_iscover[i] == 1) set_ps3_cover = 1; // PS3 cover
                     
-                    if((directories[get_currentdir(i)].flags  & ((1<<11) | (1<<23)))== ((1<<23))) {
+                    if((directories[get_currentdir(i)].flags  & (D_FLAG_BDVD | D_FLAG_PSX_ISO))== (D_FLAG_PSX_ISO)) {
                         set_ps3_cover = 2; // PSX cover
-                        if((directories[get_currentdir(i)].flags  & (1<<24)) == (1<<24)) set_ps3_cover = 3 + 1 *(Png_iscover[i] < 0); // PS2 cover
+                        if((directories[get_currentdir(i)].flags  & D_FLAG_PS3_ISO) == D_FLAG_PS3_ISO) set_ps3_cover = 3 + 1 *(Png_iscover[i] < 0); // PS2 cover
                     }
 
+                    // BD, DVD, MKV
+                    if((directories[get_currentdir(i)].flags  & D_FLAG_HOMEB_GROUP) > D_FLAG_HOMEB) {
+                        set_ps3_cover = 3;
+                        if(Png_iscover[i] < 0) set_ps3_cover = 1;
+                        else if(directories[get_currentdir(i)].flags & D_FLAG_HOMEB_DVD) set_ps3_cover = 1;  
+                    }
 
                     if(!set_ps3_cover)
                         DrawBox(rel_posx[i] - centerx - 4 * f2, rel_posy[i] - 4 * f2, !f ? 100 : 0, rel_widthx[i] + 8 * f2, rel_widthy[i] + 8 * f2, 0x00000028);
@@ -4052,9 +4157,9 @@ void draw_gui2(float x, float y)
  
                     if(!mode_favourites || ((mode_favourites !=0) && favourites.list[i].index >= 0)) {
                         // ignore bluray icon
-                        if((directories[get_currentdir(i)].flags  & ((1<<11) | (1<<23)))== ((1<<11) | (1<<23))) ;
+                        if((directories[get_currentdir(i)].flags  & (D_FLAG_BDVD | D_FLAG_PSX_ISO))== (D_FLAG_BDVD | D_FLAG_PSX_ISO)) ;
                         // draw Bluray icon
-                        else if((directories[get_currentdir(i)].flags  & GAMELIST_FILTER)== (1<<11)) {
+                        else if((directories[get_currentdir(i)].flags  & GAMELIST_FILTER)== D_FLAG_BDVD) {
                             tiny3d_SetTextureWrap(0, Png_res_offset[0], Png_res[0].width, 
                                                      Png_res[0].height, Png_res[0].wpitch, 
                                                      TINY3D_TEX_FORMAT_A8R8G8B8,  TEXTWRAP_CLAMP, TEXTWRAP_CLAMP,1);
@@ -4064,7 +4169,7 @@ void draw_gui2(float x, float y)
                         } else 
                         // draw Usb icon    
                         if((directories[get_currentdir(i)].flags  & GAMELIST_FILTER)> 1) {
-                            int ii = 1 + 13 * ((directories[get_currentdir(i)].flags & (1<<15)) != 0);
+                            int ii = 1 + 13 * ((directories[get_currentdir(i)].flags & D_FLAG_NTFS) != 0);
                             tiny3d_SetTextureWrap(0, Png_res_offset[ii], Png_res[ii].width, 
                             Png_res[ii].height, Png_res[ii].wpitch, 
                                 TINY3D_TEX_FORMAT_A8R8G8B8,  TEXTWRAP_CLAMP, TEXTWRAP_CLAMP,1);
@@ -4098,8 +4203,8 @@ void draw_gui2(float x, float y)
                         DrawTextBoxShadow(rel_posx[i] - centerx - 4 * f2, y + icony - 4 * f2 + 142 + 8 * f2 + 8, !f ? 100 : 0, 128 + 8 * f2, (rel_widthy[i] * 5 / 8 + 8 * f2), 0x40404090);
                 } else {
                     // draw Bluray icon with empty icon
-                    if((directories[get_currentdir(i)].flags  & GAMELIST_FILTER)== (1<<11) &&
-                        ((directories[get_currentdir(i)].flags  & ((1<<11) | (1<<23)))!= ((1<<11) | (1<<23)))) {
+                    if((directories[get_currentdir(i)].flags  & GAMELIST_FILTER)== D_FLAG_BDVD &&
+                        ((directories[get_currentdir(i)].flags  & (D_FLAG_BDVD | D_FLAG_PSX_ISO))!= (D_FLAG_BDVD | D_FLAG_PSX_ISO))) {
 
                         DrawBoxLine(rel_posx[i] - centerx - 4 * f2, rel_posy[i] - 4 * f2, !f ? 100 : 0, 128 + 8 * f2, rel_widthy[i] + 8 * f2, 0xa0a0a040, color_line);
                         DrawBoxShadow(rel_posx[i] - centerx - 4 * f2, y + icony - 4 * f2 + 142 + 8 * f2 + 8, !f ? 100 : 0, 128 + 8 * f2, (rel_widthy[i] * 5 / 8 + 8 * f2), 0x80808040);
@@ -4249,7 +4354,7 @@ void draw_gui2(float x, float y)
                 update_title_utf8 = 1;
             }
 
-        } else if((directories[(currentdir + i)].flags  & GAMELIST_FILTER)== (1<<11)) {
+        } else if((directories[(currentdir + i)].flags  & GAMELIST_FILTER)== D_FLAG_BDVD) {
          
             str_color = 0xafd836ee;
             if(strncmp((char *) string_title_utf8, bluray_game, 64)) {
@@ -4298,38 +4403,61 @@ void draw_gui2(float x, float y)
         
         x2 = 0;
 
-        if((directories[get_currentdir(i)].flags & (1 << 24)) || (game_cfg.useBDVD) || (game_cfg.direct_boot == 2))
-        {
-            tiny3d_SetTextureWrap(0, Png_res_offset[0], Png_res[0].width, 
-                Png_res[0].height, Png_res[0].wpitch, 
-                TINY3D_TEX_FORMAT_A8R8G8B8,  TEXTWRAP_CLAMP, TEXTWRAP_CLAMP,1);
+        // BD, DVD, MKV
+        if((directories[get_currentdir(i)].flags  & D_FLAG_HOMEB_GROUP) > D_FLAG_HOMEB) {
+             if(directories[get_currentdir(i)].flags & D_FLAG_HOMEB_DVD) 
+                 tiny3d_SetTextureWrap(0, Png_res_offset[15], Png_res[15].width, 
+                    Png_res[15].height, Png_res[15].wpitch, 
+                    TINY3D_TEX_FORMAT_A8R8G8B8,  TEXTWRAP_CLAMP, TEXTWRAP_CLAMP,1);
+             else tiny3d_SetTextureWrap(0, Png_res_offset[0], Png_res[0].width, 
+                    Png_res[0].height, Png_res[0].wpitch, 
+                    TINY3D_TEX_FORMAT_A8R8G8B8,  TEXTWRAP_CLAMP, TEXTWRAP_CLAMP,1);
+             
+             DrawTextBox(x + x2, y + 3 * 150 - 48, 0, 32, 32, 0xffffff99);
 
-            DrawTextBox(x + x2, y + 3 * 150 - 48, 0, 32, 32, 0xffffff99);
+             x2+= 40;
 
-            x2+= 40;
-        }
-        
-        if(!(directories[get_currentdir(i)].flags & (1 << 24))) {
-            if(game_cfg.direct_boot)
+             u32 ff = directories[get_currentdir(i)].flags & D_FLAG_HOMEB_MKV;
+
+             if(ff == D_FLAG_HOMEB_BD) x2 = DrawString(x + x2,  y + 3 * 150 - 48 + 4, "BD ISO");
+             else if(ff == D_FLAG_HOMEB_DVD) x2 = DrawString(x + x2,  y + 3 * 150 - 48 + 4, "DVD ISO");
+             else if(ff == D_FLAG_HOMEB_MKV) x2 = DrawString(x + x2,  y + 3 * 150 - 48 + 4, "MKV ISO");
+
+        } else {
+
+            if((directories[get_currentdir(i)].flags & D_FLAG_PS3_ISO) || (game_cfg.useBDVD) || (game_cfg.direct_boot == 2))
             {
-                tiny3d_SetTextureWrap(0, Png_res_offset[3], Png_res[3].width, 
-                    Png_res[3].height, Png_res[3].wpitch, 
+                tiny3d_SetTextureWrap(0, Png_res_offset[0], Png_res[0].width, 
+                    Png_res[0].height, Png_res[0].wpitch, 
                     TINY3D_TEX_FORMAT_A8R8G8B8,  TEXTWRAP_CLAMP, TEXTWRAP_CLAMP,1);
 
-                DrawTextBox(x + x2,  y + 3 * 150 - 48, 0, 32, 32, 0xffffffff); 
+                DrawTextBox(x + x2, y + 3 * 150 - 48, 0, 32, 32, 0xffffff99);
+
                 x2+= 40;
             }
+            
+            if(!(directories[get_currentdir(i)].flags & D_FLAG_PS3_ISO)) {
+                if(game_cfg.direct_boot)
+                {
+                    tiny3d_SetTextureWrap(0, Png_res_offset[3], Png_res[3].width, 
+                        Png_res[3].height, Png_res[3].wpitch, 
+                        TINY3D_TEX_FORMAT_A8R8G8B8,  TEXTWRAP_CLAMP, TEXTWRAP_CLAMP,1);
 
-            n = (directories[get_currentdir(i)].flags & 1) ?  game_cfg.bdemu : game_cfg.bdemu_ext;
+                    DrawTextBox(x + x2,  y + 3 * 150 - 48, 0, 32, 32, 0xffffffff); 
+                    x2+= 40;
+                }
 
-            SetFontColor(0xffffffee, 0x00000000);
-            SetCurrentFont(FONT_TTF);
-            SetFontSize(12, 24);
+                n = (directories[get_currentdir(i)].flags & D_FLAG_HDD0) ?  game_cfg.bdemu : game_cfg.bdemu_ext;
 
-            if(n == 1) x2 = DrawString(x + x2,  y + 3 * 150 - 48 + 4, "BD Emu");
+                SetFontColor(0xffffffee, 0x00000000);
+                SetCurrentFont(FONT_TTF);
+                SetFontSize(12, 24);
 
-            if(n == 2) x2 = DrawString(x + x2,  y + 3 * 150 - 48 + 4, "LIBFS");
-        } else x2 = DrawString(x + x2,  y + 3 * 150 - 48 + 4, "Game ISO");
+                if(n == 1) x2 = DrawString(x + x2,  y + 3 * 150 - 48 + 4, "BD Emu");
+
+                if(n == 2) x2 = DrawString(x + x2,  y + 3 * 150 - 48 + 4, "LIBFS");
+            } else x2 = DrawString(x + x2,  y + 3 * 150 - 48 + 4, "Game ISO");
+        }
 
 
     }
@@ -4469,10 +4597,10 @@ void gui_control()
                             flags = f;
                             pos = n; 
                             break;
-                        } else if((f & (1<<15)) && !(flags & 1)) {
+                        } else if((f & D_FLAG_NTFS) && !(flags & D_FLAG_HDD0)) {
                             flags = f;
                             pos = n;
-                        } else if(!(flags & ((1<<15) | 1))) {
+                        } else if(!(flags & (D_FLAG_NTFS | D_FLAG_HDD0))) {
                             flags = f;
                             pos = n;
                         }
@@ -4512,10 +4640,10 @@ void gui_control()
                     } else if(f & 1) {
                         flags = f;
                         pos = n; 
-                    } else if((f & (1<<15)) && !(flags & 1)) {
+                    } else if((f & D_FLAG_NTFS) && !(flags & D_FLAG_HDD0)) {
                         flags = f;
                         pos = n;
-                    } else if(!(flags & ((1<<15) | 1))) {
+                    } else if(!(flags & (D_FLAG_NTFS | D_FLAG_HDD0))) {
                         flags = f;
                         pos = n;
                     }
@@ -4641,7 +4769,7 @@ void gui_control()
 
                 int use_cache = 0;
 
-                if(noBDVD == 2 && use_cobra && (directories[currentgamedir].flags & ((1<<11) | (1<<31) | (1<<24))) == (1<<24)) {
+                if(noBDVD == 2 && use_cobra && (directories[currentgamedir].flags & D_FLAG_MASK_ISO) == D_FLAG_PS3_ISO) {
 
                     bdvd_is_usb = NTFS_Test_Device(directories[currentgamedir].path_name) + 1;
                     set_device_wakeup_mode(bdvd_is_usb ? 0xFFFFFFFF : 1 << bdvd_is_usb);
@@ -4653,11 +4781,11 @@ void gui_control()
 
                     SaveFile(temp_buffer, temp_buffer + 1024, 72);
                     
-                    launch_iso_game(directories[currentgamedir].path_name);
+                    launch_iso_game(directories[currentgamedir].path_name, -1);
                     return;
                 }
 
-                if(!(directories[currentgamedir].flags & (1<<11)) && !((directories[currentgamedir].flags>>31) & 1)) {
+                if(!(directories[currentgamedir].flags & D_FLAG_BDVD) && !(directories[currentgamedir].flags & D_FLAG_HOMEB)) {
                
                     struct stat s;
                  
@@ -4705,8 +4833,8 @@ void gui_control()
 
                 }
 
-                if(!((directories[currentgamedir].flags & ((1<<11) | (1<<23))) == ((1<<11) | (1<<23))) || // !psx CD
-                   ((directories[currentgamedir].flags>>31) & 1)) { // !homebrew
+                if(!((directories[currentgamedir].flags & (D_FLAG_BDVD | D_FLAG_PSX_ISO)) == (D_FLAG_BDVD | D_FLAG_PSX_ISO)) || // !psx CD
+                   (directories[currentgamedir].flags & D_FLAG_HOMEB)) { // !homebrew
 
                     sprintf(temp_buffer, "%s/lastgame", self_path);
                     memset(temp_buffer + 1024, 0, 72);
@@ -4715,7 +4843,7 @@ void gui_control()
 
                     SaveFile(temp_buffer, temp_buffer + 1024, 72);
 
-                    if(!(directories[currentgamedir].flags & (1<<11)) && lv2peek(0x80000000000004E8ULL))
+                    if(!(directories[currentgamedir].flags & D_FLAG_BDVD) && lv2peek(0x80000000000004E8ULL))
                         set_BdId(currentgamedir);
                 }
 
@@ -4752,8 +4880,8 @@ void gui_control()
                 }
 
                 /// cache
-                if(use_cache && ((game_cfg.bdemu==1 && (directories[currentgamedir].flags & 1)) || 
-                     (!(directories[currentgamedir].flags & 1) && game_cfg.bdemu_ext==1))) {
+                if(use_cache && ((game_cfg.bdemu==1 && (directories[currentgamedir].flags & D_FLAG_HDD0)) || 
+                     (!(directories[currentgamedir].flags & D_FLAG_HDD0) && game_cfg.bdemu_ext == 1))) {
          
                     DrawDialogOKTimer("BD Emu cannot work with big file cache datas\n\nBD Emu no puede trabajar con big file en cache de datos", 2000.0f);
                     return;     
@@ -4762,19 +4890,20 @@ void gui_control()
                 
                 if(game_cfg.exthdd0emu) {
 
-                    if((directories[currentgamedir].flags & 2046) != 0) {
+                    if((directories[currentgamedir].flags & D_FLAG_USB) != 0) {
                         
                         for(n = 1; n < 11 ; n++) if((directories[currentgamedir].flags  & GAMELIST_FILTER) == (1 << n)) break;
                         sprintf(temp_buffer, "/dev_usb00%c/GAMEI", 47 + n);
                         mkdir_secure(temp_buffer);
                         add_sys8_path_table(self_path, self_path);
                         
-                        if(((directories[currentgamedir].flags & 1) && game_cfg.bdemu) || (!(directories[currentgamedir].flags & 1) && game_cfg.bdemu_ext)) 
+                        if(((directories[currentgamedir].flags & D_FLAG_HDD0) && game_cfg.bdemu) || 
+                            (!(directories[currentgamedir].flags & D_FLAG_HDD0) && game_cfg.bdemu_ext)) 
                             add_sys8_path_table("/dev_hdd0/game", "/dev_bdvd/GAMEI");
                         else
                             add_sys8_path_table("/dev_hdd0/game", temp_buffer);
 
-                    } else if((fdevices & 2046) != 0){
+                    } else if((fdevices & D_FLAG_USB) != 0){
 
                         for(n = 1; n < 11; n++) { // searching directory
                             if(fdevices & (1 << n)) {
@@ -4815,21 +4944,21 @@ void gui_control()
                         }
                     }
 
-                    if((fdevices & 2046) == 0) {
+                    if((fdevices & D_FLAG_USB) == 0) {
                         sprintf(temp_buffer, "%s\n\n%s", language[DRAWSCREEN_GAMEICANTFD], language[DRAWSCREEN_GAMEIWLAUNCH]);
                         if(DrawDialogYesNo(temp_buffer) != 1) return;
                     }
 
                 }
 
-                if((game_cfg.useBDVD && (fdevices & 2048) == 0) || (game_cfg.direct_boot == 2))
+                if((game_cfg.useBDVD && (fdevices & D_FLAG_BDVD) == 0) || (game_cfg.direct_boot == 2))
                 {
                     load_from_bluray |= 1;
                     if(!noBDVD && check_disc() == -1)
                         return;
                 }
                 
-                if(!(directories[currentgamedir].flags & 2048))
+                if(!(directories[currentgamedir].flags & D_FLAG_BDVD))
                     param_sfo_util(directories[currentgamedir].path_name, (game_cfg.updates != 0));
 
                 if(!game_cfg.ext_ebootbin) sys8_path_table(0LL);
@@ -4863,8 +4992,8 @@ void gui_control()
               
                 sys8_sys_configure(CFG_UNPATCH_APPVER + (game_cfg.updates != 0));
                 
-                if((game_cfg.bdemu && (directories[currentgamedir].flags & 1)) || 
-                     (!(directories[currentgamedir].flags & 1) && game_cfg.bdemu_ext==1)) {
+                if((game_cfg.bdemu && (directories[currentgamedir].flags & D_FLAG_HDD0)) || 
+                     (!(directories[currentgamedir].flags & D_FLAG_HDD0) && game_cfg.bdemu_ext==1)) {
                     
                     load_from_bluray |= 1;
 
@@ -4874,8 +5003,8 @@ void gui_control()
                     if(!noBDVD || use_cobra)
                         sys_fs_mount("CELL_FS_IOS:BDVD_DRIVE", "CELL_FS_ISO9660", "/dev_ps2disc", 1);
 
-                    if((game_cfg.bdemu==2 && (directories[currentgamedir].flags & 1)) || 
-                     (!(directories[currentgamedir].flags & 1) && game_cfg.bdemu_ext==2)) { // new to add BD-Emu 2
+                    if((game_cfg.bdemu==2 && (directories[currentgamedir].flags & D_FLAG_HDD0)) || 
+                     (!(directories[currentgamedir].flags & D_FLAG_HDD0) && game_cfg.bdemu_ext==2)) { // new to add BD-Emu 2
 
                          n = 0;
                        
@@ -4907,8 +5036,8 @@ void gui_control()
 
                
                 // HDD BDEMU-LIBFS / USB BDEMU
-                if(((game_cfg.bdemu && (directories[currentgamedir].flags & 1)) || 
-                     (!(directories[currentgamedir].flags & 1) && game_cfg.bdemu_ext==1)) && 
+                if(((game_cfg.bdemu && (directories[currentgamedir].flags & D_FLAG_HDD0)) || 
+                     (!(directories[currentgamedir].flags & D_FLAG_HDD0) && game_cfg.bdemu_ext == 1)) && 
                     patch_bdvdemu(directories[currentgamedir].flags & GAMELIST_FILTER) == 0) {
                     
                     
@@ -4916,7 +5045,7 @@ void gui_control()
                     add_sys8_bdvd(NULL, NULL);
                     
                     //we dont want libfs on USB devices
-                    if(is_libfs_patched() && (game_cfg.bdemu && (directories[currentgamedir].flags & 1))) {
+                    if(is_libfs_patched() && (game_cfg.bdemu && (directories[currentgamedir].flags & D_FLAG_HDD0))) {
                         sprintf(temp_buffer + 1024, "%s/libfs_patched.sprx", self_path);
                         add_sys8_path_table("/dev_flash/sys/external/libfs.sprx", temp_buffer + 1024);
                         sys8_pokeinstr(0x80000000007EF220ULL, 0x45737477616C6420ULL);
@@ -4925,7 +5054,7 @@ void gui_control()
 
                 
                     // HDD LIBFS
-                   if((game_cfg.bdemu == 2 && (directories[currentgamedir].flags & 1))) { // new to add BD-Emu 2
+                   if((game_cfg.bdemu == 2 && (directories[currentgamedir].flags & D_FLAG_HDD0))) { // new to add BD-Emu 2
                         mount_custom(directories[currentgamedir].path_name);
                        
                         if(!game_cfg.useBDVD) {
@@ -4970,8 +5099,8 @@ void gui_control()
                 else {
 
                 // USB LIBFS (for game cacheds)
-                if(is_libfs_patched() && (!(directories[currentgamedir].flags & 1) && game_cfg.bdemu_ext==2) &&
-                    !(directories[currentgamedir].flags & 2048)) { // only with external bdemu LIBFS for cached files
+                if(is_libfs_patched() && (!(directories[currentgamedir].flags & D_FLAG_HDD0) && game_cfg.bdemu_ext==2) &&
+                    !(directories[currentgamedir].flags & D_FLAG_BDVD)) { // only with external bdemu LIBFS for cached files
                             sprintf(temp_buffer + 1024, "%s/libfs_patched.sprx", self_path);
                             add_sys8_path_table("/dev_flash/sys/external/libfs.sprx", temp_buffer + 1024);
                             sys8_pokeinstr(0x80000000007EF220ULL, 0x45737477616C6420ULL);
@@ -5022,9 +5151,10 @@ void gui_control()
                         }
                     }
                     
-                    if((directories[currentgamedir].flags & ((1<<23) | (1<<24))) == (1<<23)) { // add PSX iso
+                    if(!(directories[currentgamedir].flags & D_FLAG_HOMEB) && 
+                        (directories[currentgamedir].flags & (D_FLAG_PS3_ISO | D_FLAG_PSX_ISO)) == D_FLAG_PSX_ISO) { // add PSX iso
 
-                        if(!lv2_patch_storage && (directories[currentgamedir].flags & (1<<11))) {
+                        if(!lv2_patch_storage && (directories[currentgamedir].flags & D_FLAG_BDVD)) {
                             DrawDialogOKTimer("PSX Unsupported", 2000.0f);
                             return;
                         }
@@ -5032,14 +5162,14 @@ void gui_control()
                         //syscall36("/dev_bdvd");
                         add_sys8_bdvd(NULL, NULL);
 
-                        if(!(directories[currentgamedir].flags & (1<<11))) {
+                        if(!(directories[currentgamedir].flags & D_FLAG_BDVD)) {
                             
                             if(lv2peek(0x80000000000004E8ULL) && !use_cobra) syscall_40(1, 0); // disables PS3 Disc-less 
                             
                             // load PSX options
                             LoadPSXOptions(directories[currentgamedir].path_name);
                                
-                            if(psx_iso_prepare(directories[currentgamedir].path_name, directories[currentgamedir].title)==0)  {
+                            if(psx_iso_prepare(directories[currentgamedir].path_name, directories[currentgamedir].title) == 0)  {
                                 DrawDialogOKTimer("PSX Game not detected!", 2000.0f);
                                 return;
                             }
@@ -5049,9 +5179,26 @@ void gui_control()
                         set_device_wakeup_mode(bdvd_is_usb ? 0xFFFFFFFF : directories[currentgamedir].flags);
 
                         psx_launch();
-                    } else if((directories[currentgamedir].flags>>31) & 1) { // is homebrew
+                    } else if(directories[currentgamedir].flags & D_FLAG_HOMEB) { // is homebrew
                     
                         reset_sys8_path_table();
+
+                        if((directories[currentgamedir].flags & D_FLAG_HOMEB_MKV) == D_FLAG_HOMEB_BD) { // Is BDISO
+                            launch_iso_game(directories[currentgamedir].path_name, EMU_BD);        // launch BD Video
+                            return;
+                        } else if(directories[currentgamedir].flags & D_FLAG_HOMEB_DVD) { // Is DVDISO or MKV
+                            int p = strlen(directories[currentgamedir].path_name);
+                            if(!strcmp(&directories[currentgamedir].path_name[p - 4], ".mkv") || 
+                                !strcmp(&directories[currentgamedir].path_name[p - 4], ".MKV")) {
+                                sprintf(temp_buffer, "%s", directories[currentgamedir].path_name); // launch MKV
+                                sprintf(temp_buffer + 2048, "%s/iris_manager.biso", self_path);
+                                launch_iso_build(temp_buffer + 2048, temp_buffer, 1);
+                            } else
+                                launch_iso_game(directories[currentgamedir].path_name, EMU_DVD);   // launch DVD Video
+                            
+                            return;
+                        }
+
                         add_sys8_bdvd(NULL, "/dev_kk");
 
                         sprintf(temp_buffer, "%s/PARAM.SFO", directories[currentgamedir].path_name);
@@ -5141,7 +5288,7 @@ void gui_control()
                 
                 if(noBDVD && !use_cobra) {
                     struct stat s;
-                    patch_bdvdemu((1<<15)/*directories[currentgamedir].flags & GAMELIST_FILTER*/);
+                    patch_bdvdemu(D_FLAG_NTFS/*directories[currentgamedir].flags & GAMELIST_FILTER*/);
 
                     if(load_from_bluray) {
    
@@ -5242,9 +5389,9 @@ void gui_control()
                     // access to PSX configuration menu
                     if(!mode_homebrew && 
                         (directories[(mode_favourites != 0) ? favourites.list[i].index : (currentdir + i)].flags & 
-                        ((1<<23) | (1<<24))) == (1<<23)) // add PSX iso
+                        (D_FLAG_PS3_ISO | D_FLAG_PSX_ISO)) == D_FLAG_PSX_ISO) // add PSX iso
                     {
-                        if(!(directories[(mode_favourites != 0) ? favourites.list[i].index : (currentdir + i)].flags & (1<<11))) {
+                        if(!(directories[(mode_favourites != 0) ? favourites.list[i].index : (currentdir + i)].flags & D_FLAG_BDVD)) {
                             LoadPSXOptions(directories[(mode_favourites != 0) ? favourites.list[i].index : (currentdir + i)].path_name);
                         } else LoadPSXOptions(NULL);
 
@@ -5252,14 +5399,17 @@ void gui_control()
                             menu_screen = 444;
                     }
                     else {
-                       if(!mode_homebrew && 
-                        (directories[(mode_favourites != 0) ? favourites.list[i].index : (currentdir + i)].flags & 
-                        ((1<<11) | (1<<24))) == (1<<24)) menu_screen = 128;
-                       else 
-                           menu_screen = 1;
+                        if(mode_homebrew && (directories[(mode_favourites != 0) ? favourites.list[i].index : (currentdir + i)].flags & 
+                            D_FLAG_HOMEB_GROUP) > D_FLAG_HOMEB) return; // ignore SELECT
+
+                        if(!mode_homebrew && 
+                            (directories[(mode_favourites != 0) ? favourites.list[i].index : (currentdir + i)].flags & 
+                            (D_FLAG_BDVD | D_FLAG_PS3_ISO)) == D_FLAG_PS3_ISO) menu_screen = 128;
+                        else 
+                            menu_screen = 1;
                        load_gamecfg(-1); // force refresh game info
                        load_gamecfg (get_currentdir(i));
-                       if(!(directories[currentgamedir].flags & (1<<11)) && lv2peek(0x80000000000004E8ULL))
+                       if(!(directories[currentgamedir].flags & D_FLAG_BDVD) && lv2peek(0x80000000000004E8ULL))
                             set_BdId(currentgamedir);
                     }
                     return;
@@ -5465,6 +5615,10 @@ void gui_control()
 
         select_px--;
 
+        if(select_px < 0 && select_py == 0 && currentdir == 0 && ndirectories < 4 && !mode_favourites && !havefavourites) {
+            select_px = ndirectories - 1; if(select_px < 0) select_px = 0; currentdir = 0;
+        }
+
         auto_left = 1;
         frame_count = 32;
 
@@ -5487,7 +5641,6 @@ void gui_control()
                
             }
 
-
         }
 
         if(!mode_favourites) {
@@ -5506,9 +5659,8 @@ void gui_control()
                     select_py = 0;
                 }
             update = 1;
-            }
+            } 
             
-        
         }
 
      
@@ -5658,13 +5810,15 @@ void gui_control()
 
         if(game_list_category == 0 && !mode_homebrew) {
             SetFavourites(mode_homebrew);
-            mode_homebrew ^=HOMEBREW_MODE;
+            mode_homebrew = HOMEBREW_MODE;
             GetFavourites(mode_homebrew);
             mode_favourites = 1; 
         } else if(mode_homebrew) {
             game_list_category=1;
             SetFavourites(mode_homebrew);
-            mode_homebrew ^=HOMEBREW_MODE;
+            if(mode_homebrew == HOMEBREW_MODE) mode_homebrew = HOMEBREW_MODE + 1;
+            else if(mode_homebrew > HOMEBREW_MODE) mode_homebrew = GAMEBASE_MODE;
+            
             GetFavourites(mode_homebrew);
             mode_favourites = 0;
         } else {
@@ -5693,12 +5847,13 @@ void gui_control()
 
         if(game_list_category == 1 && !mode_homebrew) {
             SetFavourites(mode_homebrew);
-            mode_homebrew ^=HOMEBREW_MODE;
+            mode_homebrew = HOMEBREW_MODE + 1;
             GetFavourites(mode_homebrew);
             mode_favourites = 1; 
         } else if(mode_homebrew) {
             SetFavourites(mode_homebrew);
-            mode_homebrew ^=HOMEBREW_MODE;
+            if(mode_homebrew == HOMEBREW_MODE) mode_homebrew = GAMEBASE_MODE;
+            else if(mode_homebrew > HOMEBREW_MODE) mode_homebrew = HOMEBREW_MODE;
             GetFavourites(mode_homebrew);
             game_list_category=0;
             mode_favourites = 1;
@@ -5796,7 +5951,7 @@ void draw_device_mkiso(float x, float y, int index)
         
         u32 str_color = 0xffffffff;
 
-        if((directories[currentgamedir].flags  & GAMELIST_FILTER)== (1<<11)) {
+        if((directories[currentgamedir].flags  & GAMELIST_FILTER)== D_FLAG_BDVD) {
             if(strncmp((char *) string_title_utf8, bluray_game, 64)) {
                 strncpy((char *) string_title_utf8, bluray_game, 128);
                 update_title_utf8 = 1;
@@ -5979,7 +6134,7 @@ void draw_device_xtiso(float x, float y, int index)
         
         u32 str_color = 0xffffffff;
 
-        if((directories[currentgamedir].flags  & GAMELIST_FILTER)== (1<<11)) {
+        if((directories[currentgamedir].flags  & GAMELIST_FILTER)== D_FLAG_BDVD) {
             if(strncmp((char *) string_title_utf8, bluray_game, 64)) {
                 strncpy((char *) string_title_utf8, bluray_game, 128);
                 update_title_utf8 = 1;
@@ -6173,7 +6328,7 @@ void draw_device_cpyiso(float x, float y, int index)
         
         u32 str_color = 0xffffffff;
 
-        if((directories[currentgamedir].flags  & GAMELIST_FILTER)== (1<<11)) {
+        if((directories[currentgamedir].flags  & GAMELIST_FILTER)== D_FLAG_BDVD) {
             if(strncmp((char *) string_title_utf8, bluray_game, 64)) {
                 strncpy((char *) string_title_utf8, bluray_game, 128);
                 update_title_utf8 = 1;
@@ -6208,17 +6363,17 @@ void draw_device_cpyiso(float x, float y, int index)
         //select_option
 
         if(list_box_devices[select_option] & 128) {
-            if((directories[currentgamedir].flags & ((1<<24) | (1<<23))) == ((1<<24) | (1<<23)))
+            if((directories[currentgamedir].flags & (D_FLAG_PS3_ISO | D_FLAG_PSX_ISO)) == (D_FLAG_PS3_ISO | D_FLAG_PSX_ISO))
                 sprintf(temp_buffer2, "/ntfs%i:/PS2ISO", list_box_devices[select_option] & 127);
             else
                 sprintf(temp_buffer2, "/ntfs%i:/PS3ISO", list_box_devices[select_option] & 127);
         } else if(list_box_devices[select_option] & 64) {
-            if((directories[currentgamedir].flags & ((1<<24) | (1<<23))) == ((1<<24) | (1<<23)))
+            if((directories[currentgamedir].flags & (D_FLAG_PS3_ISO | D_FLAG_PSX_ISO)) == (D_FLAG_PS3_ISO | D_FLAG_PSX_ISO))
                 sprintf(temp_buffer2, "/dev_usb00%i/PS2ISO", list_box_devices[select_option] & 63);
             else
                 sprintf(temp_buffer2, "/dev_usb00%i/PS3ISO", list_box_devices[select_option] & 63);
         } else {
-            if((directories[currentgamedir].flags & ((1<<24) | (1<<23))) == ((1<<24) | (1<<23)))
+            if((directories[currentgamedir].flags & (D_FLAG_PS3_ISO | D_FLAG_PSX_ISO)) == (D_FLAG_PS3_ISO | D_FLAG_PSX_ISO))
                 sprintf(temp_buffer2, "/dev_hdd0/PS2ISO");
             else
                 sprintf(temp_buffer2, "/dev_hdd0/PS3ISO");
@@ -6325,7 +6480,7 @@ void draw_options(float x, float y, int index)
     DrawFormatString(x, y, " %s", language[DRAWGMOPT_OPTS]);
 
 
-    if(directories[currentgamedir].flags & 1) {
+    if(directories[currentgamedir].flags & D_FLAG_HDD0) {
 
         copy_flag = 0;
 
@@ -6347,11 +6502,11 @@ void draw_options(float x, float y, int index)
         
         if(!copy_flag && select_option == 1) select_option++;
 
-        if((directories[currentgamedir].flags & 2048) && (select_option == 2 || select_option == 6)) select_option++;
+        if((directories[currentgamedir].flags & D_FLAG_BDVD) && (select_option == 2 || select_option == 6)) select_option++;
 
     }
 
-    if(mode_homebrew == HOMEBREW_MODE) {
+    if(mode_homebrew >= HOMEBREW_MODE) {
         if(select_option < 2) select_option= 2;
         if(select_option == 5) select_option= 6;
         if(select_option == 7) select_option= 8;
@@ -6385,7 +6540,7 @@ void draw_options(float x, float y, int index)
 
     y2 = y - 4;
      
-    if((directories[currentgamedir].flags & ((1<<11) | (1<<23))) == (1<<11)){
+    if((directories[currentgamedir].flags & (D_FLAG_BDVD | D_FLAG_PSX_ISO)) == D_FLAG_BDVD){
         n = sys_ss_media_id(BdId);
         if(n == 0 || n== 0x80010006) {
             SetFontSize(10, 16);
@@ -6411,15 +6566,15 @@ void draw_options(float x, float y, int index)
     y2 = y + 12;
     
     DrawButton1_UTF8(x + 32, y2, 320, language[DRAWGMOPT_CFGGAME], (directories[currentgamedir].title_id[0] == 0 ||
-        mode_homebrew == HOMEBREW_MODE) ? -1 : (flash && select_option == 0));
+        mode_homebrew >= HOMEBREW_MODE) ? -1 : (flash && select_option == 0));
     
     y2+= 48;
 
-    DrawButton1_UTF8(x + 32, y2, 320, language[DRAWGMOPT_CPYGAME], (copy_flag!=0  && mode_homebrew != HOMEBREW_MODE) ? (flash && select_option == 1) : -1);
+    DrawButton1_UTF8(x + 32, y2, 320, language[DRAWGMOPT_CPYGAME], (copy_flag!=0  && mode_homebrew == GAMEBASE_MODE) ? (flash && select_option == 1) : -1);
     
     y2+= 48;
 
-    DrawButton1_UTF8(x + 32, y2, 320, language[DRAWGMOPT_DELGAME], (directories[currentgamedir].flags & 2048) ? -1  : ((flash && select_option == 2) ? 1 : 0));
+    DrawButton1_UTF8(x + 32, y2, 320, language[DRAWGMOPT_DELGAME], (directories[currentgamedir].flags & D_FLAG_BDVD) ? -1  : ((flash && select_option == 2) ? 1 : 0));
     
     y2+= 48;
 
@@ -6432,19 +6587,19 @@ void draw_options(float x, float y, int index)
     y2+= 48;
 
     DrawButton1_UTF8(x + 32, y2, 320, language[DRAWGMOPT_BUILDISO], (directories[currentgamedir].title_id[0] == 0 || 
-        mode_homebrew == HOMEBREW_MODE) ? -1 : (flash && select_option == 5));
+        mode_homebrew >= HOMEBREW_MODE) ? -1 : (flash && select_option == 5));
     
     y2+= 48;
     
     if(!TestFavouritesExits(directories[currentgamedir].title_id))
-        DrawButton1_UTF8(x + 32, y2, 320, language[DRAWGMOPT_CPYTOFAV], (directories[currentgamedir].flags & 2048) ? -1  : (flash && select_option == 6));
+        DrawButton1_UTF8(x + 32, y2, 320, language[DRAWGMOPT_CPYTOFAV], (directories[currentgamedir].flags & D_FLAG_BDVD) ? -1  : (flash && select_option == 6));
     else
-        DrawButton1_UTF8(x + 32, y2, 320, language[DRAWGMOPT_DELFMFAV], (directories[currentgamedir].flags & 2048) ? -1  : (flash && select_option == 6));
+        DrawButton1_UTF8(x + 32, y2, 320, language[DRAWGMOPT_DELFMFAV], (directories[currentgamedir].flags & D_FLAG_BDVD) ? -1  : (flash && select_option == 6));
     
     y2+= 48;
 
     DrawButton1_UTF8(x + 32, y2, 320, language[DRAWGMOPT_GAMEUPDATE], (directories[currentgamedir].title_id[0] == 0 || 
-        mode_homebrew == HOMEBREW_MODE) ? -1 : (flash && select_option == 7));
+        mode_homebrew >= HOMEBREW_MODE) ? -1 : (flash && select_option == 7));
     
     y2+= 48;
 
@@ -6475,7 +6630,7 @@ void draw_options(float x, float y, int index)
         
         u32 str_color = 0xffffffff;
 
-        if((directories[currentgamedir].flags  & GAMELIST_FILTER)== (1<<11)) {
+        if((directories[currentgamedir].flags  & GAMELIST_FILTER)== D_FLAG_BDVD) {
             if(strncmp((char *) string_title_utf8, bluray_game, 64)) {
                 strncpy((char *) string_title_utf8, bluray_game, 128);
                 update_title_utf8 = 1;
@@ -6510,7 +6665,7 @@ void draw_options(float x, float y, int index)
 
         switch(select_option) {
             case 0:
-                if(mode_homebrew == HOMEBREW_MODE) break;
+                if(mode_homebrew >= HOMEBREW_MODE) break;
                 select_option = 0;
                 menu_screen = 2; 
 
@@ -6528,7 +6683,7 @@ void draw_options(float x, float y, int index)
                 return;
 
             case 1:
-                if(mode_homebrew == HOMEBREW_MODE) break;
+                if(mode_homebrew >= HOMEBREW_MODE) break;
                 if(test_ftp_working()) break;
                  i = selected;
 
@@ -6601,7 +6756,7 @@ void draw_options(float x, float y, int index)
                  break;
             case 5:
                 {
-                if(mode_homebrew == HOMEBREW_MODE) break;
+                if(mode_homebrew >= HOMEBREW_MODE) break;
                 
                 i = selected;
 
@@ -6760,12 +6915,12 @@ void draw_options(float x, float y, int index)
 
         frame_count = 32;
 
-        if((directories[currentgamedir].flags & 2048) && (select_option == 2 || select_option == 6)) select_option--;
+        if((directories[currentgamedir].flags & D_FLAG_BDVD) && (select_option == 2 || select_option == 6)) select_option--;
         if(!copy_flag && select_option == 1) select_option--;
 
         if(directories[currentgamedir].title_id[0] == 0 && (select_option == 0 || select_option == 5 || select_option == 7)) select_option--;
 
-        if(mode_homebrew == HOMEBREW_MODE) {
+        if(mode_homebrew >= HOMEBREW_MODE) {
             if(select_option < 2) select_option= -1;
             if(select_option == 5) select_option= 4;
             if(select_option == 7) select_option= 6;
@@ -6786,9 +6941,9 @@ void draw_options(float x, float y, int index)
 
         if(!copy_flag && select_option == 1) select_option++;
 
-        if((directories[currentgamedir].flags & 2048) &&  (select_option == 2 || select_option == 6)) select_option++;
+        if((directories[currentgamedir].flags & D_FLAG_BDVD) &&  (select_option == 2 || select_option == 6)) select_option++;
 
-        if(mode_homebrew == HOMEBREW_MODE) {
+        if(mode_homebrew >= HOMEBREW_MODE) {
             if(select_option < 2) select_option = 2;
             if(select_option == 5) select_option = 6;
             if(select_option == 7) select_option= 8;
@@ -6805,7 +6960,7 @@ void draw_options(float x, float y, int index)
             
             if(!copy_flag && select_option == 1) select_option++;
 
-            if((directories[currentgamedir].flags & 2048) && select_option == 2) select_option++; 
+            if((directories[currentgamedir].flags & D_FLAG_BDVD) && select_option == 2) select_option++; 
 
         }
     }
@@ -6874,9 +7029,9 @@ void draw_iso_options(float x, float y, int index)
     y2 = y + 32;
     
     if(!TestFavouritesExits(directories[currentgamedir].title_id))
-        DrawButton1_UTF8(x + 32, y2, 320, language[DRAWGMOPT_CPYTOFAV], (directories[currentgamedir].flags & 2048) ? -1  : (flash && select_option == 0));
+        DrawButton1_UTF8(x + 32, y2, 320, language[DRAWGMOPT_CPYTOFAV], (directories[currentgamedir].flags & D_FLAG_BDVD) ? -1  : (flash && select_option == 0));
     else
-        DrawButton1_UTF8(x + 32, y2, 320, language[DRAWGMOPT_DELFMFAV], (directories[currentgamedir].flags & 2048) ? -1  : (flash && select_option == 0));
+        DrawButton1_UTF8(x + 32, y2, 320, language[DRAWGMOPT_DELFMFAV], (directories[currentgamedir].flags & D_FLAG_BDVD) ? -1  : (flash && select_option == 0));
 
     max_op = o = 1;
     
@@ -6885,23 +7040,23 @@ void draw_iso_options(float x, float y, int index)
         y2+= 48;
 
         sprintf(temp_buffer, "Unmount USB00%i Device", is_ntfs_dev);
-        DrawButton1_UTF8(x + 32, y2, 320, temp_buffer, (directories[currentgamedir].flags & 2048) ? -1  : (flash && select_option == o));
+        DrawButton1_UTF8(x + 32, y2, 320, temp_buffer, (directories[currentgamedir].flags & D_FLAG_BDVD) ? -1  : (flash && select_option == o));
 
         max_op++; o++;
     }
 
     y2+= 48;
 
-    if(select_option == o &&(directories[currentgamedir].flags & ((1<<24) | (1<<23))) == ((1<<24) | (1<<23))) select_option++;
+    if(select_option == o && (directories[currentgamedir].flags & D_FLAG_PS2_ISO) == D_FLAG_PS2_ISO) select_option++;
     DrawButton1_UTF8(x + 32, y2, 320, language[DRAWGMOPT_TSTGAME], 
-        ((directories[currentgamedir].flags & ((1<<24) | (1<<23))) == ((1<<24) | (1<<23))) ? -1 : (flash && select_option == o));
+        ((directories[currentgamedir].flags & D_FLAG_PS2_ISO) == D_FLAG_PS2_ISO) ? -1 : (flash && select_option == o));
     max_op++; o++;
 
     y2+= 48;
 
-    if(select_option == o &&(directories[currentgamedir].flags & ((1<<24) | (1<<23))) == ((1<<24) | (1<<23))) select_option++;
+    if(select_option == o &&(directories[currentgamedir].flags & D_FLAG_PS2_ISO) == D_FLAG_PS2_ISO) select_option++;
     DrawButton1_UTF8(x + 32, y2, 320, language[DRAWGMOPT_EXTRACTISO], 
-        ((directories[currentgamedir].flags & ((1<<24) | (1<<23))) == ((1<<24) | (1<<23))) ? -1 : (flash && select_option == o));
+        ((directories[currentgamedir].flags & D_FLAG_PS2_ISO) == D_FLAG_PS2_ISO) ? -1 : (flash && select_option == o));
     max_op++; o++;
 
     y2+= 48;
@@ -6916,9 +7071,9 @@ void draw_iso_options(float x, float y, int index)
 
     y2+= 48;
 
-    if(select_option == o &&(directories[currentgamedir].flags & ((1<<24) | (1<<23))) == ((1<<24) | (1<<23))) select_option++;
+    if(select_option == o &&(directories[currentgamedir].flags & D_FLAG_PS2_ISO) == D_FLAG_PS2_ISO) select_option++;
     DrawButton1_UTF8(x + 32, y2, 320, language[DRAWGMOPT_GAMEUPDATE], 
-        ((directories[currentgamedir].flags & ((1<<24) | (1<<23))) == ((1<<24) | (1<<23))) ? -1 : (flash && select_option == o));
+        ((directories[currentgamedir].flags & D_FLAG_PS2_ISO) == D_FLAG_PS2_ISO) ? -1 : (flash && select_option == o));
     max_op++; o++;
 
     y2+= 48;
@@ -6950,7 +7105,7 @@ void draw_iso_options(float x, float y, int index)
         
         u32 str_color = 0xffffffff;
 
-        if((directories[currentgamedir].flags  & GAMELIST_FILTER)== (1<<11)) {
+        if((directories[currentgamedir].flags  & GAMELIST_FILTER)== D_FLAG_BDVD) {
             if(strncmp((char *) string_title_utf8, bluray_game, 64)) {
                 strncpy((char *) string_title_utf8, bluray_game, 128);
                 update_title_utf8 = 1;
@@ -7083,7 +7238,7 @@ void draw_iso_options(float x, float y, int index)
                  break;
             case 3:
                 {
-                if(mode_homebrew == HOMEBREW_MODE) break;
+                if(mode_homebrew >= HOMEBREW_MODE) break;
                 
                 i = selected;
 
@@ -7118,7 +7273,7 @@ void draw_iso_options(float x, float y, int index)
 
             ///
             case 4:  
-                if(mode_homebrew == HOMEBREW_MODE) break;
+                if(mode_homebrew >= HOMEBREW_MODE) break;
                 
                 i = selected;
 
@@ -7376,7 +7531,7 @@ void draw_configs(float x, float y, int index)
 
     x2 = DrawButton1_UTF8(x + 32, y2, 320, language[DRAWGMCFG_BDEMU], (flash && select_option == 3))  + 16;
     
-    if(directories[currentgamedir].flags & 1) {
+    if(directories[currentgamedir].flags & D_FLAG_HDD0) {
         x2 = DrawButton2_UTF8(x2, y2, 0, "Mount BDVD" ,(game_cfg.bdemu == 1)) + 8;
         x2 = DrawButton2_UTF8(x2, y2, 0, "LIBFS" , (game_cfg.bdemu > 1)) + 8;
         x2 = DrawButton2_UTF8(x2, y2, 0, language[DRAWGMCFG_OFF], (game_cfg.bdemu == 0)) + 8;
@@ -7416,7 +7571,7 @@ void draw_configs(float x, float y, int index)
 
         u32 str_color = 0xffffffff;
 
-        if((directories[currentgamedir].flags  & GAMELIST_FILTER)== (1<<11)) {
+        if((directories[currentgamedir].flags  & GAMELIST_FILTER)== D_FLAG_BDVD) {
             if(strncmp((char *) string_title_utf8, bluray_game, 64)) {
                 strncpy((char *) string_title_utf8, bluray_game, 128);
                 update_title_utf8 = 1;
@@ -7472,7 +7627,7 @@ void draw_configs(float x, float y, int index)
                     ROT_INC(game_cfg.ext_ebootbin, 1, 0);
                 break;
             case 3:
-                if(directories[currentgamedir].flags & 1)
+                if(directories[currentgamedir].flags & D_FLAG_HDD0)
                     ROT_INC(game_cfg.bdemu, 2, 0)
                 else
                    ROT_INC(game_cfg.bdemu_ext, 2, 0) 
@@ -7534,7 +7689,7 @@ void draw_configs(float x, float y, int index)
                     ROT_DEC(game_cfg.ext_ebootbin, 0, 1);
                 break;
             case 3:
-                if(directories[currentgamedir].flags & 1)
+                if(directories[currentgamedir].flags & D_FLAG_HDD0)
                     ROT_DEC(game_cfg.bdemu, 0, 2)
                 else
                     ROT_DEC(game_cfg.bdemu_ext, 0, 2)
@@ -7568,7 +7723,7 @@ void draw_configs(float x, float y, int index)
                     ROT_INC(game_cfg.ext_ebootbin, 1, 0);
                 break;
             case 3:
-                if(directories[currentgamedir].flags & 1)
+                if(directories[currentgamedir].flags & D_FLAG_HDD0)
                     ROT_INC(game_cfg.bdemu, 2, 0)
                 else
                     ROT_INC(game_cfg.bdemu_ext, 2, 0)
@@ -8301,15 +8456,15 @@ int patch_bdvdemu(u32 flags)
     if(one) return 0; // only one time
 
 
-    if(((flags & 1) && game_cfg.bdemu == 2) 
-        || (!(flags & 1) && game_cfg.bdemu_ext == 2) || (flags & 2048) ) 
+    if(((flags & D_FLAG_HDD0) && game_cfg.bdemu == 2) 
+        || (!(flags & D_FLAG_HDD0) && game_cfg.bdemu_ext == 2) || (flags & D_FLAG_BDVD) ) 
     {
-        if(noBDVD == 2 && !use_cobra) flags= (1<<15); else return 0; // new to add BD-Emu 2
+        if(noBDVD == 2 && !use_cobra) flags= D_FLAG_NTFS; else return 0; // new to add BD-Emu 2
     }
 
     one = 1;
 
-    if(noBDVD && !use_cobra && (flags & (1<<15))) flags = 1;
+    if(noBDVD && !use_cobra && (flags & D_FLAG_NTFS)) flags = 1;
 
     flags&= GAMELIST_FILTER;
 

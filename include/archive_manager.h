@@ -21,7 +21,8 @@ int NTFS_UnMount_dev(int id, char * name);
 void NTFS_UnMountAll(void);
 int NTFS_Test_Device(char *name);
 
-int launch_iso_game(char *path);
+int launch_iso_game(char *path, int mtype);
+int launch_iso_build(char *path, char *path2, int sel);
 
 int copy_archive_file(char *path1, char *path2, char *file, u64 free);
 

@@ -41,6 +41,7 @@ typedef s32 Lv2FsFile;
 extern char * language[];
 extern char self_path[MAXPATHLEN];
 extern int game_list_category;
+extern int mode_homebrew;
 
 //void UTF8_to_Ansi(char *utf8, char *ansi, int len); // from osk_input
 void UTF32_to_UTF8(u32 *stw, u8 *stb);
@@ -780,16 +781,14 @@ void sort_entries(t_directories *list, int *max)
 {
 	int n,m;
 	int fi= (*max);
-	
 
 	for(n=0; n< (fi -1);n++)
 		for(m=n+1; m< fi ;m++)
 			{
-			if((strcasecmp(list[n].title, list[m].title)>0  && ((list[n].flags | list[m].flags) & 2048)==0) || 
-				((list[m].flags & 2048) && n==0))
-				{
-				t_directories swap;
-					swap=list[n];list[n]=list[m];list[m]=swap;
+			if((strcasecmp(list[n].title, list[m].title)>0  && ((list[n].flags | list[m].flags) & D_FLAG_BDVD)==0) || 
+				((list[m].flags & D_FLAG_BDVD) && n==0)) {
+				    t_directories swap;
+					swap = list[n]; list[n] = list[m]; list[m] =swap;
 				}
 			}
 }
@@ -800,6 +799,22 @@ void sort_entries2(t_directories *list, int *max, u32 mode)
 	int fi= (*max);
 
     if(mode > 2) mode = 0;
+    if(mode_homebrew != GAMEBASE_MODE) {
+        
+        for(n=0; n< (fi -1);n++)
+		for(m=n+1; m< fi ;m++)
+			{
+   
+			if((((list[n].flags & D_FLAG_HOMEB_MKV) != 0) && (list[m].flags & D_FLAG_HOMEB_MKV)==0) ||
+                 (((list[n].flags & D_FLAG_HOMEB_MKV)!=0)  == ((list[m].flags & D_FLAG_HOMEB_MKV)!=0) && strcasecmp(list[n].title, list[m].title)>0)) {
+				    t_directories swap;
+					swap = list[n]; list[n] = list[m]; list[m] = swap;
+				}
+			}
+        
+        return;
+    }
+
     if(mode == 0) {sort_entries(list, max); return;}
 	
 
@@ -807,14 +822,12 @@ void sort_entries2(t_directories *list, int *max, u32 mode)
 		for(m=n+1; m< fi ;m++)
 			{
    
-			if((mode == 1 && (list[n].flags & (1<<23)) != (list[m].flags & (1<<23)) && (list[n].flags & (1<<23))!=0) ||
-               (mode == 2 && (list[n].flags & (1<<23)) != (list[m].flags & (1<<23)) && (list[n].flags & (1<<23))==0) ||
-                (mode && (list[n].flags & (1<<23)) == (list[m].flags & (1<<23)) && strcasecmp(list[n].title, list[m].title)>0  && ((list[n].flags | list[m].flags) & 2048)==0)
-                || 
-				((list[m].flags & 2048) && n==0))
-				{
-				t_directories swap;
-					swap=list[n];list[n]=list[m];list[m]=swap;
+			if((mode == 1 && (list[n].flags & D_FLAG_PSX_ISO) != (list[m].flags & D_FLAG_PSX_ISO) && (list[n].flags & D_FLAG_PSX_ISO)!=0) ||
+               (mode == 2 && (list[n].flags & D_FLAG_PSX_ISO) != (list[m].flags & D_FLAG_PSX_ISO) && (list[n].flags & D_FLAG_PSX_ISO)==0) ||
+                (mode && (list[n].flags & D_FLAG_PSX_ISO) == (list[m].flags & D_FLAG_PSX_ISO) && strcasecmp(list[n].title, list[m].title)>0  && ((list[n].flags | list[m].flags) & D_FLAG_BDVD)==0)
+                || ((list[m].flags & D_FLAG_BDVD) && n==0)) {
+				    t_directories swap;
+					swap = list[n]; list[n] = list[m]; list[m] = swap;
 				}
 			}
 }
@@ -834,8 +847,8 @@ int delete_entries(t_directories *list, int *max, u32 flag)
 
             if((*max) >1)
             {
-                list[n].flags=0;
-                list[n]=list[(*max) -1];
+                list[n].flags = 0;
+                list[n] = list[(*max) -1];
                 (*max) --;
             } else if((*max) == 1) {
                 (*max) --;
@@ -889,8 +902,13 @@ void fill_iso_entries_from_device(char *path, u32 flag, t_directories *list, int
             
         }
 
-        if(strcmpext(entry->d_name, ".iso") && strcmpext(entry->d_name, ".ISO")
-            && strcmpext(entry->d_name, ".iso.0") && strcmpext(entry->d_name, ".ISO.0")) continue;
+        if(flag & D_FLAG_HOMEB) {
+            if(strcmpext(entry->d_name, ".mkv") && strcmpext(entry->d_name, ".MKV") && strcmpext(entry->d_name, ".iso") && strcmpext(entry->d_name, ".ISO")
+                && strcmpext(entry->d_name, ".iso.0") && strcmpext(entry->d_name, ".ISO.0")) continue;
+        } else {
+            if(strcmpext(entry->d_name, ".iso") && strcmpext(entry->d_name, ".ISO")
+                && strcmpext(entry->d_name, ".iso.0") && strcmpext(entry->d_name, ".ISO.0")) continue;
+        }
 
         sprintf(list[*max ].path_name, "%s/%s", path, entry->d_name);
 
@@ -910,9 +928,10 @@ void fill_iso_entries_from_device(char *path, u32 flag, t_directories *list, int
             fread((void *) mem + 512, 1, 256, fp);
             fclose(fp);
 
-            if(!memcmp((void *) &mem[0x28], "PS3VOLUME", 9)) list[*max ].flags = flag | (1<<24);
+            if(flag & D_FLAG_HOMEB) list[*max ].flags = flag;
+            else if(!memcmp((void *) &mem[0x28], "PS3VOLUME", 9)) list[*max ].flags = flag | D_FLAG_PS3_ISO;
             else if(!memcmp((void *) &mem[8], "PLAYSTATION", 11) || !memcmp((void *) &mem[512], "PLAYSTATION", 11)) {
-                list[*max ].flags = flag | (1<<24) | (1<<23);
+                list[*max ].flags = flag | D_FLAG_PS2_ISO;
                 if(!memcmp((void *) &mem[8], "PLAYSTATION", 11)) memcpy((void *) mem + 256, (void *) &mem[0x28], 10); 
                 else memcpy((void *) mem + 256, (void *) &mem[0x220], 10); 
                 mem[266] = 0;
@@ -923,12 +942,20 @@ void fill_iso_entries_from_device(char *path, u32 flag, t_directories *list, int
 
         strcpy(name, entry->d_name);
 
-        if(!strcmpext(name, ".iso.0") || !strcmpext(name, ".ISO.0")) name[strlen(name) - 6] = 0; else name[strlen(name) - 4] = 0;
+        if(!strcmpext(name, ".mkv") || !strcmpext(name, ".MKV")) name[strlen(name) - 4] = 0;
+        else {
+            if(!strcmpext(name, ".iso.0") || !strcmpext(name, ".ISO.0")) name[strlen(name) - 6] = 0; else name[strlen(name) - 4] = 0;
+        }
 
         strncpy(list[*max ].title, name, 63);
         list[*max ].title[63]=0;
 
-        if(list[*max ].flags &  (1<<23)) {
+        list[*max ].title_id[63]=0;
+        if(flag & D_FLAG_HOMEB) {
+            strncpy(list[*max ].title_id, name, 63); // for BD/DVD/MKV
+            //DrawDialogOK(name);
+        }
+        else if(list[*max ].flags &  D_FLAG_PSX_ISO) { // PS2
             if(mem[256]== ' ')
                 strncpy(list[*max ].title_id, name, 63);
             else
@@ -1000,7 +1027,7 @@ void fill_psx_iso_entries_from_device(char *path, u32 flag, t_directories *list,
 
         if(!(entry->d_type & DT_DIR)) continue;
 
-        list[*max ].flags=flag  | (1<<23);
+        list[*max ].flags=flag  | D_FLAG_PSX_ISO; // PS1
 
         strncpy(list[*max ].title, entry->d_name, 63);
         list[*max ].title[63]=0;
@@ -1047,6 +1074,9 @@ void fill_entries_from_device(char *path, t_directories *list, int *max, u32 fla
     DIR  *dir;
     char file[0x420];
     char pattern[128];
+    
+    pattern[0] = 0;
+
     if(sel == GAMEBASE_MODE)
         strcpy(pattern, "%s/PS3_GAME/PARAM.SFO");
     else if(sel == HOMEBREW_MODE)
@@ -1079,6 +1109,26 @@ void fill_entries_from_device(char *path, t_directories *list, int *max, u32 fla
         }
     }
 
+    if(sel >= HOMEBREW_MODE && use_cobra && noBDVD == 2) { // isos BR-DVD
+        int n;
+
+        strncpy(file, path, 0x420);
+        n=1;while(file[n]!='/' && file[n]!=0)  n++;
+        
+        file[n]=0; strcat(file, "/BDISO");
+        
+        fill_iso_entries_from_device(file, D_FLAG_HOMEB | D_FLAG_HOMEB_BD | (flag  & GAMELIST_FILTER), list, max);
+
+        file[n]=0; strcat(file, "/DVDISO");
+        
+        fill_iso_entries_from_device(file, D_FLAG_HOMEB | D_FLAG_HOMEB_DVD | (flag  & GAMELIST_FILTER), list, max);
+
+        file[n]=0; strcat(file, "/MKV");
+        
+        fill_iso_entries_from_device(file, D_FLAG_HOMEB | D_FLAG_HOMEB_MKV | (flag  & GAMELIST_FILTER), list, max);
+       
+    }
+
     // add PSX Games
     if(sel == GAMEBASE_MODE && game_list_category != 1) {
         int n;
@@ -1100,7 +1150,7 @@ void fill_entries_from_device(char *path, t_directories *list, int *max, u32 fla
 
             if(!(entry->d_type & DT_DIR)) continue;
 
-            list[*max ].flags=flag  | (1<<23);
+            list[*max ].flags=flag | D_FLAG_PSX_ISO; // PS1
 
             strncpy(list[*max ].title, entry->d_name, 63);
             list[*max ].title[63]=0;
@@ -1145,7 +1195,9 @@ void fill_entries_from_device(char *path, t_directories *list, int *max, u32 fla
     if(*max >= MAX_DIRECTORIES)
                 return;
 
-    if(!(flag & (1<<11)) && sel != HOMEBREW_MODE &&  game_list_category == 2) return;
+    if(!(flag & D_FLAG_BDVD) && sel != HOMEBREW_MODE &&  game_list_category == 2) return;
+
+    if(mode_homebrew > HOMEBREW_MODE) return;
 
     dir = opendir (path);
     if(!dir)
@@ -1162,7 +1214,7 @@ void fill_entries_from_device(char *path, t_directories *list, int *max, u32 fla
         if(!(entry->d_type & DT_DIR)) continue;
         if(!strncmp(entry->d_name, "covers", 6)) continue; // skip global covers folder
         
-        list[*max ].flags=flag;
+        list[*max ].flags= flag;
 
         strncpy(list[*max ].title, entry->d_name, 63);
         list[*max ].title[63]=0;
@@ -2842,8 +2894,8 @@ void copy_from_selection(int game_sel)
     my_game_countsize(directories[game_sel].path_name);
     total_fast_files = file_counter;
 
-    if(!(directories[game_sel].flags & 2048)) {
-        if(!(directories[game_sel].flags & 1)) { // test for HDD0
+    if(!(directories[game_sel].flags & D_FLAG_BDVD)) {
+        if(!(directories[game_sel].flags & D_FLAG_HDD0)) { // test for HDD0
             u32 blockSize;
             u64 freeSize;
             u64 free_hdd0;
@@ -2863,7 +2915,7 @@ void copy_from_selection(int game_sel)
     { 
         if(DrawDialogYesNo(language[GAMECPYSL_GSIZEABCNTASK]) != 1)
         {
-            forcedevices = 2046;
+            forcedevices = D_FLAG_USB;
             return;
         }
         else
@@ -2873,7 +2925,7 @@ void copy_from_selection(int game_sel)
         }
     } 
 
-    if(directories[game_sel].flags & 2048)  {copy_from_bluray();return;}
+    if(directories[game_sel].flags & D_FLAG_BDVD)  {copy_from_bluray();return;}
 
 #ifdef PSDEBUG
     int ret;
@@ -2890,9 +2942,9 @@ void copy_from_selection(int game_sel)
 
     char * path_install = __MKDEF_GAMES_DIR;
 
-    if((directories[game_sel].flags >> 23) & 1) {path_install = "PSXGAMES"; hdd_folder2 = "dev_hdd0";}
+    if(directories[game_sel].flags & D_FLAG_PSX_ISO) {path_install = "PSXGAMES"; hdd_folder2 = "dev_hdd0";}
 
-    if(directories[game_sel].flags & 1) {// is hdd0
+    if(directories[game_sel].flags & D_FLAG_HDD0) {// is hdd0
    
             
         for(n=1;n<11;n++) {
@@ -2949,7 +3001,7 @@ void copy_from_selection(int game_sel)
                 if(dialog_action == 1)  {return;} else dialog_action = 1; // exit
             }
             
-            if((directories[game_sel].flags >> 23) & 1) {
+            if(directories[game_sel].flags & D_FLAG_PSX_ISO) {
                 sprintf(name, "/dev_usb00%c/PSXGAMES", 47 + curr_device);
                 mkdir_secure(name);
                 sprintf(name, "/dev_usb00%c/PSXGAMES", 47 + curr_device);
@@ -3005,7 +3057,7 @@ void copy_from_selection(int game_sel)
             sprintf(progress_bar_title, "USB00%c -> HDD0", 47 + n); 
            
             char *p;
-            if((directories[game_sel].flags >> 23) & 1) {
+            if(directories[game_sel].flags & D_FLAG_PSX_ISO) {
                 p = strstr(directories[game_sel].path_name, "/PSXGAMES");  
 
                 if(!p) p = "NULL"; else p+= 10;
@@ -3022,7 +3074,7 @@ void copy_from_selection(int game_sel)
 
             while(p[0] == '_') p++; // skip special char
 
-            if(!memcmp(hdd_folder,"dev_hdd0", 9) || ((directories[game_sel].flags >> 23) & 1)){
+            if(!memcmp(hdd_folder,"dev_hdd0", 9) || (directories[game_sel].flags & D_FLAG_PSX_ISO)){
 
                 sprintf(name, "/%s/%s", hdd_folder2, path_install);	
                 mkdir_secure(name);
@@ -3077,7 +3129,7 @@ void copy_from_selection(int game_sel)
         if(!abort_copy) {
                 
             char *p; 
-            if((directories[game_sel].flags >> 23) & 1) p = strstr(directories[game_sel].path_name, "/PSXGAMES"); 
+            if(directories[game_sel].flags & D_FLAG_PSX_ISO) p = strstr(directories[game_sel].path_name, "/PSXGAMES"); 
             else {
                 p = strstr(directories[game_sel].path_name, "/" __MKDEF_GAMES_DIR);
 
@@ -3091,7 +3143,7 @@ void copy_from_selection(int game_sel)
 
             if(dest == 0) {
                 // change to no split!!!
-                if(!memcmp(hdd_folder,"dev_hdd0", 9) || ((directories[game_sel].flags >> 23) & 1)) {
+                if(!memcmp(hdd_folder,"dev_hdd0", 9) || (directories[game_sel].flags & D_FLAG_PSX_ISO)) {
                     sprintf(filename, "/%s/%s/%s", hdd_folder2, path_install, p);
                 } else if(!memcmp(hdd_folder,"dev_hdd0_2", 11)) {
                     sprintf(filename, "/%s/GAMES/%s", "dev_hdd0", p);
@@ -3191,7 +3243,7 @@ void copy_from_selection(int game_sel)
                 
                 char *p;
                 
-                if((directories[game_sel].flags >> 23) & 1) p = strstr(directories[game_sel].path_name, "/PSXGAMES");
+                if(directories[game_sel].flags & D_FLAG_PSX_ISO) p = strstr(directories[game_sel].path_name, "/PSXGAMES");
                 else {
                     p = strstr(directories[game_sel].path_name, "/" __MKDEF_GAMES_DIR);
 
@@ -3204,7 +3256,7 @@ void copy_from_selection(int game_sel)
 
                 if(dest == 0) {
 
-                    if(!memcmp(hdd_folder,"dev_hdd0", 9) || ((directories[game_sel].flags >> 23) & 1)) {
+                    if(!memcmp(hdd_folder,"dev_hdd0", 9) || (directories[game_sel].flags & D_FLAG_PSX_ISO)) {
                         sprintf(filename, "/%s/%s/_%s", hdd_folder2, path_install, p);
                     } else if (!memcmp(hdd_folder,"dev_hdd0_2", 11)) {
                         sprintf(filename, "/%s/GAMES/_%s", "dev_hdd0", p);
@@ -3492,8 +3544,8 @@ float cache_need_free = 0.0f;
 void copy_to_cache(int game_sel, char * hmanager_path)
 {
     
-    if(directories[game_sel].flags & 2048)  {return;}
-    if(directories[game_sel].flags & 1)  {return;}
+    if(directories[game_sel].flags & D_FLAG_BDVD)  {return;}
+    if(directories[game_sel].flags & D_FLAG_HDD0)  {return;}
 
     int n;
 
@@ -3729,7 +3781,7 @@ void delete_game(int game_sel)
 
     copy_split_to_cache = 0;
     
-    if(directories[game_sel].flags & 2048) return;
+    if(directories[game_sel].flags & D_FLAG_BDVD) return;
 
     for(n = 0; n < 11; n++){
         if((directories[game_sel].flags >> n) & 1) break;
@@ -3830,7 +3882,7 @@ void test_game(int game_sel)
     
     self_alarm_version = 0;
 
-    if(!(directories[game_sel].flags & (1<<15))) {
+    if(!(directories[game_sel].flags & D_FLAG_NTFS)) {
         my_game_test(directories[game_sel].path_name);
 
         r = self_alarm_version;
@@ -3904,7 +3956,7 @@ void test_game(int game_sel)
 
 
     // rename in test for non executable games
-    if(num_files_split && (directories[game_sel].flags & 2046)) {
+    if(num_files_split && (directories[game_sel].flags & D_FLAG_USB)) {
        
         char *str = strstr(directories[game_sel].path_name, __MKDEF_GAMES_DIR);
 
@@ -3914,7 +3966,7 @@ void test_game(int game_sel)
                 strcat(filename, str + 7);
                 sysLv2FsRename(directories[game_sel].path_name, filename);
                 //DrawDialogOK(filename);
-                forcedevices = 2046;
+                forcedevices = D_FLAG_USB;
             }
     
     }
@@ -4283,6 +4335,7 @@ tfavourites2 favourites;
 
 static tfavourites2 favourites_gamebase;
 static tfavourites2 favourites_homebrew;
+static tfavourites2 favourites_films;
 
 void LoadFavourites(char * path, int mode)
 {
@@ -4297,8 +4350,11 @@ void LoadFavourites(char * path, int mode)
         pfavourites = &favourites_homebrew;
         mode_flag = 0xffff0000;
         strcat(path, "favourites2.bin");
-    } else
-        return;
+    } else {
+        pfavourites = &favourites_films;
+        mode_flag = 0xffff0000;
+        strcat(path, "favourites3.bin");
+    }
 
     memset(pfavourites, 0, sizeof(*pfavourites));
 
@@ -4331,14 +4387,16 @@ void SaveFavourites(char * path, int mode)
     else if (mode == HOMEBREW_MODE) {
         strcat(path, "favourites2.bin");
         favourites_homebrew =favourites;
-    }
+    } else return;
       
     SaveFile(path, (void *) &favourites, sizeof(favourites)); // use favourites_gamebase?
 }
 
 void GetFavourites(int mode)
 {
-    if(mode == HOMEBREW_MODE)
+    if(mode > HOMEBREW_MODE)
+        favourites = favourites_films;
+    else if(mode == HOMEBREW_MODE)
         favourites = favourites_homebrew;
     else
         favourites = favourites_gamebase;
@@ -4346,7 +4404,9 @@ void GetFavourites(int mode)
 
 void SetFavourites(int mode)
 {
-    if(mode == HOMEBREW_MODE)
+    if(mode > HOMEBREW_MODE)
+        favourites = favourites_films;
+    else if(mode == HOMEBREW_MODE)
         favourites_homebrew = favourites;
     else
         favourites_gamebase = favourites;
@@ -4364,10 +4424,10 @@ void UpdateFavourites(t_directories *list, int nlist)
         for(n = 0; n < nlist; n++) {
             if(favourites.list[m].title_id[0] !=0 && !strncmp(list[n].title_id, favourites.list[m].title_id, 64)) {
                 if((/*1*/ favourites.list[m].index < 0) || 
-                    /*2*/((favourites.list[m].flags & (1<<15)) != (1<<15) && 
+                    /*2*/((favourites.list[m].flags & D_FLAG_NTFS) != D_FLAG_NTFS && 
                     ((favourites.list[m].flags & GAMELIST_FILTER) > (list[n].flags & GAMELIST_FILTER) 
-                    || (list[n].flags & (1<<15)) == (1<<15))) ||
-                    /*3*/((favourites.list[m].flags & (1<<15)) == (1<<15) && (list[n].flags & 1)==1)) {
+                    || (list[n].flags & D_FLAG_NTFS) == D_FLAG_NTFS)) ||
+                    /*3*/((favourites.list[m].flags & D_FLAG_NTFS) == D_FLAG_NTFS && (list[n].flags & D_FLAG_HDD0) == D_FLAG_HDD0)) {
                     //strncpy(favourites.list[m].title_id, list[n].title_id, 64);
                     //strncpy(favourites.list[m].title, list[n].title, 64);
                     favourites.list[m].index = n;

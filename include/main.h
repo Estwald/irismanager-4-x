@@ -51,8 +51,6 @@ int LoadJPG(JpgDatas *jpg, char *filename);
 
 void load_gamecfg (int current_dir);
 
-#define EXPAND_GRID
-
 #define BIG_PICT 32
 
 extern int scr_grid_games;
@@ -67,6 +65,54 @@ extern int Png_iscover[BIG_PICT + 2];
 extern PngDatas Png_res[24];
 extern u32 Png_res_offset[24];
 
+// HOMEBREW / BDISO / DVDISO / MKV
+#define D_FLAG_HOMEB_DPL (31)
+#define D_FLAG_HOMEB     (1<<31)
+#define D_FLAG_HOMEB_BD  (1<<24)
+#define D_FLAG_HOMEB_DVD (1<<23)
+#define D_FLAG_HOMEB_MKV (D_FLAG_HOMEB_BD | D_FLAG_HOMEB_DVD)
+#define D_FLAG_HOMEB_GROUP (D_FLAG_HOMEB | D_FLAG_HOMEB_MKV)
+
+// DEVICES
+#define D_FLAG_HDD0 1
+#define D_FLAG_BDVD (1<<11)
+#define D_FLAG_NTFS (1<<15)
+#define D_FLAG_USB (0x3ff<<1)
+
+// TYPES
+#define D_FLAG_PS3_ISO  (1<<24)
+#define D_FLAG_PS2_ISO  (D_FLAG_PS3_ISO | (1<<23))
+#define D_FLAG_PSX_ISO  (1<<23) // also can be used to identify PS2 game!
+#define D_FLAG_MASK_ISO (D_FLAG_PS3_ISO | D_FLAG_HOMEB | D_FLAG_BDVD)
+
+/*
+
+EXAMPLES:
+
+PS3 GAME from BDVD: D_FLAG_BDVD
+PS3 GAME from HDD0 (jailbreak) : D_FLAG_HDD0
+PS3 GAME from USBx (jailbreak) : (1 << (x+1))
+
+PS3 GAME from HDD0 (ISO) : D_FLAG_PS3_ISO | D_FLAG_HDD0
+PS3 GAME from USBx (ISO) : D_FLAG_PS3_ISO | (1 << (x+1))
+PS3 GAME from NTFS (ISO) : D_FLAG_PS3_ISO | D_FLAG_NTFS (from USB device with NTFS/EXTx partition)
+
+PS2 GAME from HDD0 (ISO) : D_FLAG_PS2_ISO | D_FLAG_HDD0 (only supported in CFW 4.46 Cobra)
+
+PS1 GAME from BDVD : D_FLAG_PSX_ISO | D_FLAG_BDVD
+PS1 GAME from HDD0 (ISO) : D_FLAG_PSX_ISO | D_FLAG_HDD0
+PS1 GAME from USBx (ISO) : D_FLAG_PSX_ISO | (1 << (x+1))
+PS1 GAME from NTFS (ISO) : D_FLAG_PSX_ISO | D_FLAG_NTFS (from USB device with NTFS/EXTx partition)
+
+Homebrew Mode:
+
+PS3 Homebrew/PS3 : D_FLAG_HOMEB_DPL | (1 << (x+1)) (from USBx depacked in path /dev_usb00x/game/xxxxx)
+
+BD ISO   : D_FLAG_HOMEB_DPL | D_FLAG_HOMEB_BD  | x (from /BDISO  , x = D_FLAG_HDD0 or D_FLAG_NTFS or (1 << (usb_port+1)))
+DVD ISO  : D_FLAG_HOMEB_DPL | D_FLAG_HOMEB_DVD | x (from /BDVDISO, x = D_FLAG_HDD0 or D_FLAG_NTFS or (1 << (usb_port+1)))
+MKV file : D_FLAG_HOMEB_DPL | D_FLAG_HOMEB_MKV | x (from /MKV    , x = D_FLAG_HDD0 or D_FLAG_NTFS or (1 << (usb_port+1)))
+
+*/
 
 #endif
 

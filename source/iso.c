@@ -4180,10 +4180,10 @@ int patchps3iso(char *f_iso)
 
                     if(ext <= 1) {goto next_file;}
 
-                    if( (string[ ext ] == 's' && string[ ext + 1 ] == 'p' && string[ ext + 2 ] == 'r' && string[ ext + 3 ] == 'x') 
+                    if((string[ ext - 1 ] == '.' && ((string[ ext ] == 's' && string[ ext + 1 ] == 'p' && string[ ext + 2 ] == 'r' && string[ ext + 3 ] == 'x') 
                         || (string[ ext ] == 'S' && string[ ext + 1 ] == 'P' && string[ ext + 2 ] == 'R' && string[ ext + 3 ] == 'X')
                         || (string[ ext ] == 's' && string[ ext + 1 ] == 'e' && string[ ext + 2 ] == 'l' && string[ ext + 3 ] == 'f')
-                        || (string[ ext ] == 'S' && string[ ext + 1 ] == 'E' && string[ ext + 2 ] == 'L' && string[ ext + 3 ] == 'F')
+                        || (string[ ext ] == 'S' && string[ ext + 1 ] == 'E' && string[ ext + 2 ] == 'L' && string[ ext + 3 ] == 'F')))
                         ||  strcmp( string, "EBOOT.BIN" ) == 0) {
 
                         if(iso_patch_exe_error_09(file_lba, string) < 0) {
