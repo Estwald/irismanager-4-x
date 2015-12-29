@@ -1066,6 +1066,8 @@ static int calc_entries(char *path, int parent)
                 
                     ldir = (ldir & ~2047) + 2048;
                     cldir = add;
+                } else if(cldir == 2048){
+                    cldir = 0;
                 }
 
                 ldir += add;
@@ -1079,6 +1081,8 @@ static int calc_entries(char *path, int parent)
                  
                     wdir= (wdir & ~2047) + 2048;
                     cwdir = add;
+                } else if(cwdir == 2048){
+                    cwdir = 0;
                 }
 
                 wdir += add;
@@ -1132,6 +1136,8 @@ static int calc_entries(char *path, int parent)
                     
                     ldir = (ldir & ~2047) + 2048;
                     cldir = add;
+                } else if(cldir == 2048){
+                    cldir = 0;
                 }
                 
                 ldir += add;
@@ -1148,6 +1154,8 @@ static int calc_entries(char *path, int parent)
 
                     wdir= (wdir & ~2047) + 2048;
                     cwdir = add;
+                } else if(cwdir == 2048){
+                    cwdir = 0;
                 }
 
 
@@ -3726,7 +3734,7 @@ static int iso_patch_exe_error_09(u32 lba, char *filename)
 {
     
     u16 fw_421 = 42100;
-    u16 fw_460 = 46000;
+    u16 fw_490 = 49000;
     u32 offset_fw;
     u16 ver = 0;
     int flag = 0;
@@ -3757,7 +3765,7 @@ static int iso_patch_exe_error_09(u32 lba, char *filename)
 
     u16 cur_firm = ((firmware>>12) & 0xF) * 10000 + ((firmware>>8) & 0xF) * 1000 + ((firmware>>4) & 0xF) * 100;
                     
-    if(firmware >= 0x421C && firmware < 0x460C && ver > fw_421 && ver <= fw_460 && ver > cur_firm) {
+    if(firmware >= 0x421C && firmware < 0x490C && ver > fw_421 && ver <= fw_490 && ver > cur_firm) {
 
         DPrintf("Version changed from %u.%u to %u.%u in %s\n\n", ver/10000, (ver % 10000)/100, cur_firm/10000, (cur_firm % 10000)/100, filename);
         cur_firm = SWAP16(cur_firm);
