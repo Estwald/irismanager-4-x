@@ -22,9 +22,46 @@
 #include "utils.h"
 
 #include "ps3_storage_bin.h"
+
+/*
 #include "mamba_4_46_lz_bin.h"
 #include "mamba_4_53_lz_bin.h"
 #include "mamba_4_55_lz_bin.h"
+*/
+
+/* Mamba NzV bins (Thank's to NzV ;) )*/
+/* http://github.com/NzV/MAMBA */
+
+#include "mamba_355C_lz_bin.h"
+#include "mamba_355D_lz_bin.h"
+#include "mamba_421C_lz_bin.h"
+#include "mamba_421D_lz_bin.h"
+#include "mamba_430C_lz_bin.h"
+#include "mamba_430D_lz_bin.h"
+#include "mamba_431C_lz_bin.h"
+#include "mamba_440C_lz_bin.h"
+#include "mamba_441C_lz_bin.h"
+#include "mamba_441D_lz_bin.h"
+#include "mamba_446C_lz_bin.h"
+#include "mamba_446D_lz_bin.h"
+#include "mamba_450C_lz_bin.h"
+#include "mamba_450D_lz_bin.h"
+#include "mamba_453C_lz_bin.h"
+#include "mamba_453D_lz_bin.h"
+#include "mamba_455C_lz_bin.h"
+#include "mamba_455D_lz_bin.h"
+#include "mamba_460C_lz_bin.h"
+#include "mamba_460D_lz_bin.h"
+#include "mamba_465C_lz_bin.h"
+#include "mamba_465D_lz_bin.h"
+#include "mamba_466C_lz_bin.h"
+#include "mamba_466D_lz_bin.h"
+#include "mamba_470C_lz_bin.h"
+#include "mamba_470D_lz_bin.h"
+#include "mamba_475C_lz_bin.h"
+#include "mamba_475D_lz_bin.h"
+#include "mamba_476C_lz_bin.h"
+#include "mamba_476D_lz_bin.h"
 
 int zlib_decompress(char *source, char *dest, int in_size, int *out_size);
 
@@ -354,9 +391,11 @@ void load_ps3_mamba_payload()
 
     /*
     if(firmware == 0x446C)
-        memcpy((char *) addr, (char *) mamba_4_46_bin, mamba_4_46_bin_size);
+        zlib_decompress((char *) mamba_4_46_lz_bin, (char *) addr, mamba_4_46_lz_bin_size, &out_size);
     else if(firmware == 0x453C)
-        memcpy((char *) addr, (char *) mamba_4_53_bin, mamba_4_53_bin_size);
+        zlib_decompress((char *) mamba_4_53_lz_bin, (char *) addr, mamba_4_53_lz_bin_size, &out_size);
+    else if(firmware == 0x455C)
+        zlib_decompress((char *) mamba_4_55_lz_bin, (char *) addr, mamba_4_55_lz_bin_size, &out_size);
     else {
         DrawDialogOK("MAMBA is not supported for this CFW");
         free(addr);
@@ -364,12 +403,67 @@ void load_ps3_mamba_payload()
     }
     */
 
-    if(firmware == 0x446C)
-        zlib_decompress((char *) mamba_4_46_lz_bin, (char *) addr, mamba_4_46_lz_bin_size, &out_size);
+
+    if(firmware == 0x355C)
+        zlib_decompress((char *) mamba_355C_lz_bin, (char *) addr, mamba_355C_lz_bin_size, &out_size);
+    else if(firmware == 0x355D)
+        zlib_decompress((char *) mamba_355D_lz_bin, (char *) addr, mamba_355D_lz_bin_size, &out_size);
+    else if(firmware == 0x421C)
+        zlib_decompress((char *) mamba_421C_lz_bin, (char *) addr, mamba_421C_lz_bin_size, &out_size);
+    else if(firmware == 0x421D)
+        zlib_decompress((char *) mamba_421D_lz_bin, (char *) addr, mamba_421D_lz_bin_size, &out_size);
+    else if(firmware == 0x430C)
+        zlib_decompress((char *) mamba_430C_lz_bin, (char *) addr, mamba_430C_lz_bin_size, &out_size);
+    else if(firmware == 0x430D)
+        zlib_decompress((char *) mamba_430D_lz_bin, (char *) addr, mamba_430D_lz_bin_size, &out_size);
+    else if(firmware == 0x431C)
+        zlib_decompress((char *) mamba_431C_lz_bin, (char *) addr, mamba_431C_lz_bin_size, &out_size);
+    else if(firmware == 0x440C)
+        zlib_decompress((char *) mamba_440C_lz_bin, (char *) addr, mamba_440C_lz_bin_size, &out_size);
+    else if(firmware == 0x441C)
+        zlib_decompress((char *) mamba_441C_lz_bin, (char *) addr, mamba_441C_lz_bin_size, &out_size);
+    else if(firmware == 0x441D)
+        zlib_decompress((char *) mamba_441D_lz_bin, (char *) addr, mamba_441D_lz_bin_size, &out_size);
+    else if(firmware == 0x446C)
+        zlib_decompress((char *) mamba_446C_lz_bin, (char *) addr, mamba_446C_lz_bin_size, &out_size);
+    else if(firmware == 0x446D)
+        zlib_decompress((char *) mamba_446D_lz_bin, (char *) addr, mamba_446D_lz_bin_size, &out_size);
+    else if(firmware == 0x450C)
+        zlib_decompress((char *) mamba_450C_lz_bin, (char *) addr, mamba_450C_lz_bin_size, &out_size);
+    else if(firmware == 0x450D)
+        zlib_decompress((char *) mamba_450D_lz_bin, (char *) addr, mamba_450D_lz_bin_size, &out_size);
     else if(firmware == 0x453C)
-        zlib_decompress((char *) mamba_4_53_lz_bin, (char *) addr, mamba_4_53_lz_bin_size, &out_size);
+        zlib_decompress((char *) mamba_453C_lz_bin, (char *) addr, mamba_453C_lz_bin_size, &out_size);
+    else if(firmware == 0x453D)
+        zlib_decompress((char *) mamba_453D_lz_bin, (char *) addr, mamba_453D_lz_bin_size, &out_size);
     else if(firmware == 0x455C)
-        zlib_decompress((char *) mamba_4_55_lz_bin, (char *) addr, mamba_4_55_lz_bin_size, &out_size);
+        zlib_decompress((char *) mamba_455C_lz_bin, (char *) addr, mamba_455C_lz_bin_size, &out_size);
+    else if(firmware == 0x455D)
+        zlib_decompress((char *) mamba_455D_lz_bin, (char *) addr, mamba_455D_lz_bin_size, &out_size);
+    else if(firmware == 0x460C)
+        zlib_decompress((char *) mamba_460C_lz_bin, (char *) addr, mamba_460C_lz_bin_size, &out_size);
+    else if(firmware == 0x460D)
+        zlib_decompress((char *) mamba_460D_lz_bin, (char *) addr, mamba_460D_lz_bin_size, &out_size);
+    else if(firmware == 0x465C)
+        zlib_decompress((char *) mamba_465C_lz_bin, (char *) addr, mamba_465C_lz_bin_size, &out_size);
+    else if(firmware == 0x465D)
+        zlib_decompress((char *) mamba_465D_lz_bin, (char *) addr, mamba_465D_lz_bin_size, &out_size);
+    else if(firmware == 0x466C)
+        zlib_decompress((char *) mamba_466C_lz_bin, (char *) addr, mamba_466C_lz_bin_size, &out_size);
+    else if(firmware == 0x466D)
+        zlib_decompress((char *) mamba_466D_lz_bin, (char *) addr, mamba_466D_lz_bin_size, &out_size);
+    else if(firmware == 0x470C)
+        zlib_decompress((char *) mamba_470C_lz_bin, (char *) addr, mamba_470C_lz_bin_size, &out_size);
+    else if(firmware == 0x470D)
+        zlib_decompress((char *) mamba_470D_lz_bin, (char *) addr, mamba_470D_lz_bin_size, &out_size);
+    else if(firmware == 0x475C)
+        zlib_decompress((char *) mamba_475C_lz_bin, (char *) addr, mamba_475C_lz_bin_size, &out_size);
+    else if(firmware == 0x475D)
+        zlib_decompress((char *) mamba_475D_lz_bin, (char *) addr, mamba_475D_lz_bin_size, &out_size);
+    else if(firmware == 0x476C)
+        zlib_decompress((char *) mamba_476C_lz_bin, (char *) addr, mamba_476C_lz_bin_size, &out_size);
+    else if(firmware == 0x476D)
+        zlib_decompress((char *) mamba_476D_lz_bin, (char *) addr, mamba_476D_lz_bin_size, &out_size);
     else {
         DrawDialogOK("MAMBA is not supported for this CFW");
         free(addr);
