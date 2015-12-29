@@ -59,7 +59,12 @@
 #include "payload450dex/payload_450dex.h"
 #include "payload453/payload_453.h"
 #include "payload455/payload_455.h"
-
+#include "payload460dex/payload_460dex.h"
+#include "payload460deh/payload_460deh.h"
+#include "payload470/payload_470.h"
+#include "payload470dex/payload_470dex.h"
+#include "payload475/payload_475.h"
+#include "payload475dex/payload_475dex.h"
 #include "spu_soundmodule.bin.h" // load SPU Module
 #include "spu_soundlib.h"
 
@@ -1965,6 +1970,27 @@ s32 main(s32 argc, const char* argv[])
     } else if(is_firm_455()) {
         firmware = 0x455C;
         payload_mode = is_payload_loaded_455();
+    } else if(is_firm_460deh()){
+        firmware = 0x460E;
+        payload_mode = is_payload_loaded_460deh();
+    }else if(is_firm_460dex()){
+        firmware = 0x460D;
+        payload_mode = is_payload_loaded_460dex();
+    } else if(is_firm_470()){
+        firmware = 0x470C;
+        payload_mode = is_payload_loaded_470();
+    } else if(is_firm_470dex()){
+        firmware = 0x470D;
+        payload_mode = is_payload_loaded_470dex();
+    } else if(is_firm_475()){
+        firmware = 0x475C;
+        payload_mode = is_payload_loaded_475();
+    } else if(is_firm_475dex()){
+        firmware = 0x475D;
+        payload_mode = is_payload_loaded_475dex();
+    } else if(is_firm_476()){
+        firmware = 0x476C;
+        payload_mode = is_payload_loaded_475();
     }
 
     if(is_cobra_based()) use_cobra = 1;
@@ -2020,9 +2046,15 @@ s32 main(s32 argc, const char* argv[])
                         sprintf(payload_str, "wanin cfw - old syscall36, no bigfiles allowed");
                     } else {
                         load_payload_355(payload_mode);
-                       
+                      
                         __asm__("sync");
                         sleep(1); /* maybe need it, maybe not */
+                        
+                        if(!use_cobra) {
+
+                            load_ps3_mamba_payload();
+                            use_mamba = 1;
+                        }
                     }
                     break;
                 case SYS36_PAYLOAD:
@@ -2057,6 +2089,11 @@ s32 main(s32 argc, const char* argv[])
                     load_payload_355dex(payload_mode);
                     __asm__("sync");
                     sleep(1); /* maybe need it, maybe not */
+                    if(!use_cobra) {
+
+                        load_ps3_mamba_payload();
+                        use_mamba = 1;
+                    }
                     break;
                 case SKY10_PAYLOAD:
                     break;
@@ -2070,6 +2107,13 @@ s32 main(s32 argc, const char* argv[])
                     load_payload_421(payload_mode);
                     __asm__("sync");
                     sleep(1); /* maybe need it, maybe not */
+
+                    if(!use_cobra) {
+
+                        load_ps3_mamba_payload();
+                        use_mamba = 1;
+                    }
+
                     break;
                 case SKY10_PAYLOAD:
                     break;
@@ -2083,6 +2127,13 @@ s32 main(s32 argc, const char* argv[])
                     load_payload_421dex(payload_mode);
                     __asm__("sync");
                     sleep(1); /* maybe need it, maybe not */
+
+                    if(!use_cobra) {
+
+                        load_ps3_mamba_payload();
+                        use_mamba = 1;
+                    }
+
                     break;
                 case SKY10_PAYLOAD:
                     break;
@@ -2096,6 +2147,13 @@ s32 main(s32 argc, const char* argv[])
                     load_payload_430(payload_mode);
                     __asm__("sync");
                     sleep(1); /* maybe need it, maybe not */
+
+                    if(!use_cobra) {
+
+                        load_ps3_mamba_payload();
+                        use_mamba = 1;
+                    }
+
                     break;
                 case SKY10_PAYLOAD:
                     break;
@@ -2109,12 +2167,19 @@ s32 main(s32 argc, const char* argv[])
                     load_payload_431(payload_mode);
                     __asm__("sync");
                     sleep(1); /* maybe need it, maybe not */
+
+                    if(!use_cobra) {
+
+                        load_ps3_mamba_payload();
+                        use_mamba = 1;
+                    }
+
                     break;
                 case SKY10_PAYLOAD:
                     break;
             }
             break;
-                    case 0x430D:
+        case 0x430D:
             set_bdvdemu_430dex(payload_mode);
             switch(payload_mode)
             {
@@ -2122,6 +2187,13 @@ s32 main(s32 argc, const char* argv[])
                     load_payload_430dex(payload_mode);
                     __asm__("sync");
                     sleep(1); /* maybe need it, maybe not */
+
+                    if(!use_cobra) {
+
+                        load_ps3_mamba_payload();
+                        use_mamba = 1;
+                    }
+
                     break;
                 case SKY10_PAYLOAD:
                     break;
@@ -2135,6 +2207,13 @@ s32 main(s32 argc, const char* argv[])
                     load_payload_440(payload_mode);
                     __asm__("sync");
                     sleep(1); /* maybe need it, maybe not */
+
+                    if(!use_cobra) {
+
+                        load_ps3_mamba_payload();
+                        use_mamba = 1;
+                    }
+
                     break;
                 case SKY10_PAYLOAD:
                     break;
@@ -2148,6 +2227,13 @@ s32 main(s32 argc, const char* argv[])
                     load_payload_441(payload_mode);
                     __asm__("sync");
                     sleep(1); /* maybe need it, maybe not */
+
+                    if(!use_cobra) {
+
+                        load_ps3_mamba_payload();
+                        use_mamba = 1;
+                    }
+
                     break;
                 case SKY10_PAYLOAD:
                     break;
@@ -2181,6 +2267,13 @@ s32 main(s32 argc, const char* argv[])
                     load_payload_450(payload_mode);
                     __asm__("sync");
                     sleep(1); /* maybe need it, maybe not */
+
+                    if(!use_cobra) {
+
+                        load_ps3_mamba_payload();
+                        use_mamba = 1;
+                    }
+
                     break;
                 case SKY10_PAYLOAD:
                     break;
@@ -2194,6 +2287,13 @@ s32 main(s32 argc, const char* argv[])
                     load_payload_450dex(payload_mode);
                     __asm__("sync");
                     sleep(1); /* maybe need it, maybe not */
+
+                    if(!use_cobra) {
+
+                        load_ps3_mamba_payload();
+                        use_mamba = 1;
+                    }
+
                     break;
                 case SKY10_PAYLOAD:
                     break;
@@ -2236,6 +2336,139 @@ s32 main(s32 argc, const char* argv[])
                     break;
                 case SKY10_PAYLOAD:
                     break;
+            }
+            break;
+        case 0x460D:
+            set_bdvdemu_460dex(payload_mode);
+            switch(payload_mode)
+            {
+                case ZERO_PAYLOAD:
+                load_payload_460dex(payload_mode);
+                __asm__("sync");
+                sleep(1);
+
+                if(!use_cobra){
+                    load_ps3_mamba_payload();
+                    use_mamba = 1;
+                }
+
+                break;
+            case SKY10_PAYLOAD:
+                break;
+            }
+            break;
+        case 0x460E:
+            set_bdvdemu_460deh(payload_mode);
+            switch(payload_mode)
+            {
+                case ZERO_PAYLOAD:
+                load_payload_460deh(payload_mode);
+                __asm__("sync");
+                sleep(1);
+
+                if(!use_cobra){
+                    load_ps3_mamba_payload();
+                    use_mamba = 1;
+                }
+
+                break;
+            case SKY10_PAYLOAD:
+                break;
+            }
+            break;
+        case 0x470C:
+            set_bdvdemu_470(payload_mode);
+            switch(payload_mode)
+            {
+                case ZERO_PAYLOAD:
+                load_payload_470(payload_mode);
+                __asm__("sync");
+                sleep(1);
+
+                if (!use_cobra){
+                    load_ps3_mamba_payload();
+                    use_mamba = 1;
+                }
+
+                break;
+            case SKY10_PAYLOAD:
+                break;
+            }
+            break;
+        case 0x470D:
+            set_bdvdemu_470dex(payload_mode);
+            switch(payload_mode)
+            {
+                case ZERO_PAYLOAD:
+                load_payload_470dex(payload_mode);
+                __asm__("sync");
+                sleep(1);
+
+                if (!use_cobra){
+                    load_ps3_mamba_payload();
+                    use_mamba = 1;
+                }
+
+                break;
+            case SKY10_PAYLOAD:
+                break;
+            }
+            break;
+        case 0x475C:
+            set_bdvdemu_475(payload_mode);
+            switch(payload_mode)
+            {
+                case ZERO_PAYLOAD:
+                load_payload_475(payload_mode);
+                __asm__("sync");
+                sleep(1);
+
+                if (!use_cobra){
+                    load_ps3_mamba_payload();
+                    use_mamba = 1;
+                }
+
+                break;
+            case SKY10_PAYLOAD:
+                break;
+            }
+            break;
+        case 0x475D:
+            set_bdvdemu_475dex(payload_mode);
+            switch(payload_mode)
+            {
+                case ZERO_PAYLOAD:
+                load_payload_475dex(payload_mode);
+                __asm__("sync");
+                sleep(1);
+
+                if (!use_cobra){
+                    load_ps3_mamba_payload();
+                    use_mamba = 1;
+                }
+
+                break;
+            case SKY10_PAYLOAD:
+                break;
+            }
+            break;
+        case 0x476C:
+            set_bdvdemu_475(payload_mode);
+            switch(payload_mode)
+            {
+                case ZERO_PAYLOAD:
+                load_payload_475(payload_mode);
+                __asm__("sync");
+                sleep(1);
+
+                if (!use_cobra){
+                    load_ps3_mamba_payload();
+                    use_mamba = 1;
+                }
+
+                break;
+            case SKY10_PAYLOAD:
+                break;
             }
             break;
         default:

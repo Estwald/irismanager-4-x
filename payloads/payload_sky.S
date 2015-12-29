@@ -94,6 +94,50 @@
 #include "firmware_symbols_455.h"
 #endif
 
+#ifdef CFW_460
+#include "firmware_symbols_460.h"
+#endif
+
+#ifdef CFW_460dex
+#include "firmware_symbols_460dex.h"
+#endif
+
+#ifdef CFW_460deh
+#include "firmware_symbols_460deh.h"
+#endif
+
+#ifdef CFW_465
+#include "firmware_symbols_465.h"
+#endif
+
+#ifdef CFW_465dex
+#include "firmware_symbols_465dex.h"
+#endif
+
+#ifdef CFW_466
+#include "firmware_symbols_466.h"
+#endif
+
+#ifdef CFW_470
+#include "firmware_symbols_470.h"
+#endif
+
+#ifdef CFW_470dex
+#include "firmware_symbols_470dex.h"
+#endif
+
+#ifdef CFW_475
+#include "firmware_symbols_475.h"
+#endif
+
+#ifdef CFW_475dex
+#include "firmware_symbols_475dex.h"
+#endif
+
+#ifdef CFW_476
+#include "firmware_symbols_476.h"
+#endif
+
 #define SYS8_VERSION 0x308
 #define PERM_MODE 0  // 0 -> restricted 1-> original 2-> new for some games
 
