@@ -42,7 +42,12 @@ Credits:
 #include "language.h"
 #include "controlfan.h"
 
+#include "cobre.h"
+#include "modules.h"
 #include "ps3_controlfan_bin.h"
+#include "payload_sm_bin.h"
+
+extern int use_mamba;
 
 char * LoadFile(char *path, int *file_size);
 int SaveFile(char *path, char *mem, int file_size);
@@ -140,9 +145,46 @@ int test_controlfan_compatibility()
 
 static u64 payload_ctrl;
 
+static int use_sm_prx = 0;
+
+int load_ps3_controlfan_sm_sprx()
+{
+    if(lv2peek32(PAYLOAD_BASE) == 0x50534D58 && use_cobra) { // test if sm.sprx pseudo payload is loaded
+
+        if(lv2peek32(PAYLOAD_BASE + 0x20ULL)== 0xCAFE0ACA) { set_usleep_sm_main(1000); return 0;}
+
+         // creates sm.sprx if it is needs
+        struct stat s;
+        sprintf(temp_buffer, "%s/sprx_sm", self_path);
+        if(stat(temp_buffer, &s)<0 || s.st_size!= SIZE_SPRX_SM) {
+            SaveFile(temp_buffer, (char *) sprx_sm, SIZE_SPRX_SM);
+        
+        }
+
+        if(stat(temp_buffer, &s)<0 || s.st_size!= SIZE_SPRX_SM) {DrawDialogTimer("error creating sm.prx file", 4000.0f);return 0;}
+
+        cobra_unload_vsh_plugin(6);
+
+        //sprintf(temp_buffer, "%s/USRDIR/plugin/sm.sprx", self_path);
+
+        if (cobra_load_vsh_plugin(6, temp_buffer, NULL, 0x0) == 0) {
+            // DrawDialogTimer("sm.prx loaded", 4000.0f);
+            set_usleep_sm_main(1000);             
+        }
+    }
+
+    return 0;
+
+}
+
 int load_ps3_controlfan_payload()
 {
     int ret = 0;
+    int n;
+
+    int payload_size = ps3_controlfan_bin_size;
+
+    if(payload_sm_bin_size > ps3_controlfan_bin_size) payload_size= payload_sm_bin_size;
 
 
     if(!test_controlfan_compatibility()) return 0;
@@ -152,7 +194,7 @@ int load_ps3_controlfan_payload()
     }
     
 
-    u64 *addr= (u64 *) memalign(8, ps3_controlfan_bin_size + 31);
+    u64 *addr= (u64 *) memalign(8, payload_size + 31);
   
     if(!addr) {
 
@@ -160,7 +202,36 @@ int load_ps3_controlfan_payload()
     }
 
     
-    if(lv2peek(PAYLOAD_BASE)) {set_usleep_sm_main(1000); goto skip_the_load;}
+    if(lv2peek(PAYLOAD_BASE)) {if(lv2peek32(PAYLOAD_BASE) == 0x50534D58) use_sm_prx = 1; set_usleep_sm_main(1000); goto skip_the_load;}
+
+
+    if(use_cobra || use_mamba) {
+        struct stat s;
+        
+        // creates sm.sprx if it is needs
+      
+        sprintf(temp_buffer, "%s/sprx_sm", self_path);
+        if(stat(temp_buffer, &s)<0 || s.st_size!= SIZE_SPRX_SM) {
+            SaveFile(temp_buffer, (char *) sprx_sm, SIZE_SPRX_SM);
+            if(stat(temp_buffer, &s)<0 || s.st_size!= SIZE_SPRX_SM) {DrawDialogTimer("error creating sm.prx file", 4000.0f);}
+        
+        }
+
+        //sprintf(temp_buffer, "%s/USRDIR/plugin/sm.sprx", self_path);
+
+
+        if(!stat(temp_buffer, &s) && s.st_size == SIZE_SPRX_SM) { // test if sprx exist 
+
+            memcpy((char *) addr, (char *) payload_sm_bin, payload_sm_bin_size);
+            use_sm_prx = 1;
+            addr[1] = syscall_base; 
+            addr[2] += PAYLOAD_BASE;
+            addr[3] = lv2peek(syscall_base + (u64) (379 * 8));
+            goto set_control_datas;
+                       
+        }
+            
+    }
     
     memcpy((char *) addr, (char *) ps3_controlfan_bin, ps3_controlfan_bin_size);
 
@@ -174,19 +245,22 @@ int load_ps3_controlfan_payload()
     addr[6] += PAYLOAD_BASE;
     addr[7] = lv2peek(syscall_base + (u64) (379 * 8));
 
-    int n;
+set_control_datas:
+
 
     for(n = 0; n < 200; n++) {
 
         int m;
 
-        for(m = 0; m < ((ps3_controlfan_bin_size + 7) & ~7); m+=8)
+        for(m = 0; m < ((payload_size + 7) & ~7); m+=8)
             lv2poke(PAYLOAD_BASE + (u64) m, addr[m>>3]);
 
-        lv2poke(syscall_base + (u64) (130 * 8), PAYLOAD_BASE + 0x10ULL);
-        lv2poke(syscall_base + (u64) (138 * 8), PAYLOAD_BASE + 0x20ULL);
-
-        lv2poke(syscall_base + (u64) (379 * 8), PAYLOAD_BASE + 0x30ULL);
+        if(!use_sm_prx) {
+            lv2poke(syscall_base + (u64) (130 * 8), PAYLOAD_BASE + 0x10ULL);
+            lv2poke(syscall_base + (u64) (138 * 8), PAYLOAD_BASE + 0x20ULL);
+            lv2poke(syscall_base + (u64) (379 * 8), PAYLOAD_BASE + 0x30ULL);
+        } else
+            lv2poke(syscall_base + (u64) (379 * 8), PAYLOAD_BASE + 0x10ULL);
 
         usleep(10000);
     }
@@ -793,6 +867,7 @@ void draw_controlfan_options()
     if(!test_controlfan_compatibility()) return;
 
     if(lv2peek32(PAYLOAD_BASE) == 0x50534D45) sm_present = 1;
+    if(lv2peek32(PAYLOAD_BASE) == 0x50534D58) sm_present = 2;
 
     memcpy((void *) temp_control_backup, (void *) temp_control, sizeof(temp_control));
     memcpy((void *) speed_table_backup, (void *) speed_table, sizeof(speed_table));
@@ -830,8 +905,10 @@ void draw_controlfan_options()
     x2 = DrawFormatString(x, y - 0, " %s", "Control Fan & USB Wakeup") + 8;
 
     if(cur_fan_mode == 0) {
-        if(sm_present) 
+        if(sm_present == 1) 
             DrawFormatString(x2, y - 0, "Current: #S. Manager");
+        else if(sm_present == 2) 
+            DrawFormatString(x2, y - 0, "Current: #S. Manager SPRX");
         else
             DrawFormatString(x2, y - 0, "Current: #Payload");
     }

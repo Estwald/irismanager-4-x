@@ -2714,6 +2714,11 @@ s32 main(s32 argc, const char* argv[])
             cobra_unload_vsh_plugin(n); // unload plugin
     }
 
+    // SM.SPRX load if it is need...
+
+    load_ps3_controlfan_sm_sprx();
+
+
     init_music();
     
     if(!noBDVD && lv2_patch_storage) {
