@@ -2615,6 +2615,14 @@ s32 main(s32 argc, const char* argv[])
 
     }
 
+    if(use_mamba && !use_cobra) {
+     
+        syscall_40(1, 0);
+        
+        if(is_cobra_based()) use_cobra = 1;
+        
+    }
+
     load_ps3_controlfan_payload();
 
     load_controlfan_config();

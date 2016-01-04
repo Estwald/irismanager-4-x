@@ -149,6 +149,23 @@ static int use_sm_prx = 0;
 
 int load_ps3_controlfan_sm_sprx()
 {
+    if(use_cobra) {
+        
+        struct stat s;
+   
+        cobra_unload_vsh_plugin(5);
+    
+        sprintf(temp_buffer, "%s/sprx_monitor", self_path);
+        if(stat(temp_buffer, &s)<0 || s.st_size!= SIZE_SPRX_MONITOR) {
+            SaveFile(temp_buffer, (char *) sprx_monitor, SIZE_SPRX_MONITOR);
+        
+        }
+
+        if (cobra_load_vsh_plugin(5, temp_buffer, NULL, 0x0) == 0) {
+            // DrawDialogTimer("monitor.sprx loaded", 4000.0f);    
+        }
+    }
+
     if(lv2peek32(PAYLOAD_BASE) == 0x50534D58 && use_cobra) { // test if sm.sprx pseudo payload is loaded
 
         if(lv2peek32(PAYLOAD_BASE + 0x20ULL)== 0xCAFE0ACA) { set_usleep_sm_main(1000); return 0;}
