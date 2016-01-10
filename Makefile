@@ -18,7 +18,7 @@ SFOXML		:=	sfo.xml
 
 # usage:  make BUILD_STEALTH=yes
 ifndef BUILD_STEALTH
-TITLE		:=	IrisManager - v2.97
+TITLE		:=	IrisManager - v3.00
 APPID		:=	IMANAGER4
 else
 TITLE		:=	LEMMINGS™ Trial Version

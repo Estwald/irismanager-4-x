@@ -8284,7 +8284,7 @@ void draw_toolsoptions(float x, float y)
 
     DrawBox(x, y, 0, 200 * 4 - 8, 150 * 3 - 8, 0x00000028);
 
-    y2 = y + 32;
+    y2 = y /*+ 32*/;
     
     DrawButton1_UTF8((848 - 520) / 2, y2, 520, language[DRAWTOOLS_DELCACHE], (flash && select_option == 0));
     
@@ -8324,11 +8324,15 @@ void draw_toolsoptions(float x, float y)
 
     y2+= 48;
 
-    DrawButton1_UTF8((848 - 520) / 2, y2, 520, language[DRAWTOOLS_COVERSDOWN], (flash && select_option == 7));
+    DrawButton1_UTF8((848 - 520) / 2, y2, 520, "Monitor Settings", (flash && select_option == 7));
 
     y2+= 48;
 
-    DrawButton1_UTF8((848 - 520) / 2, y2, 520, language[GLOBAL_RETURN], (flash && select_option == 8));
+    DrawButton1_UTF8((848 - 520) / 2, y2, 520, language[DRAWTOOLS_COVERSDOWN], (flash && select_option == 8));
+
+    y2+= 48;
+
+    DrawButton1_UTF8((848 - 520) / 2, y2, 520, language[GLOBAL_RETURN], (flash && select_option == 9));
     
     /*
     y2+= 48;
@@ -8451,6 +8455,7 @@ void draw_toolsoptions(float x, float y)
                 bdvd_notify = 1;
                 currentgamedir = currentdir = 0;
                 return;
+
             case 6:
                 select_option = 0;
                 menu_screen = 0;
@@ -8458,6 +8463,12 @@ void draw_toolsoptions(float x, float y)
                 return;
 
             case 7:
+                select_option = 0;
+                menu_screen = 0;
+                draw_monitor_options();
+                return;
+
+            case 8:
                 select_option = 0;
                 menu_screen = 0;
 
@@ -8485,7 +8496,7 @@ void draw_toolsoptions(float x, float y)
                 if(n == -555) DrawDialogOKTimer("Aborted By User\n\nAbortado por el Usuario", 2000.0f);
                 return;
 
-            case 8:
+            case 9:
                 select_option = 0;
                 menu_screen = 0; 
                 return;
@@ -8505,7 +8516,7 @@ void draw_toolsoptions(float x, float y)
 
         frame_count = 32;
 
-        ROT_DEC(select_option, 0, 8);
+        ROT_DEC(select_option, 0, 9);
         
     }
 
@@ -8513,7 +8524,7 @@ void draw_toolsoptions(float x, float y)
 
         frame_count = 32;
         
-        ROT_INC(select_option, 8, 0);
+        ROT_INC(select_option, 9, 0);
         
     }
     

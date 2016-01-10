@@ -147,28 +147,74 @@ static u64 payload_ctrl;
 
 static int use_sm_prx = 0;
 
+union tmonitor {
+   struct {
+    u8 reserved1;
+    u8 temp_alarm;
+    u8 timer_min;
+    u8 sshow;
+   } umon;
+
+   u32 dwmon;
+    
+} monitor;
+
+void set_monitor_values(u8 reserved1, u8 temp_alarm, u8 timer_min, u8 sshow)
+{
+    monitor.umon.reserved1 = reserved1;
+    monitor.umon.temp_alarm = temp_alarm;
+    monitor.umon.timer_min = timer_min;
+    monitor.umon.sshow = sshow;
+    lv2poke32(PAYLOAD_BASE - 0x4ULL, monitor.dwmon);
+}
+
+void load_monitor_config() 
+{
+    int file_size = 0, n; 
+    sprintf(temp_buffer + 2048, "%s/config/monitor.dat", self_path);
+
+    monitor.dwmon = 0;
+    monitor.umon.sshow = 10;
+  
+    char * mem=  LoadFile((void *) (temp_buffer + 2048), &file_size);
+
+    n = sizeof(monitor);
+    if(!mem || n != file_size) {if(mem) free(mem); return;}
+
+    memcpy((void *) &monitor, (void *) mem, sizeof(monitor));
+    
+    if(mem) free(mem);
+                 
+}
+
+void save_monitor_config() 
+{
+  
+    sprintf(temp_buffer + 2048, "%s/config/monitor.dat", self_path);
+
+    SaveFile((void *) (temp_buffer + 2048), (void *) &monitor, sizeof(monitor));
+                 
+}
+
 int load_ps3_controlfan_sm_sprx()
 {
-    if(use_cobra) {
+    if(use_cobra) { // delete old sprx_monitor plugin
         
         struct stat s;
-   
-        cobra_unload_vsh_plugin(5);
+  
     
         sprintf(temp_buffer, "%s/sprx_monitor", self_path);
-        if(stat(temp_buffer, &s)<0 || s.st_size!= SIZE_SPRX_MONITOR) {
-            SaveFile(temp_buffer, (char *) sprx_monitor, SIZE_SPRX_MONITOR);
+        if(!stat(temp_buffer, &s) && s.st_size!= 0) {
+            
+            unlink_secure(temp_buffer);
         
         }
 
-        if (cobra_load_vsh_plugin(5, temp_buffer, NULL, 0x0) == 0) {
-            // DrawDialogTimer("monitor.sprx loaded", 4000.0f);    
-        }
     }
 
-    if(lv2peek32(PAYLOAD_BASE) == 0x50534D58 && use_cobra) { // test if sm.sprx pseudo payload is loaded
+    if(use_cobra) { // test if sm.sprx pseudo payload is loaded
 
-        if(lv2peek32(PAYLOAD_BASE + 0x20ULL)== 0xCAFE0ACA) { set_usleep_sm_main(1000); return 0;}
+        //if(lv2peek32(PAYLOAD_BASE) == 0x50534D58 && lv2peek32(PAYLOAD_BASE + 0x20ULL)== 0xCAFE0ACA) { set_usleep_sm_main(1000); return 0;}
 
          // creates sm.sprx if it is needs
         struct stat s;
@@ -180,14 +226,25 @@ int load_ps3_controlfan_sm_sprx()
 
         if(stat(temp_buffer, &s)<0 || s.st_size!= SIZE_SPRX_SM) {DrawDialogTimer("error creating sm.prx file", 4000.0f);return 0;}
 
-        cobra_unload_vsh_plugin(6);
+        
+        if(!(lv2peek32(PAYLOAD_BASE) == 0x50534D58 && lv2peek32(PAYLOAD_BASE + 0x20ULL)== 0xCAFE0ACA))
+            cobra_unload_vsh_plugin(6);
+
+
+        monitor.dwmon = 0;
+        load_monitor_config();
+        lv2poke32(PAYLOAD_BASE - 0x4ULL, monitor.dwmon);
 
         //sprintf(temp_buffer, "%s/USRDIR/plugin/sm.sprx", self_path);
-
-        if (cobra_load_vsh_plugin(6, temp_buffer, NULL, 0x0) == 0) {
-            // DrawDialogTimer("sm.prx loaded", 4000.0f);
-            set_usleep_sm_main(1000);             
+        if(!(lv2peek32(PAYLOAD_BASE) == 0x50534D58 && lv2peek32(PAYLOAD_BASE + 0x20ULL)== 0xCAFE0ACA)) {
+            if (cobra_load_vsh_plugin(6, temp_buffer, NULL, 0x0) == 0) {
+                // DrawDialogTimer("sm.prx loaded", 4000.0f);
+                
+                       
+            }
         }
+
+         set_usleep_sm_main(1000);
     }
 
     return 0;
@@ -1501,3 +1558,256 @@ void draw_controlfan_options()
 
 }
 
+///////////
+
+void draw_monitor_options()
+{
+    int n;
+
+    float y2, x2;
+
+    float x, y;
+    int select_option = 0;
+
+    int auto_l1 = 0, auto_r1 = 0;
+    int set_adjust = 0;
+
+
+    if(!use_cobra) return;
+
+    load_monitor_config();
+   
+    while(1) {
+    
+    flash = (frame_count >> 5) & 1;
+
+    frame_count++;
+
+    x= 28; y= 0;
+    cls();
+
+    update_twat(1);
+
+    SetCurrentFont(FONT_TTF);
+
+    // header title
+
+    DrawBox(x, y, 0, 200 * 4 - 8, 20, 0x00000028);
+
+    SetFontColor(0xffffffff, 0x00000000);
+
+    SetFontSize(18, 20);
+
+    SetFontAutoCenter(0);
+
+    x2 = DrawFormatString(x, y - 0, " %s", "Monitor Settings (XMB)") + 8;
+
+     
+    SetFontSize(16, 20);
+
+    y += 24;
+    
+    DrawBox(x, y, 0, 200 * 4 - 8, 150 * 3 - 8, 0x00000028);
+    
+    x2 = x;
+    y2 = y + 8;
+
+    SetFontAutoCenter(1);
+    SetFontColor(0xffffffff, 0x00000000);
+    SetFontSize(16, 20);
+    DrawFormatString(x2, y2 + 8, "Button combinations from XMB (Press PS button in gaming)");
+    SetFontAutoCenter(0);
+
+    y2+= 48;
+
+    x2=DrawButton1_UTF8(x + 60, y2, 212, "Show Temperature Freq", (flash && select_option == 0)) + 8;
+    sprintf(temp_buffer, " %2i s", monitor.umon.sshow);
+    x2 = DrawButton2_UTF8(x2, y2, 0, temp_buffer, 1) + 8;
+
+    SetFontColor(0xffffffff, 0x00000000);
+    SetFontSize(16, 20);
+    DrawFormatString(x2, y2 + 0, "Press SELECT+L2 for On/Off");
+    DrawFormatString(x2, y2 + 24, "Press SELECT + R2 for one time");
+
+    y2+= 48;
+
+    x2=DrawButton1_UTF8(x + 60, y2, 212, "Temperature Alarm", (flash && select_option == 1)) + 8;
+    sprintf(temp_buffer, " %u ºC", monitor.umon.temp_alarm);
+    x2 = DrawButton2_UTF8(x2, y2, 0, temp_buffer, 1) + 8;
+
+    y2+= 48;
+    
+    x2=DrawButton1_UTF8(x + 60, y2, 212, "Timer Alarm (hh:mm:ss)", (flash && select_option == 2)) + 8;
+    sprintf(temp_buffer, " %2.2u:%2.2u:00 ", monitor.umon.timer_min / 60, monitor.umon.timer_min % 60);
+    x2 = DrawButton2_UTF8(x2, y2, 0, temp_buffer, 1) + 8;
+
+    SetFontColor(0xffffffff, 0x00000000);
+    SetFontSize(16, 20);
+    DrawFormatString(x2, y2 + 8, "Press SELECT+TRIANGLE to Cancel");
+
+    y2+= 48;
+    
+    x2=DrawButton1_UTF8(x + 60, y2, 212, "Restore Default", (flash && select_option == 3)) + 8;
+
+    y2+= 48;
+   
+    x2=DrawButton1_UTF8(x + 60, y2, 212, "Set Settings", (flash && select_option == 4)) + 8;
+
+    y2+= 48;
+   
+    x2=DrawButton1_UTF8(x + 60, y2, 212, "Return", (flash && select_option == 5)) + 8;
+
+    y2+= 48;
+    SetFontAutoCenter(1);
+    SetFontColor(0xffffffff, 0x00000000);
+    SetFontSize(16, 20);
+    DrawFormatString(x2, y2 + 8, "Use L1/R1 or X/O to change values");
+    SetFontAutoCenter(0);
+
+
+    SetCurrentFont(FONT_TTF);
+    SetFontSize(20, 20);
+
+    SetFontColor(0xffffffff, 0x00000000);
+
+    
+    tiny3d_Flip();
+
+    ps3pad_read();
+
+    AUTO_BUTTON_REP2(auto_l1, BUTTON_L1)
+    AUTO_BUTTON_REP2(auto_r1, BUTTON_R1)
+
+    if(new_pad & BUTTON_L1) {
+        switch(select_option) {       
+//
+            case 0:
+                n = monitor.umon.sshow;
+                n--; if(n < 4) n= 4;
+                monitor.umon.sshow = n;
+                set_adjust = 1;
+                break;
+
+            case 1:
+                n = monitor.umon.temp_alarm;
+                n--; if(n < 50) n= 0;
+                monitor.umon.temp_alarm = n;
+                set_adjust = 1;
+                break;
+
+            case 2:
+                n = monitor.umon.timer_min;
+                n--; if(n < 0) n= 0;
+                monitor.umon.timer_min = n;
+                set_adjust = 1;
+                break;
+   
+        }
+        auto_l1 = 1;
+    }
+
+    if(new_pad & BUTTON_R1) {
+        switch(select_option) {
+            
+            case 0:
+                n = monitor.umon.sshow;
+                n++; if(n > 60) n= 60;
+                monitor.umon.sshow = n;
+                set_adjust = 1;
+                break;
+
+            case 1:
+                n = monitor.umon.temp_alarm;
+                n++; if(n < 50) n = 50; if(n > 80) n= 80;
+                monitor.umon.temp_alarm = n;
+                set_adjust = 1;
+                break;
+            
+            case 2:
+                n = monitor.umon.timer_min;
+                n++; if(n > 240) n= 240;
+                monitor.umon.timer_min = n;
+                set_adjust = 1;
+                break;
+            
+        }
+        auto_r1 = 1;
+    }
+
+    if(new_pad & (BUTTON_CROSS | BUTTON_CIRCLE)) {
+        switch(select_option) {
+            
+            case 0:
+                n = monitor.umon.sshow;
+                n++; if(n > 60) n= 60;
+                monitor.umon.sshow = n;
+                set_adjust = 1;
+                break;
+
+            case 1:
+                n = monitor.umon.temp_alarm;
+                n++; if(n < 50) n = 50; if(n > 80) n= 80;
+                monitor.umon.temp_alarm = n;
+                set_adjust = 1;
+                break;
+
+            case 2:
+                n = monitor.umon.timer_min;
+                n++; if(n > 240) n= 240;
+                monitor.umon.timer_min = n;
+                set_adjust = 1;
+                break;
+
+            case 3:
+                monitor.dwmon = 0;
+                monitor.umon.sshow = 10;
+                set_adjust = 1;
+                break;
+
+            case 4:
+                if(set_adjust) {
+
+                    save_monitor_config();
+
+                    lv2poke32(PAYLOAD_BASE - 0x4ULL, monitor.dwmon);
+                    
+                    set_adjust = 0;
+                }
+                break;
+           case 5:
+               return;
+            
+        }
+    }
+
+   
+
+
+    if(new_pad & BUTTON_UP) {
+
+        frame_count = 32;
+
+        ROT_DEC(select_option, 0, 5);
+        
+    }
+
+    if(new_pad & BUTTON_DOWN) {
+
+        frame_count = 32;
+        
+        ROT_INC(select_option, 5, 0);
+        
+    }
+
+
+    
+    
+    if(new_pad & BUTTON_TRIANGLE) {
+        
+        return;
+    }
+    
+    }
+
+
+}
